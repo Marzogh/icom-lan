@@ -76,6 +76,8 @@ This triggers the radio to send a **status packet** (0x50 bytes) containing:
 - **CI-V port** number (usually 50002)
 - **Audio port** number (usually 50003)
 
+For fast non-audio operations, the library proceeds as soon as CI-V is resolved. Audio port resolution is finalized lazily on first audio use.
+
 !!! important "GUID is Required"
     If the client doesn't echo the radio's GUID, the status packet will report CI-V port = 0, and commands won't work.
 

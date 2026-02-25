@@ -45,6 +45,7 @@ The central orchestrator. `IcomRadio` manages:
 - **Two transport instances**: one for control (port 50001), one for CI-V (port 50002)
 - **Full handshake sequence**: discovery → login → token → conninfo → CI-V open
 - **Commander integration**: enqueues CI-V operations with priorities and pacing
+- **Lazy audio init**: non-audio flows do not block on audio-port negotiation
 - **CI-V command wrapping**: takes raw CI-V frames, wraps them in UDP data packets
 - **Response filtering**: skips echoes, waterfall data, and control packets to find CI-V responses
 - **State guardrails**: snapshot/restore helpers for safe test transactions

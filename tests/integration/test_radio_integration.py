@@ -683,6 +683,44 @@ class TestSoak:
         )
 
 
+class TestCommanderStress:
+    """Queue/concurrency stress for commander serialization."""
+
+    async def test_concurrent_gets(self, radio: IcomRadio) -> None:
+        """Run many concurrent read commands; all must complete without timeout."""
+        n = 20
+
+        async def one(i: int):
+            freq = await radio.get_frequency()
+            mode = await radio.get_mode()
+            power = await radio.get_power()
+            return (i, freq, mode, power)
+
+        results = await asyncio.gather(*(one(i) for i in range(n)))
+        assert len(results) == n
+        for _, freq, _, power in results:
+            assert freq > 0
+            assert 0 <= power <= 255
+
+        print(f"Commander stress concurrent gets ✓ (tasks={n})")
+
+    async def test_concurrent_frequency_set_restore(self, radio: IcomRadio) -> None:
+        """Concurrent set/get burst with guaranteed restore."""
+        base = await radio.get_frequency()
+        offsets = [1000, 2000, 3000, 0]
+
+        try:
+            async def step(delta: int):
+                await radio.set_frequency(base + delta)
+                return await radio.get_frequency()
+
+            seen = await asyncio.gather(*(step(d) for d in offsets))
+            assert all(v > 0 for v in seen)
+            print(f"Commander stress set/get burst ✓ (seen={seen})")
+        finally:
+            await radio.set_frequency(base)
+
+
 class TestStatus:
     """Status and info tests."""
 

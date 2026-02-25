@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-02-25
+
+### Changed
+
+- **Faster non-audio connect path**:
+    - CI-V port resolution no longer waits for audio-port negotiation.
+    - Audio port initialization is lazy (resolved on first audio use).
+    - CLI/API non-audio operations (e.g., `status`) are significantly faster.
+
+### Added
+
+- Additional integration stress coverage for concurrent commander operations.
+
 ## [0.3.2] — 2026-02-25
 
 ### Added
@@ -111,7 +124,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Waterfall/echo filtering in CI-V response handling
 - GUID echo in conninfo exchange (required for CI-V port discovery)
 
-[Unreleased]: https://github.com/morozsm/icom-lan/compare/v0.3.2...HEAD
+[Unreleased]: https://github.com/morozsm/icom-lan/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/morozsm/icom-lan/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/morozsm/icom-lan/compare/v0.3.1...v0.3.2
 [0.3.0]: https://github.com/morozsm/icom-lan/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/morozsm/icom-lan/compare/v0.1.0...v0.2.0

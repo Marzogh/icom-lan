@@ -15,6 +15,7 @@ Direct connection to your radio — no wfview, hamlib, or RS-BA1 required.
 - 🔍 **Network discovery** — find radios on your LAN automatically
 - 💻 **CLI tool** — `icom-lan status`, `icom-lan freq 14.074m`
 - ⚡ **Async API** — built on asyncio for seamless integration
+- 🚀 **Fast non-audio connect path** — CLI/status calls don't block on audio-port negotiation
 - 🧠 **Commander queue** — wfview-style serialized command execution with pacing, retries, and dedupe
 - 🔒 **Zero dependencies** — pure Python, stdlib only
 - 📝 **Type-annotated** — full `py.typed` support

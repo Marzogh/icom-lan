@@ -418,7 +418,9 @@ class IcomRadio:
             return
 
         if self._audio_port == 0:
-            raise ConnectionError("Audio port not available")
+            # Lazy fallback for non-audio connect flows (e.g. CLI status).
+            self._audio_port = self._port + 2
+            logger.debug("Audio port unresolved, using default %d", self._audio_port)
 
         self._audio_transport = IcomTransport()
         try:
@@ -687,14 +689,13 @@ class IcomRadio:
         logger.debug("Conninfo sent")
 
     async def _receive_civ_port(self) -> int:
-        """Wait for status packets and extract CI-V/audio ports.
+        """Wait for status packet and extract CI-V port quickly.
 
-        wfview can receive multiple status packets; CI-V may appear before audio.
-        Collect both when possible instead of returning on the first CI-V-only packet.
+        Audio port is optional at connect-time and can be resolved lazily on first
+        audio use. This keeps non-audio CLI/API calls fast.
         """
         deadline = time.monotonic() + self._timeout
         civ_port = 0
-        audio_port = 0
 
         while time.monotonic() < deadline:
             try:
@@ -707,28 +708,20 @@ class IcomRadio:
 
                 got_civ = struct.unpack_from(">H", d, 0x42)[0]
                 got_audio = struct.unpack_from(">H", d, 0x46)[0]
-
-                if got_civ > 0:
-                    civ_port = got_civ
-                if got_audio > 0:
-                    audio_port = got_audio
-
                 logger.info(
                     "Status: civ_port=%d, audio_port=%d",
                     got_civ,
                     got_audio,
                 )
 
-                # Best case: both ports discovered.
-                if civ_port > 0 and audio_port > 0:
-                    self._audio_port = audio_port
+                if got_audio > 0:
+                    self._audio_port = got_audio
+                if got_civ > 0:
+                    civ_port = got_civ
                     return civ_port
             except asyncio.TimeoutError:
                 continue
 
-        # Timed out: keep whatever we managed to learn.
-        if audio_port > 0:
-            self._audio_port = audio_port
         return civ_port
 
     async def _send_open_close(self, *, open_stream: bool) -> None:
