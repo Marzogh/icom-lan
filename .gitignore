@@ -22,3 +22,11 @@ references/wfview/
 # Test artifacts
 *.pcap
 *.log
+
+# Workspace / AI agent files (not for public repo)
+AGENTS.md
+CLAUDE.md
+
+# Environment files
+.env
+.env.*

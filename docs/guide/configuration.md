@@ -1,0 +1,125 @@
+# Configuration
+
+## Connection Parameters
+
+| Parameter | Python API | CLI Flag | Env Var | Default | Description |
+|-----------|-----------|----------|---------|---------|-------------|
+| Host | `host` | `--host` | `ICOM_HOST` | `192.168.1.100` | Radio IP address |
+| Port | `port` | `--port` | `ICOM_PORT` | `50001` | Control port |
+| Username | `username` | `--user` | `ICOM_USER` | `""` | Auth username |
+| Password | `password` | `--pass` | `ICOM_PASS` | `""` | Auth password |
+| CI-V Address | `radio_addr` | — | — | `0x98` (IC-7610) | Radio's CI-V address |
+| Timeout | `timeout` | `--timeout` | — | `5.0` | Operation timeout (seconds) |
+
+## CI-V Addresses
+
+Each Icom radio model has a default CI-V address. You can also configure a custom address in the radio's menu.
+
+| Radio | Default CI-V Address |
+|-------|---------------------|
+| IC-7610 | `0x98` |
+| IC-7300 | `0x94` |
+| IC-705 | `0xA4` |
+| IC-9700 | `0xA2` |
+| IC-7851 | `0x8E` |
+| IC-R8600 | `0x96` |
+
+```python
+from icom_lan import IcomRadio
+
+# IC-7610 (default)
+radio = IcomRadio("192.168.1.100", radio_addr=0x98)
+
+# IC-705
+radio = IcomRadio("192.168.1.101", radio_addr=0xA4)
+
+# Custom CI-V address
+radio = IcomRadio("192.168.1.100", radio_addr=0x42)
+```
+
+## Port Architecture
+
+The Icom LAN protocol uses three UDP ports:
+
+| Port | Default | Purpose |
+|------|---------|---------|
+| Control | 50001 | Authentication, session management, keep-alive |
+| CI-V | 50002 | CI-V command exchange (frequency, mode, etc.) |
+| Audio | 50003 | Opus audio streaming (not yet implemented) |
+
+The CI-V and audio ports are **negotiated during the handshake** — the library discovers them automatically from the radio's status packet. You only need to specify the control port.
+
+## Environment Variable Setup
+
+### Bash / Zsh
+
+Add to `~/.bashrc`, `~/.zshrc`, or `~/.profile`:
+
+```bash
+export ICOM_HOST=192.168.1.100
+export ICOM_USER=myuser
+export ICOM_PASS=mypass
+```
+
+### Fish
+
+```fish
+set -Ux ICOM_HOST 192.168.1.100
+set -Ux ICOM_USER myuser
+set -Ux ICOM_PASS mypass
+```
+
+### `.env` File (for scripts)
+
+```bash
+# .env
+ICOM_HOST=192.168.1.100
+ICOM_USER=myuser
+ICOM_PASS=mypass
+```
+
+!!! warning "Security"
+    Never commit `.env` files or credentials to version control. See [Security](../SECURITY.md) for best practices.
+
+## Timeout Tuning
+
+The default 5-second timeout works well for local networks. Adjust if needed:
+
+```python
+# Fast local network
+radio = IcomRadio("192.168.1.100", timeout=2.0)
+
+# Over VPN or high-latency link
+radio = IcomRadio("10.0.0.100", timeout=15.0)
+```
+
+The timeout applies to:
+
+- Discovery handshake
+- Login/authentication
+- Each individual CI-V command
+- Status packet reception
+
+## Logging
+
+The library uses Python's standard `logging` module. Enable debug output to troubleshoot connection issues:
+
+```python
+import logging
+
+# See all icom-lan internal messages
+logging.basicConfig(level=logging.DEBUG)
+
+# Or target specific modules
+logging.getLogger("icom_lan.transport").setLevel(logging.DEBUG)
+logging.getLogger("icom_lan.radio").setLevel(logging.DEBUG)
+```
+
+Log levels:
+
+| Level | What you'll see |
+|-------|----------------|
+| `ERROR` | Connection failures, protocol errors |
+| `WARNING` | Retransmits, missing packets, fallbacks |
+| `INFO` | Connection lifecycle events (connect, auth, disconnect) |
+| `DEBUG` | Every packet sent/received, sequence numbers, raw data |

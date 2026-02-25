@@ -1,0 +1,130 @@
+# Troubleshooting
+
+## Connection Issues
+
+### "Radio did not respond to discovery"
+
+**Symptom:** `TimeoutError: Radio did not respond to discovery after 10 attempts`
+
+**Causes:**
+
+1. **Wrong IP address** — verify your radio's IP in its network settings menu
+2. **Radio not on network** — ensure the radio is powered on and connected to your LAN
+3. **Firewall blocking UDP** — allow UDP ports 50001–50003
+4. **Different subnet** — the client and radio must be on the same subnet (or have routing configured)
+5. **Network Control disabled** — enable "Remote Control" in your radio's network settings
+
+**Debug:**
+
+```bash
+# Can you reach the radio?
+ping 192.168.1.100
+
+# Is the port open?
+nc -u -z 192.168.1.100 50001
+
+# Try discovery
+icom-lan discover
+```
+
+### "Authentication failed"
+
+**Symptom:** `AuthenticationError: Authentication failed (error=0xFEFFFFFF)`
+
+**Causes:**
+
+1. **Wrong username/password** — check your radio's Network User settings
+2. **Too many connections** — the radio supports limited concurrent connections. Disconnect other clients (RS-BA1, wfview, etc.)
+3. **Account disabled** — ensure the network user account is enabled
+
+### "CI-V response timed out"
+
+**Symptom:** `TimeoutError: CI-V response timed out`
+
+**Causes:**
+
+1. **CI-V port negotiation failed** — this usually means the conninfo exchange didn't complete properly
+2. **Radio busy** — another application may be holding the CI-V stream
+3. **Network congestion** — try increasing the timeout
+
+**Debug:**
+
+```python
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
+# This will show the full handshake sequence
+async with IcomRadio("192.168.1.100", ...) as radio:
+    freq = await radio.get_frequency()
+```
+
+Look for:
+- `Status: civ_port=50002` — confirms port negotiation succeeded
+- `CI-V port not in status, using default` — port negotiation failed, likely a GUID issue
+
+### Connection drops after ~30 seconds
+
+**Symptom:** Commands work initially, then start timing out.
+
+**Cause:** Keep-alive pings stopped. This shouldn't happen under normal use, but can occur if:
+
+- The event loop is blocked for extended periods
+- The Python process is suspended
+
+The library sends pings every 500ms automatically. If the radio doesn't receive pings for its timeout period (usually 10–30 seconds), it drops the connection.
+
+## Command Issues
+
+### "Radio rejected set_frequency"
+
+**Symptom:** `CommandError: Radio rejected set_frequency(999999999)`
+
+The radio returned NAK (0xFA). Possible causes:
+
+- Frequency out of the radio's supported range
+- Radio is in a mode that doesn't allow frequency changes
+- VFO lock is enabled
+
+### SWR/ALC always returns 0
+
+These meters only report values during transmit. When receiving, they return 0.
+
+### CW text not sending
+
+- Ensure the radio is in CW mode (`await radio.set_mode("CW")`)
+- Check that CW keying speed is set appropriately on the radio
+- Text must be ASCII A–Z, 0–9
+
+## Network Tips
+
+### Static IP
+
+Assign a static IP to your radio to avoid DHCP lease changes:
+
+- IC-7610: **Menu → Set → Network → IP Address** — set to Manual
+- Use an IP outside your DHCP range
+
+### WiFi vs Ethernet
+
+- **Ethernet** is more reliable with lower latency
+- **WiFi** (IC-705) works but may experience higher packet loss
+- For WiFi radios, increase the timeout: `timeout=10.0`
+
+### VPN / Remote Access
+
+The library works over VPN tunnels if UDP traffic is forwarded:
+
+- Ensure your VPN supports UDP
+- Allow ports 50001–50003
+- Increase timeout for high-latency links
+- Discovery (broadcast) won't work over VPN — specify the radio's IP directly
+
+## Getting Help
+
+1. Enable debug logging (see above)
+2. [Open an issue](https://github.com/morozsm/icom-lan/issues) with:
+    - Your radio model
+    - Python version
+    - OS
+    - Debug log output
+    - Steps to reproduce

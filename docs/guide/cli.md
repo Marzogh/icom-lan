@@ -1,0 +1,189 @@
+# CLI Reference
+
+The `icom-lan` CLI provides quick access to radio control from the terminal.
+
+## Global Options
+
+All commands accept these options:
+
+| Option | Env Var | Default | Description |
+|--------|---------|---------|-------------|
+| `--host` | `ICOM_HOST` | `192.168.1.100` | Radio IP address |
+| `--port` | `ICOM_PORT` | `50001` | Control port |
+| `--user` | `ICOM_USER` | `""` | Username |
+| `--pass` | `ICOM_PASS` | `""` | Password |
+| `--timeout` | — | `5.0` | Timeout in seconds |
+
+!!! tip "Use Environment Variables"
+    Set `ICOM_HOST`, `ICOM_USER`, and `ICOM_PASS` in your shell profile to avoid typing them every time.
+
+    ```bash
+    # ~/.bashrc or ~/.zshrc
+    export ICOM_HOST=192.168.1.100
+    export ICOM_USER=myuser
+    export ICOM_PASS=mypass
+    ```
+
+## Commands
+
+### `status`
+
+Show radio status (frequency, mode, S-meter, power).
+
+```bash
+icom-lan status
+icom-lan status --json
+```
+
+```
+Frequency:    14,074,000 Hz  (14.074000 MHz)
+Mode:         USB
+S-meter:      42
+Power:        50
+```
+
+JSON output:
+
+```json
+{
+  "frequency_hz": 14074000,
+  "frequency_mhz": 14.074,
+  "mode": "USB",
+  "s_meter": 42,
+  "power": 50
+}
+```
+
+### `freq`
+
+Get or set the operating frequency.
+
+```bash
+# Get current frequency
+icom-lan freq
+
+# Set frequency (multiple formats)
+icom-lan freq 14074000      # Hz
+icom-lan freq 14074k        # kHz
+icom-lan freq 14.074m       # MHz
+```
+
+### `mode`
+
+Get or set the operating mode.
+
+```bash
+# Get current mode
+icom-lan mode
+
+# Set mode
+icom-lan mode USB
+icom-lan mode CW
+icom-lan mode LSB
+```
+
+Available modes: `LSB`, `USB`, `AM`, `CW`, `RTTY`, `FM`, `WFM`, `CW_R`, `RTTY_R`, `DV`
+
+### `power`
+
+Get or set the RF power level (0–255).
+
+```bash
+# Get current power
+icom-lan power
+
+# Set power level
+icom-lan power 128
+```
+
+!!! note "Power Scale"
+    The 0–255 value is the radio's internal representation. The mapping to actual watts depends on your radio model and mode.
+
+### `meter`
+
+Read all available meters.
+
+```bash
+icom-lan meter
+icom-lan meter --json
+```
+
+```
+S-METER  42
+POWER    50
+SWR      n/a
+ALC      n/a
+```
+
+!!! info
+    SWR and ALC are only available during TX. They show `n/a` when receiving.
+
+### `ptt`
+
+Toggle Push-To-Talk.
+
+```bash
+icom-lan ptt on
+icom-lan ptt off
+```
+
+!!! danger "Caution"
+    Activating PTT will key your transmitter. Ensure your antenna is connected and you are authorized to transmit on the current frequency.
+
+### `cw`
+
+Send CW text via the radio's built-in keyer.
+
+```bash
+icom-lan cw "CQ CQ DE KN4KYD K"
+```
+
+The text is sent in chunks of up to 30 characters. Supports A–Z, 0–9, and standard prosigns.
+
+### `power-on` / `power-off`
+
+Remote power control.
+
+```bash
+icom-lan power-on
+icom-lan power-off
+```
+
+!!! warning
+    `power-on` only works if the radio supports wake-on-LAN and the network connection is maintained in standby mode.
+
+### `discover`
+
+Discover Icom radios on the local network via UDP broadcast.
+
+```bash
+icom-lan discover
+```
+
+```
+Scanning for Icom radios (3 seconds)...
+  Found: 192.168.1.100:50001  id=0xDEADBEEF
+
+1 radio(s) found.
+```
+
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success |
+| `1` | Error (connection, auth, command failure) |
+
+## Examples
+
+```bash
+# Monitor frequency in a loop
+watch -n 1 icom-lan freq --json
+
+# Quick band change
+icom-lan freq 7.074m && icom-lan mode USB
+
+# Script-friendly JSON output
+FREQ=$(icom-lan freq --json | jq -r '.frequency_hz')
+echo "Currently on $FREQ Hz"
+```

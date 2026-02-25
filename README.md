@@ -1,21 +1,35 @@
 # icom-lan
 
-Python library for controlling Icom transceivers over LAN (UDP). Direct connection — no wfview, hamlib, or RS-BA1 required.
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-151%20passed-brightgreen.svg)](#testing)
+
+**Python library for controlling Icom transceivers over LAN (UDP).**
+
+Direct connection to your radio — no wfview, hamlib, or RS-BA1 required.
 
 ## Features
 
-- **Direct UDP connection** to Icom radios over Ethernet/WiFi
-- **Full CI-V command set**: frequency, mode, power, meters, PTT, CW keying, VFO, split
-- **Autodiscovery** of radios on the local network
-- **CLI tool** for quick terminal control
-- **Async API** (asyncio) for integration into larger applications
-- **Zero dependencies** — pure Python, stdlib only
+- 📡 **Direct UDP connection** — no intermediate software needed
+- 🎛️ **Full CI-V command set** — frequency, mode, power, meters, PTT, CW keying, VFO, split
+- 🔍 **Network discovery** — find radios on your LAN automatically
+- 💻 **CLI tool** — `icom-lan status`, `icom-lan freq 14.074m`
+- ⚡ **Async API** — built on asyncio for seamless integration
+- 🔒 **Zero dependencies** — pure Python, stdlib only
+- 📝 **Type-annotated** — full `py.typed` support
 
 ## Supported Radios
 
-Tested: **IC-7610**
+| Radio | Status | CI-V Address |
+|-------|--------|-------------|
+| **IC-7610** | ✅ Tested | `0x98` |
+| IC-705 | Should work | `0xA4` |
+| IC-7300 | Should work | `0x94` |
+| IC-9700 | Should work | `0xA2` |
+| IC-7851 | Should work | `0x8E` |
+| IC-R8600 | Should work | `0x96` |
 
-Should work with any Icom radio that supports LAN control (IC-705, IC-7300, IC-7851, IC-9700, IC-R8600). CI-V addresses are configurable.
+Any Icom radio with LAN/WiFi control should work — the CI-V address is configurable.
 
 ## Installation
 
@@ -23,7 +37,8 @@ Should work with any Icom radio that supports LAN control (IC-705, IC-7300, IC-7
 pip install icom-lan
 ```
 
-Or from source:
+From source:
+
 ```bash
 git clone https://github.com/morozsm/icom-lan.git
 cd icom-lan
@@ -40,19 +55,18 @@ from icom_lan import IcomRadio
 
 async def main():
     async with IcomRadio("192.168.1.100", username="user", password="pass") as radio:
-        # Read
+        # Read current state
         freq = await radio.get_frequency()
         mode = await radio.get_mode()
         s = await radio.get_s_meter()
         print(f"{freq/1e6:.3f} MHz  {mode.name}  S={s}")
 
-        # Write
+        # Tune to 20m FT8
         await radio.set_frequency(14_074_000)
         await radio.set_mode("USB")
-        await radio.set_power(50)
 
-        # VFO
-        await radio.select_vfo("MAIN")  # or "SUB" for IC-7610
+        # VFO & Split
+        await radio.select_vfo("MAIN")
         await radio.set_split_mode(True)
 
         # CW
@@ -69,37 +83,27 @@ export ICOM_HOST=192.168.1.100
 export ICOM_USER=myuser
 export ICOM_PASS=mypass
 
-# Status
+# Radio status
 icom-lan status
-# Frequency:    14,074,000 Hz  (14.074000 MHz)
-# Mode:      USB
-# S-meter:   42
-# Power:     50
 
-# Get/set frequency
-icom-lan freq
-icom-lan freq 14.074m
-icom-lan freq 7074k
-icom-lan freq 14074000
+# Frequency (multiple input formats)
+icom-lan freq             # Get
+icom-lan freq 14.074m     # Set (MHz)
+icom-lan freq 7074k       # Set (kHz)
+icom-lan freq 14074000    # Set (Hz)
 
-# Get/set mode
-icom-lan mode
+# Mode
 icom-lan mode USB
 
-# Meters (JSON)
+# Meters (JSON output)
 icom-lan meter --json
-# {"s_meter": 42, "power": 50, "swr": 0, "alc": 0}
 
-# CW
+# CW keying
 icom-lan cw "CQ CQ DE KN4KYD K"
 
 # PTT
 icom-lan ptt on
 icom-lan ptt off
-
-# Power on/off
-icom-lan power-on
-icom-lan power-off
 
 # Discover radios on network
 icom-lan discover
@@ -107,24 +111,24 @@ icom-lan discover
 
 ## API Reference
 
-### IcomRadio
+### IcomRadio Methods
 
 | Method | Description |
 |--------|-------------|
 | `get_frequency()` → `int` | Current frequency in Hz |
 | `set_frequency(hz)` | Set frequency |
-| `get_mode()` → `Mode` | Current mode (USB, LSB, CW, AM, FM...) |
+| `get_mode()` → `Mode` | Current mode |
 | `set_mode(mode)` | Set mode (enum or string) |
-| `get_power()` → `int` | RF power level (0-255) |
-| `set_power(level)` | Set RF power level |
-| `get_s_meter()` → `int` | S-meter reading (0-255) |
-| `get_swr()` → `int` | SWR meter (0-255, TX only) |
-| `get_alc()` → `int` | ALC meter (0-255, TX only) |
+| `get_power()` → `int` | RF power level (0–255) |
+| `set_power(level)` | Set RF power |
+| `get_s_meter()` → `int` | S-meter (0–255) |
+| `get_swr()` → `int` | SWR meter (0–255, TX only) |
+| `get_alc()` → `int` | ALC meter (0–255, TX only) |
 | `set_ptt(on)` | Push-to-talk on/off |
 | `select_vfo(vfo)` | Select VFO (A/B/MAIN/SUB) |
 | `set_split_mode(on)` | Split on/off |
 | `set_attenuator(on)` | Attenuator on/off |
-| `set_preamp(level)` | Preamp (0=off, 1, 2) |
+| `set_preamp(level)` | Preamp (0/1/2) |
 | `send_cw_text(text)` | Send CW via built-in keyer |
 | `power_control(on)` | Remote power on/off |
 | `send_civ(cmd, sub, data)` | Send raw CI-V command |
@@ -133,25 +137,64 @@ icom-lan discover
 
 | Parameter | Default | Env Var | Description |
 |-----------|---------|---------|-------------|
-| `host` | `192.168.1.100` | `ICOM_HOST` | Radio IP address |
+| `host` | — | `ICOM_HOST` | Radio IP address |
 | `port` | `50001` | `ICOM_PORT` | Control port |
 | `username` | `""` | `ICOM_USER` | Auth username |
 | `password` | `""` | `ICOM_PASS` | Auth password |
-| `radio_addr` | `0x98` | — | CI-V address (IC-7610) |
-| `timeout` | `5.0` | — | Timeout in seconds |
+| `radio_addr` | `0x98` | — | CI-V address |
+| `timeout` | `5.0` | — | Timeout (seconds) |
 
 ## How It Works
 
-The library implements the Icom proprietary LAN protocol (reverse-engineered by the [wfview](https://wfview.org/) project):
+The library implements the Icom proprietary LAN protocol:
 
-1. **Control port** (50001): UDP handshake, authentication, session management
-2. **CI-V port** (50002): CI-V command exchange (frequency, mode, etc.)
-3. **Audio port** (50003): Opus audio streaming (not yet implemented)
+1. **Control port** (50001) — UDP handshake, authentication, session management
+2. **CI-V port** (50002) — CI-V command exchange
+3. **Audio port** (50003) — Opus audio streaming *(coming soon)*
 
-Connection sequence: Discovery → Login → Token → Conninfo → CI-V Open → Commands
+```
+Discovery → Login → Token → Conninfo → CI-V Open → Commands
+```
+
+See the [protocol documentation](https://morozsm.github.io/icom-lan/internals/protocol/) for a deep dive.
+
+## Testing
+
+```bash
+# Run all 151 unit tests (no radio required)
+pytest tests/test_*.py
+
+# Or with uv
+uv run pytest tests/test_*.py
+```
+
+## Documentation
+
+📖 **Full documentation:** [morozsm.github.io/icom-lan](https://morozsm.github.io/icom-lan)
+
+- [Getting Started](https://morozsm.github.io/icom-lan/guide/quickstart/)
+- [CLI Reference](https://morozsm.github.io/icom-lan/guide/cli/)
+- [API Reference](https://morozsm.github.io/icom-lan/api/radio/)
+- [Protocol Internals](https://morozsm.github.io/icom-lan/internals/protocol/)
+- [Security](https://morozsm.github.io/icom-lan/SECURITY/)
+
+## Security
+
+- Zero external dependencies — minimal attack surface
+- Credentials passed via env vars or parameters, never stored
+- The Icom protocol uses UDP without encryption — see [SECURITY.md](docs/SECURITY.md)
 
 ## License
 
 MIT — see [LICENSE](LICENSE).
 
-Protocol knowledge based on wfview (GPLv3) reverse engineering. This is a clean-room implementation, not a derivative work.
+Protocol knowledge based on [wfview](https://wfview.org/) (GPLv3) reverse engineering. This is an independent clean-room implementation, not a derivative work.
+
+## Acknowledgments
+
+- The [wfview](https://wfview.org/) project for their extensive reverse engineering of the Icom LAN protocol
+- The amateur radio community for testing and feedback
+
+---
+
+73 de KN4KYD 🏗️
