@@ -10,6 +10,7 @@ import struct
 import time
 from enum import StrEnum
 
+from .exceptions import TimeoutError as _TimeoutError
 from .types import HEADER_SIZE, PacketType
 
 __all__ = [
@@ -24,6 +25,8 @@ PING_SIZE = 0x15
 PING_PERIOD = 0.5  # seconds
 IDLE_PERIOD = 0.1
 RETRANSMIT_PERIOD = 0.1
+DISCOVERY_RETRIES = 10
+DISCOVERY_TIMEOUT = 1.0  # seconds per attempt
 BUFSIZE = 500
 MAX_MISSING = 50
 
@@ -90,11 +93,17 @@ class IcomTransport:
             self._udp_transport.sendto(data)
 
     async def connect(self, host: str, port: int) -> None:
-        """Open UDP connection to the radio.
+        """Open UDP connection and perform discovery handshake.
+
+        Sends "Are You There" until the radio replies with "I Am Here",
+        then sends "Are You Ready" and waits for acknowledgement.
 
         Args:
             host: Radio IP address or hostname.
             port: Radio control port.
+
+        Raises:
+            TimeoutError: If the radio does not respond to discovery.
         """
         self.state = ConnectionState.CONNECTING
         loop = asyncio.get_event_loop()
@@ -108,7 +117,84 @@ class IcomTransport:
             if info:
                 lport = info[1] if isinstance(info, tuple) else 0
                 self.my_id = (lport & 0xFFFF) | 0x10000
-        logger.info("Connected to %s:%d, my_id=0x%08X", host, port, self.my_id)
+        logger.info("UDP open to %s:%d, my_id=0x%08X", host, port, self.my_id)
+
+        # Phase 1: Are You There → I Am Here
+        await self._discover()
+
+        # Phase 2: Are You Ready
+        await self._ready_handshake()
+
+        logger.info(
+            "Discovery complete, remote_id=0x%08X", self.remote_id
+        )
+
+    async def _discover(self) -> None:
+        """Send 'Are You There' and wait for 'I Am Here' to learn remote_id.
+
+        Raises:
+            TimeoutError: If radio does not respond after retries.
+        """
+        for attempt in range(DISCOVERY_RETRIES):
+            pkt = self._build_control(
+                ptype=PacketType.ARE_YOU_THERE, seq=0
+            )
+            self._raw_send(pkt)
+            try:
+                resp = await asyncio.wait_for(
+                    self._packet_queue.get(), timeout=DISCOVERY_TIMEOUT
+                )
+            except asyncio.TimeoutError:
+                logger.debug(
+                    "Are You There attempt %d/%d — no response",
+                    attempt + 1,
+                    DISCOVERY_RETRIES,
+                )
+                continue
+
+            if len(resp) >= CONTROL_SIZE:
+                ptype = struct.unpack_from("<H", resp, 4)[0]
+                if ptype == PacketType.I_AM_HERE:
+                    self.remote_id = struct.unpack_from("<I", resp, 8)[0]
+                    logger.info(
+                        "I Am Here received, remote_id=0x%08X",
+                        self.remote_id,
+                    )
+                    return
+
+        raise _TimeoutError(
+            f"Radio did not respond to discovery after "
+            f"{DISCOVERY_RETRIES} attempts"
+        )
+
+    async def _ready_handshake(self) -> None:
+        """Send 'Are You Ready' and wait for acknowledgement.
+
+        Raises:
+            TimeoutError: If radio does not respond.
+        """
+        pkt = self._build_control(
+            ptype=PacketType.ARE_YOU_READY, seq=0
+        )
+        self._raw_send(pkt)
+
+        # Radio may send multiple packets; look for ARE_YOU_READY echo
+        for _ in range(5):
+            try:
+                resp = await asyncio.wait_for(
+                    self._packet_queue.get(), timeout=DISCOVERY_TIMEOUT
+                )
+            except asyncio.TimeoutError:
+                break
+
+            if len(resp) >= CONTROL_SIZE:
+                ptype = struct.unpack_from("<H", resp, 4)[0]
+                if ptype == PacketType.ARE_YOU_READY:
+                    logger.info("I Am Ready received")
+                    return
+
+        # Some radios don't send an explicit reply; proceed anyway
+        logger.warning("No explicit 'I Am Ready' reply, proceeding")
 
     async def disconnect(self) -> None:
         """Close the UDP connection and stop background tasks."""

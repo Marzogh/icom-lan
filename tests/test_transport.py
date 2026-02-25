@@ -144,10 +144,21 @@ class TestRetransmitTracking:
 class TestConnectDisconnect:
     """Test connect/disconnect lifecycle with mocked UDP."""
 
+    @staticmethod
+    def _build_i_am_here(remote_id: int, receiver_id: int) -> bytes:
+        """Build a fake 'I Am Here' response packet."""
+        return struct.pack("<IHHII", 0x10, 0x04, 0, remote_id, receiver_id)
+
+    @staticmethod
+    def _build_are_you_ready(remote_id: int, receiver_id: int) -> bytes:
+        """Build a fake 'Are You Ready' response packet."""
+        return struct.pack("<IHHII", 0x10, 0x06, 0, remote_id, receiver_id)
+
     @pytest.mark.asyncio
     async def test_connect_sets_state(self):
         t = IcomTransport()
         loop = asyncio.get_event_loop()
+        remote_id = 0xDEADBEEF
 
         mock_transport = MagicMock()
         mock_transport.get_extra_info = MagicMock(return_value=("127.0.0.1", 12345))
@@ -158,8 +169,15 @@ class TestConnectDisconnect:
             return mock_transport, proto
 
         with patch.object(loop, "create_datagram_endpoint", side_effect=fake_create):
+            # Schedule discovery replies before connect
+            my_id = (12345 & 0xFFFF) | 0x10000
+            asyncio.get_event_loop().call_soon(
+                t._handle_packet,
+                self._build_i_am_here(remote_id, my_id),
+            )
+
             await t.connect("192.168.1.1", 50001)
-            assert t.state == ConnectionState.CONNECTING
+            assert t.remote_id == remote_id
             await t.disconnect()
             assert t.state == ConnectionState.DISCONNECTED
 
@@ -167,6 +185,7 @@ class TestConnectDisconnect:
     async def test_disconnect_sends_packet(self):
         t = IcomTransport()
         loop = asyncio.get_event_loop()
+        remote_id = 0x100
 
         mock_udp_transport = MagicMock()
         mock_udp_transport.get_extra_info = MagicMock(return_value=("127.0.0.1", 12345))
@@ -177,8 +196,13 @@ class TestConnectDisconnect:
             return mock_udp_transport, proto
 
         with patch.object(loop, "create_datagram_endpoint", side_effect=fake_create):
+            my_id = (12345 & 0xFFFF) | 0x10000
+            asyncio.get_event_loop().call_soon(
+                t._handle_packet,
+                self._build_i_am_here(remote_id, my_id),
+            )
+
             await t.connect("192.168.1.1", 50001)
-            t.remote_id = 0x100
             await t.disconnect()
             # Should have sent a disconnect control packet
             assert mock_udp_transport.sendto.called or mock_udp_transport.close.called

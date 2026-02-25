@@ -26,10 +26,11 @@ class PacketType(IntEnum):
 
     DATA = 0x00
     CONTROL = 0x01
-    RETRANSMIT = 0x04
+    ARE_YOU_THERE = 0x03
+    I_AM_HERE = 0x04
+    DISCONNECT = 0x05
     ARE_YOU_READY = 0x06
     PING = 0x07
-    DISCONNECT = 0x05
 
 
 class Mode(IntEnum):

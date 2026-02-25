@@ -2,7 +2,7 @@
 
 Usage::
 
-    async with IcomRadio("192.168.1.100") as radio:
+    async with IcomRadio("192.168.1.100", username="u", password="p") as radio:
         freq = await radio.get_frequency()
         print(f"Freq: {freq / 1e6:.3f} MHz")
         await radio.set_frequency(7_074_000)
@@ -12,8 +12,13 @@ Usage::
 import asyncio
 import logging
 import struct
+import time
 
-from .auth import build_login_packet, parse_auth_response
+from .auth import (
+    build_conninfo_packet,
+    build_login_packet,
+    parse_auth_response,
+)
 from .commands import (
     CONTROLLER_ADDR,
     IC_7610_ADDR,
@@ -49,9 +54,19 @@ __all__ = ["IcomRadio"]
 
 logger = logging.getLogger(__name__)
 
+CIV_HEADER_SIZE = 0x15
+OPENCLOSE_SIZE = 0x18
+TOKEN_ACK_SIZE = 0x40
+CONNINFO_SIZE = 0x90
+STATUS_SIZE = 0x50
+
 
 class IcomRadio:
     """High-level async interface for controlling an Icom transceiver over LAN.
+
+    Manages two UDP connections:
+    - Control port (default 50001): authentication and session management.
+    - CI-V port (default 50002): CI-V command exchange.
 
     Args:
         host: Radio IP address or hostname.
@@ -63,7 +78,7 @@ class IcomRadio:
 
     Example::
 
-        async with IcomRadio("192.168.1.100") as radio:
+        async with IcomRadio("192.168.1.100", username="u", password="p") as radio:
             freq = await radio.get_frequency()
             await radio.set_frequency(7_074_000)
     """
@@ -83,64 +98,128 @@ class IcomRadio:
         self._password = password
         self._radio_addr = radio_addr
         self._timeout = timeout
-        self._transport = IcomTransport()
+        self._ctrl_transport = IcomTransport()
+        self._civ_transport: IcomTransport | None = None
         self._connected = False
         self._token: int = 0
+        self._civ_port: int = 0
+        self._civ_send_seq: int = 0
 
     @property
     def connected(self) -> bool:
         """Whether the radio is currently connected."""
         return self._connected
 
+    # ------------------------------------------------------------------
+    # Connection lifecycle
+    # ------------------------------------------------------------------
+
     async def connect(self) -> None:
         """Open connection to the radio and authenticate.
+
+        Performs the full handshake sequence:
+        1. Discovery on control port (Are You There → I Am Here).
+        2. Login with credentials.
+        3. Token acknowledgement.
+        4. Conninfo exchange to learn CI-V port.
+        5. Open CI-V connection and start CI-V data stream.
 
         Raises:
             ConnectionError: If UDP connection fails.
             AuthenticationError: If login is rejected.
             TimeoutError: If the radio doesn't respond.
         """
+        # --- Phase 1: Control port ---
         try:
-            await self._transport.connect(self._host, self._port)
+            await self._ctrl_transport.connect(self._host, self._port)
         except OSError as exc:
             raise ConnectionError(
                 f"Failed to connect to {self._host}:{self._port}: {exc}"
             ) from exc
 
-        self._transport.start_ping_loop()
-        self._transport.start_retransmit_loop()
+        self._ctrl_transport.start_ping_loop()
+        self._ctrl_transport.start_retransmit_loop()
 
-        # Send login packet
+        # Login
         login_pkt = build_login_packet(
             self._username,
             self._password,
-            sender_id=self._transport.my_id,
-            receiver_id=self._transport.remote_id,
+            sender_id=self._ctrl_transport.my_id,
+            receiver_id=self._ctrl_transport.remote_id,
         )
-        await self._transport.send_tracked(login_pkt)
-
-        # Wait for auth response
-        try:
-            resp_data = await self._transport.receive_packet(timeout=self._timeout)
-        except asyncio.TimeoutError:
-            raise TimeoutError("Login response timed out")
-
+        await self._ctrl_transport.send_tracked(login_pkt)
+        resp_data = await self._wait_for_packet(
+            self._ctrl_transport, size=0x60, label="login response"
+        )
         auth = parse_auth_response(resp_data)
         if not auth.success:
             raise AuthenticationError(
                 f"Authentication failed (error=0x{auth.error:08X})"
             )
-
         self._token = auth.token
+        logger.info(
+            "Authenticated with %s:%d, token=0x%08X",
+            self._host,
+            self._port,
+            self._token,
+        )
+
+        # Token ack
+        await self._send_token_ack()
+
+        # Get GUID from radio's conninfo
+        guid = await self._receive_guid()
+
+        # Send our conninfo → triggers status packet with CI-V port
+        await self._send_conninfo(guid)
+
+        civ_port = await self._receive_civ_port()
+        if civ_port == 0:
+            civ_port = self._port + 1  # Fallback: assume control+1
+            logger.warning("CI-V port not in status, falling back to %d", civ_port)
+        self._civ_port = civ_port
+
+        # --- Phase 2: CI-V port ---
+        self._civ_transport = IcomTransport()
+        try:
+            await self._civ_transport.connect(self._host, self._civ_port)
+        except OSError as exc:
+            await self._ctrl_transport.disconnect()
+            raise ConnectionError(
+                f"Failed to connect CI-V port {self._civ_port}: {exc}"
+            ) from exc
+
+        self._civ_transport.start_ping_loop()
+        self._civ_transport.start_retransmit_loop()
+
+        # Open CI-V data stream
+        await self._send_open_close(open_stream=True)
+
+        # Flush initial waterfall/status data
+        await asyncio.sleep(0.3)
+        await self._flush_queue(self._civ_transport)
+
         self._connected = True
-        self._transport.state = ConnectionState.CONNECTED
-        logger.info("Connected to %s:%d", self._host, self._port)
+        self._ctrl_transport.state = ConnectionState.CONNECTED
+        logger.info(
+            "Connected to %s (control=%d, civ=%d)",
+            self._host,
+            self._port,
+            self._civ_port,
+        )
 
     async def disconnect(self) -> None:
         """Cleanly disconnect from the radio."""
         if self._connected:
             self._connected = False
-            await self._transport.disconnect()
+            if self._civ_transport:
+                try:
+                    await self._send_open_close(open_stream=False)
+                except Exception:
+                    pass
+                await self._civ_transport.disconnect()
+                self._civ_transport = None
+            await self._ctrl_transport.disconnect()
             logger.info("Disconnected from %s:%d", self._host, self._port)
 
     async def __aenter__(self) -> "IcomRadio":
@@ -150,13 +229,148 @@ class IcomRadio:
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:  # type: ignore[no-untyped-def]
         await self.disconnect()
 
+    # ------------------------------------------------------------------
+    # Internal connection helpers
+    # ------------------------------------------------------------------
+
+    async def _send_token_ack(self) -> None:
+        """Send token acknowledgement after successful login."""
+        pkt = bytearray(TOKEN_ACK_SIZE)
+        struct.pack_into("<I", pkt, 0x00, TOKEN_ACK_SIZE)
+        struct.pack_into("<I", pkt, 0x08, self._ctrl_transport.my_id)
+        struct.pack_into("<I", pkt, 0x0C, self._ctrl_transport.remote_id)
+        struct.pack_into(">I", pkt, 0x10, TOKEN_ACK_SIZE - 0x10)
+        pkt[0x14] = 0x01  # requestreply
+        pkt[0x15] = 0x02  # requesttype = token ack
+        struct.pack_into("<I", pkt, 0x1C, self._token)
+        await self._ctrl_transport.send_tracked(bytes(pkt))
+        logger.debug("Token ack sent (token=0x%08X)", self._token)
+
+    async def _receive_guid(self) -> bytes | None:
+        """Receive the radio's conninfo and extract GUID/MAC area."""
+        await asyncio.sleep(0.3)
+        guid = None
+        for _ in range(30):
+            try:
+                d = await self._ctrl_transport.receive_packet(timeout=0.1)
+                if len(d) == CONNINFO_SIZE:
+                    guid = d[0x20:0x30]
+                    logger.debug("Got radio GUID: %s", guid.hex())
+            except asyncio.TimeoutError:
+                break
+        return guid
+
+    async def _send_conninfo(self, guid: bytes | None) -> None:
+        """Send our conninfo to the radio."""
+        conninfo = build_conninfo_packet(
+            sender_id=self._ctrl_transport.my_id,
+            receiver_id=self._ctrl_transport.remote_id,
+            username=self._username,
+            token=self._token,
+            tok_request=0,
+            radio_name="IC-7610",
+            mac_address=b"\x00" * 6,
+            auth_seq=1,
+            guid=guid,
+        )
+        await self._ctrl_transport.send_tracked(conninfo)
+        logger.debug("Conninfo sent")
+
+    async def _receive_civ_port(self) -> int:
+        """Wait for the status packet with CI-V and audio ports."""
+        await asyncio.sleep(0.3)
+        for _ in range(50):
+            try:
+                d = await self._ctrl_transport.receive_packet(timeout=0.1)
+                if len(d) == STATUS_SIZE:
+                    civ_port = struct.unpack_from(">H", d, 0x42)[0]
+                    audio_port = struct.unpack_from(">H", d, 0x46)[0]
+                    logger.info(
+                        "Status: civ_port=%d, audio_port=%d",
+                        civ_port,
+                        audio_port,
+                    )
+                    return civ_port
+            except asyncio.TimeoutError:
+                break
+        return 0
+
+    async def _send_open_close(self, *, open_stream: bool) -> None:
+        """Send OpenClose packet on the CI-V port."""
+        if self._civ_transport is None:
+            return
+        pkt = bytearray(OPENCLOSE_SIZE)
+        struct.pack_into("<I", pkt, 0x00, OPENCLOSE_SIZE)
+        struct.pack_into("<I", pkt, 0x08, self._civ_transport.my_id)
+        struct.pack_into("<I", pkt, 0x0C, self._civ_transport.remote_id)
+        struct.pack_into("<H", pkt, 0x10, 0x01C0)
+        struct.pack_into(">H", pkt, 0x12, self._civ_send_seq)
+        pkt[0x14] = 0x04 if open_stream else 0x00
+        self._civ_send_seq += 1
+        await self._civ_transport.send_tracked(bytes(pkt))
+        logger.debug("OpenClose(%s) sent", "open" if open_stream else "close")
+
+    async def _wait_for_packet(
+        self, transport: IcomTransport, *, size: int, label: str
+    ) -> bytes:
+        """Wait for a packet of a specific size, skipping others."""
+        deadline = time.monotonic() + self._timeout
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError(f"{label} timed out")
+            try:
+                data = await transport.receive_packet(timeout=remaining)
+            except asyncio.TimeoutError:
+                raise TimeoutError(f"{label} timed out")
+            if len(data) == size:
+                return data
+            logger.debug(
+                "Skipping packet (len=%d) while waiting for %s", len(data), label
+            )
+
+    @staticmethod
+    async def _flush_queue(transport: IcomTransport, max_pkts: int = 200) -> int:
+        """Drain pending packets from a transport queue."""
+        count = 0
+        for _ in range(max_pkts):
+            try:
+                await transport.receive_packet(timeout=0.01)
+                count += 1
+            except asyncio.TimeoutError:
+                break
+        return count
+
+    # ------------------------------------------------------------------
+    # CI-V command infrastructure
+    # ------------------------------------------------------------------
+
     def _check_connected(self) -> None:
         """Raise ConnectionError if not connected."""
-        if not self._connected:
+        if not self._connected or self._civ_transport is None:
             raise ConnectionError("Not connected to radio")
+
+    def _wrap_civ(self, civ_frame: bytes) -> bytes:
+        """Wrap a CI-V frame in a UDP data packet for the CI-V port."""
+        assert self._civ_transport is not None
+        total_len = CIV_HEADER_SIZE + len(civ_frame)
+        pkt = bytearray(total_len)
+        struct.pack_into("<I", pkt, 0, total_len)
+        struct.pack_into("<H", pkt, 4, 0x00)  # type = DATA
+        struct.pack_into("<I", pkt, 8, self._civ_transport.my_id)
+        struct.pack_into("<I", pkt, 0x0C, self._civ_transport.remote_id)
+        pkt[0x10] = 0xC1  # reply marker for CI-V data
+        struct.pack_into("<H", pkt, 0x11, len(civ_frame))
+        struct.pack_into(">H", pkt, 0x13, self._civ_send_seq)
+        self._civ_send_seq += 1
+        pkt[CIV_HEADER_SIZE:] = civ_frame
+        return bytes(pkt)
 
     async def _send_civ_raw(self, civ_frame: bytes) -> CivFrame:
         """Send a CI-V frame and wait for the response.
+
+        Filters through incoming packets (waterfall, echoes, idle) to find
+        the actual CI-V response from the radio.
 
         Args:
             civ_frame: Raw CI-V frame bytes.
@@ -167,32 +381,59 @@ class IcomRadio:
         Raises:
             TimeoutError: If no response within timeout.
         """
-        # Wrap CI-V in UDP data packet
-        total_len = 0x15 + len(civ_frame)
-        pkt = bytearray(total_len)
-        struct.pack_into("<I", pkt, 0, total_len)
-        struct.pack_into("<H", pkt, 4, PacketType.DATA)
-        struct.pack_into("<I", pkt, 8, self._transport.my_id)
-        struct.pack_into("<I", pkt, 0x0C, self._transport.remote_id)
-        pkt[0x10] = 0x00
-        struct.pack_into("<H", pkt, 0x11, len(civ_frame))
-        struct.pack_into("<H", pkt, 0x13, 0)
-        pkt[0x15:] = civ_frame
+        assert self._civ_transport is not None
+        pkt = self._wrap_civ(civ_frame)
+        await self._civ_transport.send_tracked(pkt)
 
-        await self._transport.send_tracked(bytes(pkt))
+        # Extract our command byte for matching the response
+        # Frame: FE FE <to> <from> <cmd> [sub] [data] FD
+        our_cmd = civ_frame[4] if len(civ_frame) > 4 else 0xFF
 
-        # Wait for response
-        try:
-            resp = await self._transport.receive_packet(timeout=self._timeout)
-        except asyncio.TimeoutError:
-            raise TimeoutError("CI-V response timed out")
+        deadline = time.monotonic() + self._timeout
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError("CI-V response timed out")
+            try:
+                resp = await self._civ_transport.receive_packet(
+                    timeout=remaining
+                )
+            except asyncio.TimeoutError:
+                raise TimeoutError("CI-V response timed out")
 
-        # Extract CI-V from UDP data packet
-        if len(resp) > 0x15:
-            civ_data = resp[0x15:]
-            return parse_civ_frame(civ_data)
+            if len(resp) <= CIV_HEADER_SIZE:
+                continue  # idle/control packet
 
-        raise CommandError(f"Unexpected response packet (len={len(resp)})")
+            payload = resp[CIV_HEADER_SIZE:]
+
+            # Scan payload for CI-V frames (there may be waterfall data too)
+            idx = 0
+            while idx < len(payload) - 4:
+                if payload[idx] == 0xFE and payload[idx + 1] == 0xFE:
+                    fd_pos = payload.find(b"\xfd", idx + 4)
+                    if fd_pos < 0:
+                        break
+                    frame_bytes = payload[idx : fd_pos + 1]
+                    to_addr = frame_bytes[2]
+                    from_addr = frame_bytes[3]
+                    cmd = frame_bytes[4]
+
+                    # Skip echoes (our command reflected back) and waterfall
+                    if (
+                        from_addr == self._radio_addr
+                        and to_addr == CONTROLLER_ADDR
+                        and cmd != 0x27  # not waterfall
+                        and (cmd == our_cmd or cmd in (0xFB, 0xFA))
+                    ):
+                        return parse_civ_frame(frame_bytes)
+
+                    idx = fd_pos + 1
+                else:
+                    idx += 1
+
+    # ------------------------------------------------------------------
+    # Public CI-V API
+    # ------------------------------------------------------------------
 
     async def send_civ(
         self, command: int, sub: int | None = None, data: bytes | None = None
@@ -218,15 +459,7 @@ class IcomRadio:
         return await self._send_civ_raw(frame)
 
     async def get_frequency(self) -> int:
-        """Get the current operating frequency in Hz.
-
-        Returns:
-            Frequency in Hz.
-
-        Raises:
-            ConnectionError: If not connected.
-            TimeoutError: If no response.
-        """
+        """Get the current operating frequency in Hz."""
         self._check_connected()
         civ = get_frequency(to_addr=self._radio_addr)
         resp = await self._send_civ_raw(civ)
@@ -237,11 +470,6 @@ class IcomRadio:
 
         Args:
             freq_hz: Frequency in Hz.
-
-        Raises:
-            ConnectionError: If not connected.
-            CommandError: If the radio rejects the command.
-            TimeoutError: If no response.
         """
         self._check_connected()
         civ = set_frequency(freq_hz, to_addr=self._radio_addr)
@@ -251,11 +479,7 @@ class IcomRadio:
             raise CommandError(f"Radio rejected set_frequency({freq_hz})")
 
     async def get_mode(self) -> Mode:
-        """Get the current operating mode.
-
-        Returns:
-            Current Mode enum value.
-        """
+        """Get the current operating mode."""
         self._check_connected()
         civ = get_mode(to_addr=self._radio_addr)
         resp = await self._send_civ_raw(civ)
@@ -267,9 +491,6 @@ class IcomRadio:
 
         Args:
             mode: Mode enum or string name (e.g. "USB", "LSB").
-
-        Raises:
-            CommandError: If the radio rejects the command.
         """
         self._check_connected()
         if isinstance(mode, str):
@@ -281,11 +502,7 @@ class IcomRadio:
             raise CommandError(f"Radio rejected set_mode({mode})")
 
     async def get_power(self) -> int:
-        """Get the RF power level (0-255).
-
-        Returns:
-            Power level value.
-        """
+        """Get the RF power level (0-255)."""
         self._check_connected()
         civ = get_power(to_addr=self._radio_addr)
         resp = await self._send_civ_raw(civ)
@@ -305,33 +522,21 @@ class IcomRadio:
             raise CommandError(f"Radio rejected set_power({level})")
 
     async def get_s_meter(self) -> int:
-        """Read the S-meter value (0-255).
-
-        Returns:
-            S-meter reading.
-        """
+        """Read the S-meter value (0-255)."""
         self._check_connected()
         civ = get_s_meter(to_addr=self._radio_addr)
         resp = await self._send_civ_raw(civ)
         return parse_meter_response(resp)
 
     async def get_swr(self) -> int:
-        """Read the SWR meter value (0-255).
-
-        Returns:
-            SWR meter reading.
-        """
+        """Read the SWR meter value (0-255)."""
         self._check_connected()
         civ = get_swr(to_addr=self._radio_addr)
         resp = await self._send_civ_raw(civ)
         return parse_meter_response(resp)
 
     async def get_alc(self) -> int:
-        """Read the ALC meter value (0-255).
-
-        Returns:
-            ALC meter reading.
-        """
+        """Read the ALC meter value (0-255)."""
         self._check_connected()
         civ = get_alc(to_addr=self._radio_addr)
         resp = await self._send_civ_raw(civ)
