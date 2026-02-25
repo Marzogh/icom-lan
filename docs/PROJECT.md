@@ -87,28 +87,34 @@ Icom использует проприетарный UDP-протокол для
 
 ## Этапы разработки
 
-### Фаза 1 — Transport (MVP)
+### Фаза 1 — Transport (MVP) ✅ COMPLETE
 **Цель:** Установить UDP-соединение с радио, пройти аутентификацию, поддерживать keep-alive.
 
 - [x] Разобрать формат пакетов из `packettypes.h`
 - [x] Реализовать UDP transport (asyncio)
+- [x] Discovery handshake (Are You There → I Am Here → Are You Ready)
 - [x] Login + auth handshake
-- [x] Keep-alive loop
+- [x] Token acknowledgement
+- [x] Conninfo exchange (получить CI-V/audio ports)
+- [x] Dual-port architecture (control port 50001 + CI-V port 50002)
+- [x] Keep-alive loop (ping + retransmit)
 - [x] Корректный disconnect
-- [ ] Тест: подключиться к IC-7610 на 192.168.1.100
+- [x] Тест: подключиться к IC-7610 на 192.168.1.100
 
-**Результат:** `radio.connect()` / `radio.disconnect()` работают.
+**Результат:** `radio.connect()` / `radio.disconnect()` работают. ✅
 
-### Фаза 2 — CI-V Commands
+### Фаза 2 — CI-V Commands ✅ COMPLETE
 **Цель:** Отправлять и принимать CI-V команды через сетевое соединение.
 
-- [ ] Обёртка CI-V в UDP-пакеты (по `icomudpcivdata.cpp`)
-- [ ] Базовые команды: get/set frequency, mode, power
-- [ ] Чтение метров: S-meter, SWR, ALC, power
-- [ ] PTT on/off
-- [ ] Тест: считать и установить частоту IC-7610
+- [x] Обёртка CI-V в UDP-пакеты (по `icomudpcivdata.cpp`)
+- [x] Открытие CI-V data stream (OpenClose packet)
+- [x] Фильтрация waterfall/echo packets
+- [x] Базовые команды: get/set frequency, mode, power
+- [x] Чтение метров: S-meter, SWR, ALC, power
+- [x] PTT on/off
+- [x] Тест: считать и установить частоту IC-7610
 
-**Результат:** `radio.frequency`, `radio.mode`, `radio.s_meter` работают.
+**Результат:** `radio.get_frequency()`, `radio.get_mode()`, `radio.get_s_meter()` работают. ✅
 
 ### Фаза 3 — Audio Streaming
 **Цель:** Принимать и передавать аудио.
