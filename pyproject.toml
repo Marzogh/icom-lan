@@ -29,3 +29,9 @@ icom-lan = "icom_lan.cli:main"
 [project.optional-dependencies]
 audio = ["opuslib"]
 dev = ["pytest", "pytest-asyncio"]
+
+[dependency-groups]
+dev = [
+    "mkdocs-material>=9.7.3",
+    "mkdocstrings[python]>=1.0.3",
+]
