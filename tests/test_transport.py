@@ -1,285 +1,444 @@
-"""Tests for async UDP transport layer."""
+"""Tests for IcomTransport — packet handling, ping, retransmit, sequence tracking."""
 
 import asyncio
 import struct
-from unittest.mock import MagicMock, patch
 
 import pytest
 
-from icom_lan.transport import ConnectionState, IcomTransport
-from icom_lan.types import PacketType
+from icom_lan.transport import (
+    CONTROL_SIZE,
+    PING_SIZE,
+    ConnectionState,
+    IcomTransport,
+)
+from icom_lan.types import HEADER_SIZE, PacketType
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _build_control(ptype: int, seq: int = 0, sender_id: int = 0xAABBCCDD,
+                   receiver_id: int = 0) -> bytes:
+    """Build a 0x10-byte control packet."""
+    pkt = bytearray(CONTROL_SIZE)
+    struct.pack_into("<I", pkt, 0, CONTROL_SIZE)
+    struct.pack_into("<H", pkt, 4, ptype)
+    struct.pack_into("<H", pkt, 6, seq)
+    struct.pack_into("<I", pkt, 8, sender_id)
+    struct.pack_into("<I", pkt, 0x0C, receiver_id)
+    return bytes(pkt)
+
+
+def _build_ping(seq: int = 0, sender_id: int = 0xAABBCCDD,
+                receiver_id: int = 0, reply: int = 0) -> bytes:
+    """Build a 0x15-byte ping packet."""
+    pkt = bytearray(PING_SIZE)
+    struct.pack_into("<I", pkt, 0, PING_SIZE)
+    struct.pack_into("<H", pkt, 4, PacketType.PING)
+    struct.pack_into("<H", pkt, 6, seq)
+    struct.pack_into("<I", pkt, 8, sender_id)
+    struct.pack_into("<I", pkt, 0x0C, receiver_id)
+    pkt[0x10] = reply
+    struct.pack_into("<I", pkt, 0x11, 12345)  # timestamp
+    return bytes(pkt)
+
+
+def _build_data_packet(seq: int = 1, sender_id: int = 0xAABBCCDD,
+                       payload: bytes = b"\x00" * 8) -> bytes:
+    """Build a data packet (type=0x00) with payload."""
+    total = CONTROL_SIZE + len(payload)
+    pkt = bytearray(total)
+    struct.pack_into("<I", pkt, 0, total)
+    struct.pack_into("<H", pkt, 4, 0x00)  # DATA
+    struct.pack_into("<H", pkt, 6, seq)
+    struct.pack_into("<I", pkt, 8, sender_id)
+    struct.pack_into("<I", pkt, 0x0C, 0)
+    pkt[CONTROL_SIZE:] = payload
+    return bytes(pkt)
 
 
 @pytest.fixture
-def transport():
-    """Create an IcomTransport instance (not connected)."""
-    return IcomTransport()
+def transport() -> IcomTransport:
+    t = IcomTransport()
+    t.my_id = 0x00010001
+    t.remote_id = 0xAABBCCDD
+    return t
+
+
+# ---------------------------------------------------------------------------
+# Connection state
+# ---------------------------------------------------------------------------
 
 
 class TestConnectionState:
-    """Test connection state enum."""
+    def test_initial_state(self) -> None:
+        t = IcomTransport()
+        assert t.state == ConnectionState.DISCONNECTED
+        assert t.my_id == 0
+        assert t.remote_id == 0
 
-    def test_states_exist(self):
-        assert ConnectionState.DISCONNECTED.value == "disconnected"
-        assert ConnectionState.CONNECTING.value == "connecting"
-        assert ConnectionState.CONNECTED.value == "connected"
+    def test_state_enum_values(self) -> None:
+        assert ConnectionState.DISCONNECTED == "disconnected"
+        assert ConnectionState.CONNECTING == "connecting"
+        assert ConnectionState.CONNECTED == "connected"
 
 
-class TestTransportInit:
-    """Test transport initialization."""
-
-    def test_initial_state(self, transport):
-        assert transport.state == ConnectionState.DISCONNECTED
-        assert transport.send_seq == 0
-        assert transport.ping_seq == 0
-
-    def test_my_id_generation(self, transport):
-        # Should be non-zero after init
-        assert transport.my_id == 0  # Not yet connected, no ID
+# ---------------------------------------------------------------------------
+# Sequence numbers
+# ---------------------------------------------------------------------------
 
 
 class TestSequenceNumbers:
-    """Test sequence number tracking."""
-
-    def test_next_seq_increments(self, transport):
+    def test_next_send_seq(self, transport: IcomTransport) -> None:
         assert transport._next_send_seq() == 0
         assert transport._next_send_seq() == 1
         assert transport._next_send_seq() == 2
 
-    def test_seq_wraps_at_u16(self, transport):
+    def test_seq_wraps(self, transport: IcomTransport) -> None:
         transport.send_seq = 0xFFFF
         assert transport._next_send_seq() == 0xFFFF
-        assert transport.send_seq == 0  # Wrapped
+        assert transport.send_seq == 0  # wrapped
+
+
+# ---------------------------------------------------------------------------
+# Packet building
+# ---------------------------------------------------------------------------
 
 
 class TestPacketBuilding:
-    """Test building control/ping packets."""
-
-    def test_build_ping_packet(self, transport):
-        transport.my_id = 0xAABBCCDD
-        transport.remote_id = 0x11223344
-        transport.ping_seq = 5
-        pkt = transport._build_ping()
-        assert len(pkt) == 0x15  # PING_SIZE
-        # Check header
+    def test_build_control(self, transport: IcomTransport) -> None:
+        pkt = transport._build_control(ptype=PacketType.ARE_YOU_THERE, seq=0)
+        assert len(pkt) == CONTROL_SIZE
         length = struct.unpack_from("<I", pkt, 0)[0]
-        assert length == 0x15
+        assert length == CONTROL_SIZE
+        ptype = struct.unpack_from("<H", pkt, 4)[0]
+        assert ptype == PacketType.ARE_YOU_THERE
+        my_id = struct.unpack_from("<I", pkt, 8)[0]
+        assert my_id == transport.my_id
+
+    def test_build_ping(self, transport: IcomTransport) -> None:
+        pkt = transport._build_ping()
+        assert len(pkt) == PING_SIZE
         ptype = struct.unpack_from("<H", pkt, 4)[0]
         assert ptype == PacketType.PING
-        seq = struct.unpack_from("<H", pkt, 6)[0]
-        assert seq == 5
-        # reply byte
         assert pkt[0x10] == 0x00  # request, not reply
 
-    def test_build_control_packet(self, transport):
-        transport.my_id = 0x01
-        transport.remote_id = 0x02
-        pkt = transport._build_control(ptype=PacketType.ARE_YOU_READY, seq=0)
-        assert len(pkt) == 0x10  # CONTROL_SIZE
-        hdr_type = struct.unpack_from("<H", pkt, 4)[0]
-        assert hdr_type == PacketType.ARE_YOU_READY
-
-    def test_build_disconnect(self, transport):
-        transport.my_id = 0x01
-        transport.remote_id = 0x02
-        pkt = transport._build_control(ptype=PacketType.DISCONNECT, seq=0)
-        hdr_type = struct.unpack_from("<H", pkt, 4)[0]
-        assert hdr_type == PacketType.DISCONNECT
+    def test_send_ping_increments_seq(self, transport: IcomTransport) -> None:
+        sent = []
+        transport._raw_send = lambda data: sent.append(data)
+        assert transport.ping_seq == 0
+        transport._send_ping()
+        assert transport.ping_seq == 1
+        transport._send_ping()
+        assert transport.ping_seq == 2
+        assert len(sent) == 2
 
 
-class TestRetransmitTracking:
-    """Test TX buffer and retransmit logic."""
+# ---------------------------------------------------------------------------
+# Tracking sent packets
+# ---------------------------------------------------------------------------
 
-    def test_track_sent_packet(self, transport):
-        transport.my_id = 0x01
-        transport.remote_id = 0x02
-        data = b"\x00" * 0x15
-        transport._track_sent(0, data)
+
+class TestTrackSent:
+    def test_track_sent(self, transport: IcomTransport) -> None:
+        transport._track_sent(0, b"packet0")
+        transport._track_sent(1, b"packet1")
+        assert transport.tx_buffer[0] == b"packet0"
+        assert transport.tx_buffer[1] == b"packet1"
+
+    def test_track_evicts_oldest(self, transport: IcomTransport) -> None:
+        from icom_lan.transport import BUFSIZE
+        for i in range(BUFSIZE + 10):
+            transport._track_sent(i, f"pkt{i}".encode())
+        assert len(transport.tx_buffer) <= BUFSIZE
+        # Oldest should be evicted
+        assert 0 not in transport.tx_buffer
+
+    @pytest.mark.asyncio
+    async def test_send_tracked(self, transport: IcomTransport) -> None:
+        sent = []
+        transport._raw_send = lambda data: sent.append(data)
+        pkt = bytearray(CONTROL_SIZE)
+        struct.pack_into("<I", pkt, 0, CONTROL_SIZE)
+        await transport.send_tracked(bytes(pkt))
+        assert len(sent) == 1
+        # Check seq was written
+        seq = struct.unpack_from("<H", sent[0], 6)[0]
+        assert seq == 0
         assert 0 in transport.tx_buffer
-        assert transport.tx_buffer[0] == data
 
-    def test_buffer_limit(self, transport):
-        for i in range(600):
-            transport._track_sent(i, b"\x00")
-        assert len(transport.tx_buffer) <= 500
 
-    def test_detect_missing_packets(self, transport):
-        """When we receive seq 5 after seq 2, 3 and 4 are missing."""
+# ---------------------------------------------------------------------------
+# RX sequence tracking and gap detection
+# ---------------------------------------------------------------------------
+
+
+class TestRxSequence:
+    def test_first_packet(self, transport: IcomTransport) -> None:
         transport._record_rx_seq(1)
-        transport._record_rx_seq(2)
-        transport._record_rx_seq(5)
-        assert 3 in transport.rx_missing
-        assert 4 in transport.rx_missing
+        assert transport.rx_last_seq == 1
+        assert len(transport.rx_missing) == 0
 
-    def test_missing_removed_on_receive(self, transport):
+    def test_sequential(self, transport: IcomTransport) -> None:
+        for i in range(1, 5):
+            transport._record_rx_seq(i)
+        assert transport.rx_last_seq == 4
+        assert len(transport.rx_missing) == 0
+
+    def test_gap_detected(self, transport: IcomTransport) -> None:
         transport._record_rx_seq(1)
-        transport._record_rx_seq(3)
+        transport._record_rx_seq(5)  # gap: 2, 3, 4
+        assert transport.rx_last_seq == 5
+        assert set(transport.rx_missing.keys()) == {2, 3, 4}
+
+    def test_gap_filled(self, transport: IcomTransport) -> None:
+        transport._record_rx_seq(1)
+        transport._record_rx_seq(4)
         assert 2 in transport.rx_missing
         transport._record_rx_seq(2)
         assert 2 not in transport.rx_missing
+        assert 3 in transport.rx_missing
 
-    def test_build_retransmit_request_single(self, transport):
-        transport.my_id = 0x01
-        transport.remote_id = 0x02
+    def test_large_gap_resets(self, transport: IcomTransport) -> None:
+        from icom_lan.transport import MAX_MISSING
+        transport._record_rx_seq(1)
+        transport._record_rx_seq(1 + MAX_MISSING + 10)
+        assert len(transport.rx_missing) == 0
+
+
+# ---------------------------------------------------------------------------
+# Retransmit request building
+# ---------------------------------------------------------------------------
+
+
+class TestRetransmitRequests:
+    def test_no_missing(self, transport: IcomTransport) -> None:
+        assert transport._build_retransmit_requests() == []
+
+    def test_single_missing(self, transport: IcomTransport) -> None:
         transport.rx_missing[5] = 0
         pkts = transport._build_retransmit_requests()
         assert len(pkts) == 1
-        pkt = pkts[0]
-        assert len(pkt) == 0x10  # Single: control packet with seq=5
-        seq = struct.unpack_from("<H", pkt, 6)[0]
+        assert len(pkts[0]) == CONTROL_SIZE
+        ptype = struct.unpack_from("<H", pkts[0], 4)[0]
+        assert ptype == 0x01
+        seq = struct.unpack_from("<H", pkts[0], 6)[0]
         assert seq == 5
 
-    def test_build_retransmit_request_multiple(self, transport):
-        transport.my_id = 0x01
-        transport.remote_id = 0x02
+    def test_multiple_missing(self, transport: IcomTransport) -> None:
         transport.rx_missing[5] = 0
         transport.rx_missing[7] = 0
         pkts = transport._build_retransmit_requests()
         assert len(pkts) == 1
-        pkt = pkts[0]
-        # Multiple: control header + 4 bytes per missing seq
-        assert len(pkt) == 0x10 + 4 * 2
+        assert len(pkts[0]) == CONTROL_SIZE + 8  # 2 * 4 bytes
 
 
-class TestConnectDisconnect:
-    """Test connect/disconnect lifecycle with mocked UDP."""
-
-    @staticmethod
-    def _build_i_am_here(remote_id: int, receiver_id: int) -> bytes:
-        """Build a fake 'I Am Here' response packet."""
-        return struct.pack("<IHHII", 0x10, 0x04, 0, remote_id, receiver_id)
-
-    @staticmethod
-    def _build_are_you_ready(remote_id: int, receiver_id: int) -> bytes:
-        """Build a fake 'Are You Ready' response packet."""
-        return struct.pack("<IHHII", 0x10, 0x06, 0, remote_id, receiver_id)
-
-    @pytest.mark.asyncio
-    async def test_connect_sets_state(self):
-        t = IcomTransport()
-        loop = asyncio.get_event_loop()
-        remote_id = 0xDEADBEEF
-
-        mock_transport = MagicMock()
-        mock_transport.get_extra_info = MagicMock(return_value=("127.0.0.1", 12345))
-
-        async def fake_create(protocol_factory, remote_addr=None, local_addr=None):
-            proto = protocol_factory()
-            proto.connection_made(mock_transport)
-            return mock_transport, proto
-
-        with patch.object(loop, "create_datagram_endpoint", side_effect=fake_create):
-            # Schedule discovery replies before connect
-            my_id = (12345 & 0xFFFF) | 0x10000
-            asyncio.get_event_loop().call_soon(
-                t._handle_packet,
-                self._build_i_am_here(remote_id, my_id),
-            )
-
-            await t.connect("192.168.1.1", 50001)
-            assert t.remote_id == remote_id
-            await t.disconnect()
-            assert t.state == ConnectionState.DISCONNECTED
-
-    @pytest.mark.asyncio
-    async def test_disconnect_sends_packet(self):
-        t = IcomTransport()
-        loop = asyncio.get_event_loop()
-        remote_id = 0x100
-
-        mock_udp_transport = MagicMock()
-        mock_udp_transport.get_extra_info = MagicMock(return_value=("127.0.0.1", 12345))
-
-        async def fake_create(protocol_factory, remote_addr=None, local_addr=None):
-            proto = protocol_factory()
-            proto.connection_made(mock_udp_transport)
-            return mock_udp_transport, proto
-
-        with patch.object(loop, "create_datagram_endpoint", side_effect=fake_create):
-            my_id = (12345 & 0xFFFF) | 0x10000
-            asyncio.get_event_loop().call_soon(
-                t._handle_packet,
-                self._build_i_am_here(remote_id, my_id),
-            )
-
-            await t.connect("192.168.1.1", 50001)
-            await t.disconnect()
-            # Should have sent a disconnect control packet
-            assert mock_udp_transport.sendto.called or mock_udp_transport.close.called
+# ---------------------------------------------------------------------------
+# _handle_packet
+# ---------------------------------------------------------------------------
 
 
-class TestKeepAlive:
-    """Test ping/keep-alive behavior."""
+class TestHandlePacket:
+    def test_too_short_ignored(self, transport: IcomTransport) -> None:
+        transport._handle_packet(b"\x00" * (HEADER_SIZE - 1))
+        assert transport._packet_queue.empty()
 
-    @pytest.mark.asyncio
-    async def test_ping_loop_sends_packets(self):
-        t = IcomTransport()
+    def test_data_packet_queued(self, transport: IcomTransport) -> None:
+        pkt = _build_data_packet(seq=1)
+        transport._handle_packet(pkt)
+        assert not transport._packet_queue.empty()
+
+    def test_data_packet_records_seq(self, transport: IcomTransport) -> None:
+        pkt = _build_data_packet(seq=5)
+        transport._handle_packet(pkt)
+        assert transport.rx_last_seq == 5
+
+    def test_ping_request_replied(self, transport: IcomTransport) -> None:
         sent = []
-
-        def fake_send(data):
-            sent.append(data)
-
-        t._raw_send = fake_send
-        t.my_id = 0x01
-        t.remote_id = 0x02
-        t.state = ConnectionState.CONNECTED
-
-        # Send a few pings manually
-        t._send_ping()
-        t._send_ping()
-        assert len(sent) == 2
-        assert t.ping_seq == 2
-
-
-class TestPacketReceive:
-    """Test receiving and dispatching packets."""
-
-    def test_handle_ping_request(self, transport):
-        """When we receive a ping request, we should queue a reply."""
-        transport.my_id = 0xAA
-        transport.remote_id = 0xBB
-
-        replies = []
-        transport._raw_send = lambda data: replies.append(data)
-
-        # Build a ping request from "radio"
-        pkt = bytearray(0x15)
-        struct.pack_into("<I", pkt, 0, 0x15)
-        struct.pack_into("<H", pkt, 4, PacketType.PING)
-        struct.pack_into("<H", pkt, 6, 42)  # seq
-        struct.pack_into("<I", pkt, 8, 0xBB)  # sentid (radio)
-        struct.pack_into("<I", pkt, 0x0C, 0xAA)  # rcvdid (us)
-        pkt[0x10] = 0x00  # reply=0 (request)
-        struct.pack_into("<I", pkt, 0x11, 12345)  # time
-
-        transport._handle_packet(bytes(pkt))
-
-        assert len(replies) == 1
-        reply = replies[0]
+        transport._raw_send = lambda data: sent.append(data)
+        pkt = _build_ping(seq=42, reply=0)
+        transport._handle_packet(pkt)
+        assert len(sent) == 1
+        reply = sent[0]
+        assert len(reply) == PING_SIZE
         assert reply[0x10] == 0x01  # reply flag
-        # seq should match incoming
-        assert struct.unpack_from("<H", reply, 6)[0] == 42
+        reply_seq = struct.unpack_from("<H", reply, 6)[0]
+        assert reply_seq == 42
 
-    def test_handle_retransmit_request(self, transport):
-        """When radio requests retransmit, we send buffered packet."""
-        transport.my_id = 0xAA
-        transport.remote_id = 0xBB
+    def test_ping_reply_not_replied(self, transport: IcomTransport) -> None:
+        sent = []
+        transport._raw_send = lambda data: sent.append(data)
+        transport.ping_seq = 5
+        pkt = _build_ping(seq=4, reply=1)  # reply to our ping #4
+        transport._handle_packet(pkt)
+        assert len(sent) == 0  # should not send anything
+        assert transport._packet_queue.empty()  # not queued
 
-        # Put a packet in tx buffer
-        original = b"\xde\xad" * 10
-        transport.tx_buffer[7] = original
+    def test_retransmit_request_single(self, transport: IcomTransport) -> None:
+        sent = []
+        transport._raw_send = lambda data: sent.append(data)
+        transport.tx_buffer[3] = b"original_packet"
+        req = _build_control(ptype=0x01, seq=3)
+        transport._handle_packet(req)
+        assert len(sent) == 1
+        assert sent[0] == b"original_packet"
 
-        replies = []
-        transport._raw_send = lambda data: replies.append(data)
+    def test_retransmit_request_missing_seq(self, transport: IcomTransport) -> None:
+        sent = []
+        transport._raw_send = lambda data: sent.append(data)
+        # seq not in tx_buffer
+        req = _build_control(ptype=0x01, seq=99)
+        transport._handle_packet(req)
+        assert len(sent) == 0
 
-        # Build single retransmit request (CONTROL with type=0x01, len=0x10, seq=7)
-        pkt = bytearray(0x10)
-        struct.pack_into("<I", pkt, 0, 0x10)
-        struct.pack_into("<H", pkt, 4, 0x01)  # type=CONTROL
-        struct.pack_into("<H", pkt, 6, 7)  # seq to retransmit
-        struct.pack_into("<I", pkt, 8, 0xBB)
-        struct.pack_into("<I", pkt, 0x0C, 0xAA)
-
+    def test_retransmit_multi(self, transport: IcomTransport) -> None:
+        sent = []
+        transport._raw_send = lambda data: sent.append(data)
+        transport.tx_buffer[5] = b"pkt5"
+        transport.tx_buffer[7] = b"pkt7"
+        # Multi retransmit: longer than CONTROL_SIZE, type=0x01
+        pkt = bytearray(CONTROL_SIZE + 4)
+        struct.pack_into("<I", pkt, 0, CONTROL_SIZE + 4)
+        struct.pack_into("<H", pkt, 4, 0x01)
+        struct.pack_into("<H", pkt, 6, 0)
+        struct.pack_into("<I", pkt, 8, 0xAABBCCDD)
+        struct.pack_into("<I", pkt, 0x0C, 0)
+        # Two seq entries
+        struct.pack_into("<H", pkt, CONTROL_SIZE, 5)
+        struct.pack_into("<H", pkt, CONTROL_SIZE + 2, 7)
         transport._handle_packet(bytes(pkt))
-        assert len(replies) == 1
-        assert replies[0] == original
+        assert len(sent) == 2
+
+    def test_remote_id_learned(self) -> None:
+        t = IcomTransport()
+        t.my_id = 0x10001
+        assert t.remote_id == 0
+        pkt = _build_data_packet(seq=1, sender_id=0xDEAD)
+        t._handle_packet(pkt)
+        assert t.remote_id == 0xDEAD
+
+    def test_control_type_queued(self, transport: IcomTransport) -> None:
+        """Non-retransmit control packets (like I_AM_HERE) get queued."""
+        pkt = _build_control(ptype=PacketType.I_AM_HERE, seq=0)
+        transport._handle_packet(pkt)
+        assert not transport._packet_queue.empty()
+
+
+# ---------------------------------------------------------------------------
+# receive_packet
+# ---------------------------------------------------------------------------
+
+
+class TestReceivePacket:
+    @pytest.mark.asyncio
+    async def test_receive_returns_queued(self, transport: IcomTransport) -> None:
+        transport._packet_queue.put_nowait(b"hello")
+        data = await transport.receive_packet(timeout=1.0)
+        assert data == b"hello"
+
+    @pytest.mark.asyncio
+    async def test_receive_timeout(self, transport: IcomTransport) -> None:
+        with pytest.raises(asyncio.TimeoutError):
+            await transport.receive_packet(timeout=0.05)
+
+
+# ---------------------------------------------------------------------------
+# Disconnect
+# ---------------------------------------------------------------------------
+
+
+class TestDisconnect:
+    @pytest.mark.asyncio
+    async def test_disconnect_sends_disconnect_pkt(self, transport: IcomTransport) -> None:
+        sent = []
+        transport._raw_send = lambda data: sent.append(data)
+        transport.state = ConnectionState.CONNECTED
+        await transport.disconnect()
+        assert transport.state == ConnectionState.DISCONNECTED
+        # Should have sent a disconnect packet
+        assert len(sent) == 1
+        ptype = struct.unpack_from("<H", sent[0], 4)[0]
+        assert ptype == PacketType.DISCONNECT
+
+    @pytest.mark.asyncio
+    async def test_disconnect_already_disconnected(self) -> None:
+        t = IcomTransport()
+        await t.disconnect()  # should not raise
+        assert t.state == ConnectionState.DISCONNECTED
+
+    @pytest.mark.asyncio
+    async def test_disconnect_cancels_tasks(self, transport: IcomTransport) -> None:
+        sent = []
+        transport._raw_send = lambda data: sent.append(data)
+        transport.state = ConnectionState.CONNECTED
+
+        # Create fake tasks
+        async def never_end():
+            await asyncio.sleep(999)
+        transport._ping_task = asyncio.create_task(never_end())
+        transport._retransmit_task = asyncio.create_task(never_end())
+
+        await transport.disconnect()
+        # Allow cancellation to propagate
+        await asyncio.sleep(0)
+        assert transport._ping_task.cancelled()
+        assert transport._retransmit_task.cancelled()
+
+
+# ---------------------------------------------------------------------------
+# Ping loop
+# ---------------------------------------------------------------------------
+
+
+class TestPingLoop:
+    @pytest.mark.asyncio
+    async def test_ping_loop_sends_pings(self, transport: IcomTransport) -> None:
+        sent = []
+        transport._raw_send = lambda data: sent.append(data)
+        transport.state = ConnectionState.CONNECTED
+        transport.start_ping_loop()
+        await asyncio.sleep(0.6)  # enough for 1 ping
+        transport.state = ConnectionState.DISCONNECTED
+        transport._ping_task.cancel()
+        try:
+            await transport._ping_task
+        except asyncio.CancelledError:
+            pass
+        assert len(sent) >= 1
+
+
+# ---------------------------------------------------------------------------
+# Retransmit loop
+# ---------------------------------------------------------------------------
+
+
+class TestRetransmitLoop:
+    @pytest.mark.asyncio
+    async def test_retransmit_loop_cleans_old(self, transport: IcomTransport) -> None:
+        sent = []
+        transport._raw_send = lambda data: sent.append(data)
+        transport.state = ConnectionState.CONNECTED
+        transport.rx_missing[10] = 3  # already at retry 3, next loop will bump to 4 and delete
+        transport.start_retransmit_loop()
+        await asyncio.sleep(0.25)
+        transport.state = ConnectionState.DISCONNECTED
+        transport._retransmit_task.cancel()
+        try:
+            await transport._retransmit_task
+        except asyncio.CancelledError:
+            pass
+        # seq 10 should have been removed after 4 retries
+        assert 10 not in transport.rx_missing
+
+
+# ---------------------------------------------------------------------------
+# Default raw send
+# ---------------------------------------------------------------------------
+
+
+class TestDefaultRawSend:
+    def test_no_transport_noop(self) -> None:
+        t = IcomTransport()
+        t._default_raw_send(b"test")  # should not raise

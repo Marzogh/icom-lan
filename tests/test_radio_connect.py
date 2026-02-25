@@ -1,0 +1,276 @@
+"""Tests for IcomRadio connect/disconnect lifecycle and internal helpers."""
+
+import struct
+
+import pytest
+
+from icom_lan.exceptions import (
+    TimeoutError,
+)
+from icom_lan.radio import (
+    CONNINFO_SIZE,
+    IcomRadio,
+    STATUS_SIZE,
+    TOKEN_ACK_SIZE,
+)
+from icom_lan.transport import ConnectionState
+
+from test_radio import MockTransport
+
+
+# ---------------------------------------------------------------------------
+# Extended MockTransport for connection tests
+# ---------------------------------------------------------------------------
+
+
+class ConnectMockTransport(MockTransport):
+    """Extended mock that simulates the connection handshake."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.state = ConnectionState.DISCONNECTED
+
+    async def connect(self, host: str, port: int) -> None:
+        self.connected = True
+        self.state = ConnectionState.CONNECTING
+
+    def start_ping_loop(self) -> None:
+        pass
+
+    def start_retransmit_loop(self) -> None:
+        pass
+
+
+def _build_login_response(
+    success: bool = True,
+    token: int = 0x12345678,
+    tok_request: int = 0xABCD,
+) -> bytes:
+    """Build a fake 0x60-byte login response."""
+    pkt = bytearray(0x60)
+    struct.pack_into("<I", pkt, 0, 0x60)
+    struct.pack_into("<H", pkt, 4, 0x00)
+    if success:
+        struct.pack_into("<I", pkt, 0x1C, token)
+        struct.pack_into("<H", pkt, 0x1A, tok_request)
+        struct.pack_into("<I", pkt, 0x20, 0x00000000)  # error = 0 (success)
+    else:
+        struct.pack_into("<I", pkt, 0x20, 0xFEFFFFFF)  # error = auth fail
+    return bytes(pkt)
+
+
+def _build_conninfo() -> bytes:
+    """Build a fake 0x90-byte conninfo from radio."""
+    pkt = bytearray(CONNINFO_SIZE)
+    struct.pack_into("<I", pkt, 0, CONNINFO_SIZE)
+    # GUID area
+    pkt[0x20:0x30] = b"\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F\x10"
+    return bytes(pkt)
+
+
+def _build_status(civ_port: int = 50002, audio_port: int = 50003) -> bytes:
+    """Build a fake 0x50-byte status packet."""
+    pkt = bytearray(STATUS_SIZE)
+    struct.pack_into("<I", pkt, 0, STATUS_SIZE)
+    struct.pack_into(">H", pkt, 0x42, civ_port)
+    struct.pack_into(">H", pkt, 0x46, audio_port)
+    return bytes(pkt)
+
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+
+
+class TestSendTokenAck:
+    @pytest.mark.asyncio
+    async def test_sends_token_ack(self) -> None:
+        radio = IcomRadio("192.168.1.100")
+        mt = ConnectMockTransport()
+        radio._ctrl_transport = mt
+        radio._token = 0x12345678
+        radio._tok_request = 0xABCD
+        await radio._send_token_ack()
+        assert len(mt.sent_packets) == 1
+        pkt = mt.sent_packets[0]
+        assert len(pkt) == TOKEN_ACK_SIZE
+        # token should be at offset 0x1C
+        token = struct.unpack_from("<I", pkt, 0x1C)[0]
+        assert token == 0x12345678
+
+
+class TestReceiveGuid:
+    @pytest.mark.asyncio
+    async def test_receives_guid(self) -> None:
+        radio = IcomRadio("192.168.1.100")
+        mt = ConnectMockTransport()
+        radio._ctrl_transport = mt
+        mt.queue_response(_build_conninfo())
+        guid = await radio._receive_guid()
+        assert guid is not None
+        assert len(guid) == 16
+
+    @pytest.mark.asyncio
+    async def test_no_conninfo(self) -> None:
+        radio = IcomRadio("192.168.1.100", timeout=0.5)
+        mt = ConnectMockTransport()
+        radio._ctrl_transport = mt
+        # No response queued → returns None
+        guid = await radio._receive_guid()
+        assert guid is None
+
+
+class TestSendConninfo:
+    @pytest.mark.asyncio
+    async def test_sends_conninfo(self) -> None:
+        radio = IcomRadio("192.168.1.100", username="test", password="pass")
+        mt = ConnectMockTransport()
+        radio._ctrl_transport = mt
+        radio._token = 0x12345678
+        radio._tok_request = 0xABCD
+        await radio._send_conninfo(b"\x00" * 16)
+        assert len(mt.sent_packets) == 1
+        assert len(mt.sent_packets[0]) == CONNINFO_SIZE
+
+    @pytest.mark.asyncio
+    async def test_sends_conninfo_without_guid(self) -> None:
+        radio = IcomRadio("192.168.1.100")
+        mt = ConnectMockTransport()
+        radio._ctrl_transport = mt
+        radio._token = 0
+        radio._tok_request = 0
+        await radio._send_conninfo(None)
+        assert len(mt.sent_packets) == 1
+
+
+class TestReceiveCivPort:
+    @pytest.mark.asyncio
+    async def test_receives_civ_port(self) -> None:
+        radio = IcomRadio("192.168.1.100", timeout=1.0)
+        mt = ConnectMockTransport()
+        radio._ctrl_transport = mt
+        mt.queue_response(_build_status(50002, 50003))
+        port = await radio._receive_civ_port()
+        assert port == 50002
+        assert radio._audio_port == 50003
+
+    @pytest.mark.asyncio
+    async def test_timeout_returns_zero(self) -> None:
+        radio = IcomRadio("192.168.1.100", timeout=0.2)
+        mt = ConnectMockTransport()
+        radio._ctrl_transport = mt
+        port = await radio._receive_civ_port()
+        assert port == 0
+
+    @pytest.mark.asyncio
+    async def test_skips_non_status(self) -> None:
+        radio = IcomRadio("192.168.1.100", timeout=1.0)
+        mt = ConnectMockTransport()
+        radio._ctrl_transport = mt
+        # Queue a non-status packet first, then status
+        mt.queue_response(b"\x00" * 0x30)  # wrong size
+        mt.queue_response(_build_status(50004))
+        port = await radio._receive_civ_port()
+        assert port == 50004
+
+
+class TestSendOpenClose:
+    @pytest.mark.asyncio
+    async def test_open(self) -> None:
+        radio = IcomRadio("192.168.1.100")
+        mt = ConnectMockTransport()
+        radio._civ_transport = mt
+        await radio._send_open_close(open_stream=True)
+        assert len(mt.sent_packets) == 1
+        pkt = mt.sent_packets[0]
+        assert pkt[0x15] == 0x04  # open magic
+
+    @pytest.mark.asyncio
+    async def test_close(self) -> None:
+        radio = IcomRadio("192.168.1.100")
+        mt = ConnectMockTransport()
+        radio._civ_transport = mt
+        await radio._send_open_close(open_stream=False)
+        assert len(mt.sent_packets) == 1
+        pkt = mt.sent_packets[0]
+        assert pkt[0x15] == 0x00  # close magic
+
+    @pytest.mark.asyncio
+    async def test_noop_without_transport(self) -> None:
+        radio = IcomRadio("192.168.1.100")
+        radio._civ_transport = None
+        await radio._send_open_close(open_stream=True)  # no error
+
+
+class TestWaitForPacket:
+    @pytest.mark.asyncio
+    async def test_returns_correct_size(self) -> None:
+        radio = IcomRadio("192.168.1.100", timeout=1.0)
+        mt = ConnectMockTransport()
+        mt.queue_response(b"\x00" * 0x20)  # wrong size
+        mt.queue_response(b"\x00" * 0x60)  # correct
+        result = await radio._wait_for_packet(mt, size=0x60, label="test")
+        assert len(result) == 0x60
+
+    @pytest.mark.asyncio
+    async def test_timeout(self) -> None:
+        radio = IcomRadio("192.168.1.100", timeout=0.1)
+        mt = ConnectMockTransport()
+        with pytest.raises(TimeoutError, match="test timed out"):
+            await radio._wait_for_packet(mt, size=0x60, label="test")
+
+    @pytest.mark.asyncio
+    async def test_skips_wrong_sizes(self) -> None:
+        radio = IcomRadio("192.168.1.100", timeout=1.0)
+        mt = ConnectMockTransport()
+        for _ in range(5):
+            mt.queue_response(b"\x00" * 0x10)
+        mt.queue_response(b"\xFF" * 0x60)
+        result = await radio._wait_for_packet(mt, size=0x60, label="test")
+        assert result == b"\xFF" * 0x60
+
+
+class TestFlushQueue:
+    @pytest.mark.asyncio
+    async def test_flush_empty(self) -> None:
+        mt = ConnectMockTransport()
+        count = await IcomRadio._flush_queue(mt)
+        assert count == 0
+
+    @pytest.mark.asyncio
+    async def test_flush_drains(self) -> None:
+        mt = ConnectMockTransport()
+        for _ in range(10):
+            mt.queue_response(b"\x00" * 16)
+        count = await IcomRadio._flush_queue(mt)
+        assert count == 10
+
+
+class TestDisconnect:
+    @pytest.mark.asyncio
+    async def test_disconnect_cleans_up(self) -> None:
+        radio = IcomRadio("192.168.1.100")
+        mt = ConnectMockTransport()
+        radio._ctrl_transport = mt
+        radio._civ_transport = mt
+        radio._connected = True
+        await radio.disconnect()
+        assert not radio.connected
+        assert mt.disconnected
+
+    @pytest.mark.asyncio
+    async def test_disconnect_when_not_connected(self) -> None:
+        radio = IcomRadio("192.168.1.100")
+        mt = ConnectMockTransport()
+        radio._ctrl_transport = mt
+        await radio.disconnect()  # should not raise
+
+    @pytest.mark.asyncio
+    async def test_aexit(self) -> None:
+        radio = IcomRadio("192.168.1.100")
+        mt = ConnectMockTransport()
+        radio._ctrl_transport = mt
+        radio._civ_transport = mt
+        radio._connected = True
+        await radio.__aexit__(None, None, None)
+        assert not radio.connected
