@@ -108,6 +108,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="PTT state",
     )
 
+    # cw
+    cw_p = sub.add_parser("cw", help="Send CW text")
+    cw_p.add_argument("text", type=str, help="CW text to send")
+
+    # power-on / power-off
+    sub.add_parser("power-on", help="Power on the radio")
+    sub.add_parser("power-off", help="Power off the radio")
+
     # discover
     sub.add_parser("discover", help="Discover radios on the network")
 
@@ -150,6 +158,16 @@ async def _run(args: argparse.Namespace) -> int:
                 return await _cmd_meter(radio, args)
             elif args.command == "ptt":
                 return await _cmd_ptt(radio, args)
+            elif args.command == "cw":
+                return await _cmd_cw(radio, args)
+            elif args.command == "power-on":
+                await radio.power_control(True)
+                print("Power ON")
+                return 0
+            elif args.command == "power-off":
+                await radio.power_control(False)
+                print("Power OFF")
+                return 0
             else:
                 return await _cmd_status(radio, args)
     except Exception as exc:
@@ -261,6 +279,12 @@ async def _cmd_ptt(radio: IcomRadio, args: argparse.Namespace) -> int:
     on = args.state == "on"
     await radio.set_ptt(on)
     print(f"PTT {'ON' if on else 'OFF'}")
+    return 0
+
+
+async def _cmd_cw(radio: IcomRadio, args: argparse.Namespace) -> int:
+    await radio.send_cw_text(args.text)
+    print(f"CW: {args.text}")
     return 0
 
 

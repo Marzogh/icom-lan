@@ -35,11 +35,15 @@ from .commands import (
     parse_frequency_response,
     parse_meter_response,
     parse_mode_response,
+    power_off,
+    power_on,
     ptt_off,
     ptt_on,
+    send_cw,
     set_frequency,
     set_mode,
     set_power,
+    stop_cw,
 )
 from .exceptions import (
     AuthenticationError,
@@ -585,3 +589,45 @@ class IcomRadio:
         ack = parse_ack_nak(resp)
         if ack is False:
             raise CommandError(f"Radio rejected PTT {'on' if on else 'off'}")
+
+    async def send_cw_text(self, text: str) -> None:
+        """Send CW text via the radio's built-in keyer.
+
+        Text is split into 30-character chunks.
+
+        Args:
+            text: CW text (A-Z, 0-9, prosigns).
+        """
+        self._check_connected()
+        frames = send_cw(text, to_addr=self._radio_addr)
+        for frame in frames:
+            resp = await self._send_civ_raw(frame)
+            ack = parse_ack_nak(resp)
+            if ack is False:
+                raise CommandError(f"Radio rejected CW text")
+
+    async def stop_cw_text(self) -> None:
+        """Stop CW sending."""
+        self._check_connected()
+        civ = stop_cw(to_addr=self._radio_addr)
+        resp = await self._send_civ_raw(civ)
+        # Stop CW may not return ACK, just ignore
+
+    async def power_control(self, on: bool) -> None:
+        """Power the radio on or off.
+
+        Args:
+            on: True to power on, False to power off.
+        """
+        self._check_connected()
+        civ = (
+            power_on(to_addr=self._radio_addr)
+            if on
+            else power_off(to_addr=self._radio_addr)
+        )
+        resp = await self._send_civ_raw(civ)
+        ack = parse_ack_nak(resp)
+        if ack is False:
+            raise CommandError(
+                f"Radio rejected power {'on' if on else 'off'}"
+            )
