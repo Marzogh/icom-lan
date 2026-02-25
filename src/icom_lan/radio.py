@@ -55,7 +55,7 @@ __all__ = ["IcomRadio"]
 logger = logging.getLogger(__name__)
 
 CIV_HEADER_SIZE = 0x15
-OPENCLOSE_SIZE = 0x18
+OPENCLOSE_SIZE = 0x16  # per wfview packettypes.h
 TOKEN_ACK_SIZE = 0x40
 CONNINFO_SIZE = 0x90
 STATUS_SIZE = 0x50
@@ -102,6 +102,8 @@ class IcomRadio:
         self._civ_transport: IcomTransport | None = None
         self._connected = False
         self._token: int = 0
+        self._tok_request: int = 0
+        self._auth_seq: int = 0
         self._civ_port: int = 0
         self._civ_send_seq: int = 0
 
@@ -157,6 +159,7 @@ class IcomRadio:
                 f"Authentication failed (error=0x{auth.error:08X})"
             )
         self._token = auth.token
+        self._tok_request = auth.tok_request
         logger.info(
             "Authenticated with %s:%d, token=0x%08X",
             self._host,
@@ -234,15 +237,26 @@ class IcomRadio:
     # ------------------------------------------------------------------
 
     async def _send_token_ack(self) -> None:
-        """Send token acknowledgement after successful login."""
+        """Send token acknowledgement (0x40-byte token packet).
+
+        Layout per wfview packettypes.h (token_packet):
+        0x10 payloadsize(4,BE)  0x14 requestreply(1)=0x01
+        0x15 requesttype(1)=magic  0x16 innerseq(2,BE)
+        0x1A tokrequest(2)  0x1C token(4)
+        0x24 resetcap(2,BE)=0x0798
+        """
         pkt = bytearray(TOKEN_ACK_SIZE)
         struct.pack_into("<I", pkt, 0x00, TOKEN_ACK_SIZE)
         struct.pack_into("<I", pkt, 0x08, self._ctrl_transport.my_id)
         struct.pack_into("<I", pkt, 0x0C, self._ctrl_transport.remote_id)
-        struct.pack_into(">I", pkt, 0x10, TOKEN_ACK_SIZE - 0x10)
+        struct.pack_into(">I", pkt, 0x10, TOKEN_ACK_SIZE - 0x10)  # payloadsize BE
         pkt[0x14] = 0x01  # requestreply
-        pkt[0x15] = 0x02  # requesttype = token ack
-        struct.pack_into("<I", pkt, 0x1C, self._token)
+        pkt[0x15] = 0x02  # requesttype = token ack (magic=0x02)
+        struct.pack_into(">H", pkt, 0x16, self._auth_seq)  # innerseq BE
+        self._auth_seq += 1
+        struct.pack_into("<H", pkt, 0x1A, self._tok_request)  # tokrequest
+        struct.pack_into("<I", pkt, 0x1C, self._token)  # token
+        struct.pack_into(">H", pkt, 0x24, 0x0798)  # resetcap
         await self._ctrl_transport.send_tracked(bytes(pkt))
         logger.debug("Token ack sent (token=0x%08X)", self._token)
 
@@ -267,12 +281,13 @@ class IcomRadio:
             receiver_id=self._ctrl_transport.remote_id,
             username=self._username,
             token=self._token,
-            tok_request=0,
+            tok_request=self._tok_request,
             radio_name="IC-7610",
             mac_address=b"\x00" * 6,
-            auth_seq=1,
+            auth_seq=self._auth_seq,
             guid=guid,
         )
+        self._auth_seq += 1
         await self._ctrl_transport.send_tracked(conninfo)
         logger.debug("Conninfo sent")
 
@@ -296,16 +311,24 @@ class IcomRadio:
         return 0
 
     async def _send_open_close(self, *, open_stream: bool) -> None:
-        """Send OpenClose packet on the CI-V port."""
+        """Send OpenClose packet on the CI-V port.
+
+        Layout per wfview packettypes.h (0x16 bytes):
+        0x00 len(4) 0x04 type(2) 0x06 seq(2)
+        0x08 sentid(4) 0x0C rcvdid(4)
+        0x10 data(2)=0x01C0  0x12 unused(1)
+        0x13 sendseq(2,BE)   0x15 magic(1)
+        """
         if self._civ_transport is None:
             return
         pkt = bytearray(OPENCLOSE_SIZE)
         struct.pack_into("<I", pkt, 0x00, OPENCLOSE_SIZE)
         struct.pack_into("<I", pkt, 0x08, self._civ_transport.my_id)
         struct.pack_into("<I", pkt, 0x0C, self._civ_transport.remote_id)
-        struct.pack_into("<H", pkt, 0x10, 0x01C0)
-        struct.pack_into(">H", pkt, 0x12, self._civ_send_seq)
-        pkt[0x14] = 0x04 if open_stream else 0x00
+        struct.pack_into("<H", pkt, 0x10, 0x01C0)  # data
+        # 0x12 = unused (stays 0x00)
+        struct.pack_into(">H", pkt, 0x13, self._civ_send_seq)  # sendseq BE
+        pkt[0x15] = 0x04 if open_stream else 0x00  # magic
         self._civ_send_seq += 1
         await self._civ_transport.send_tracked(bytes(pkt))
         logger.debug("OpenClose(%s) sent", "open" if open_stream else "close")
