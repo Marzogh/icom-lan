@@ -39,11 +39,17 @@ from .commands import (
     power_on,
     ptt_off,
     ptt_on,
+    select_vfo as _select_vfo_cmd,
     send_cw,
+    set_attenuator,
     set_frequency,
     set_mode,
     set_power,
+    set_preamp,
+    set_split,
     stop_cw,
+    vfo_a_equals_b,
+    vfo_swap,
 )
 from .exceptions import (
     AuthenticationError,
@@ -589,6 +595,61 @@ class IcomRadio:
         ack = parse_ack_nak(resp)
         if ack is False:
             raise CommandError(f"Radio rejected PTT {'on' if on else 'off'}")
+
+    # ------------------------------------------------------------------
+    # VFO / Split
+    # ------------------------------------------------------------------
+
+    async def select_vfo(self, vfo: str = "A") -> None:
+        """Select VFO.
+
+        Args:
+            vfo: "A", "B", "MAIN", or "SUB".
+                 IC-7610 uses MAIN/SUB.
+        """
+        self._check_connected()
+        civ = _select_vfo_cmd(vfo, to_addr=self._radio_addr)
+        resp = await self._send_civ_raw(civ)
+        ack = parse_ack_nak(resp)
+        if ack is False:
+            raise CommandError(f"Radio rejected VFO select {vfo}")
+
+    async def vfo_equalize(self) -> None:
+        """Copy VFO A to VFO B (A=B)."""
+        self._check_connected()
+        civ = vfo_a_equals_b(to_addr=self._radio_addr)
+        resp = await self._send_civ_raw(civ)
+
+    async def vfo_exchange(self) -> None:
+        """Swap VFO A and B."""
+        self._check_connected()
+        civ = vfo_swap(to_addr=self._radio_addr)
+        resp = await self._send_civ_raw(civ)
+
+    async def set_split_mode(self, on: bool) -> None:
+        """Enable or disable split mode."""
+        self._check_connected()
+        civ = set_split(on, to_addr=self._radio_addr)
+        resp = await self._send_civ_raw(civ)
+        ack = parse_ack_nak(resp)
+        if ack is False:
+            raise CommandError(f"Radio rejected split {'on' if on else 'off'}")
+
+    async def set_attenuator(self, on: bool) -> None:
+        """Enable or disable attenuator."""
+        self._check_connected()
+        civ = set_attenuator(on, to_addr=self._radio_addr)
+        resp = await self._send_civ_raw(civ)
+
+    async def set_preamp(self, level: int = 1) -> None:
+        """Set preamp level (0=off, 1=PREAMP1, 2=PREAMP2)."""
+        self._check_connected()
+        civ = set_preamp(level, to_addr=self._radio_addr)
+        resp = await self._send_civ_raw(civ)
+
+    # ------------------------------------------------------------------
+    # CW keying
+    # ------------------------------------------------------------------
 
     async def send_cw_text(self, text: str) -> None:
         """Send CW text via the radio's built-in keyer.

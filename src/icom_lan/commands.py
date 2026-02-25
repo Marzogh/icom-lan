@@ -344,6 +344,79 @@ def ptt_off(to_addr: int = IC_7610_ADDR, from_addr: int = CONTROLLER_ADDR) -> by
     return build_civ_frame(to_addr, from_addr, _CMD_PTT, sub=_SUB_PTT, data=b"\x00")
 
 
+# --- VFO commands ---
+
+_CMD_VFO_SELECT = 0x07
+_CMD_VFO_EQUAL = 0x07
+_CMD_SPLIT = 0x0F
+_CMD_ATT = 0x11
+_CMD_PREAMP = 0x16
+
+
+def select_vfo(
+    vfo: str = "A",
+    to_addr: int = IC_7610_ADDR,
+    from_addr: int = CONTROLLER_ADDR,
+) -> bytes:
+    """Select VFO.
+
+    Args:
+        vfo: "A", "B", "MAIN", or "SUB".
+              IC-7610 uses MAIN/SUB (0xD0/0xD1).
+              Simpler radios use A/B (0x00/0x01).
+    """
+    codes = {"A": 0x00, "B": 0x01, "MAIN": 0xD0, "SUB": 0xD1}
+    code = codes.get(vfo.upper(), 0x00)
+    return build_civ_frame(to_addr, from_addr, _CMD_VFO_SELECT, data=bytes([code]))
+
+
+def vfo_a_equals_b(
+    to_addr: int = IC_7610_ADDR, from_addr: int = CONTROLLER_ADDR
+) -> bytes:
+    """Copy VFO A to VFO B (A=B)."""
+    return build_civ_frame(to_addr, from_addr, _CMD_VFO_EQUAL, data=b"\xa0")
+
+
+def vfo_swap(
+    to_addr: int = IC_7610_ADDR, from_addr: int = CONTROLLER_ADDR
+) -> bytes:
+    """Swap VFO A and B."""
+    return build_civ_frame(to_addr, from_addr, _CMD_VFO_EQUAL, data=b"\xb0")
+
+
+def set_split(
+    on: bool,
+    to_addr: int = IC_7610_ADDR,
+    from_addr: int = CONTROLLER_ADDR,
+) -> bytes:
+    """Enable or disable split mode."""
+    return build_civ_frame(
+        to_addr, from_addr, _CMD_SPLIT, data=b"\x01" if on else b"\x00"
+    )
+
+
+def set_attenuator(
+    on: bool,
+    to_addr: int = IC_7610_ADDR,
+    from_addr: int = CONTROLLER_ADDR,
+) -> bytes:
+    """Enable or disable attenuator (ATT)."""
+    return build_civ_frame(
+        to_addr, from_addr, _CMD_ATT, data=b"\x20" if on else b"\x00"
+    )
+
+
+def set_preamp(
+    level: int = 1,
+    to_addr: int = IC_7610_ADDR,
+    from_addr: int = CONTROLLER_ADDR,
+) -> bytes:
+    """Set preamp level (0=off, 1=PREAMP1, 2=PREAMP2)."""
+    return build_civ_frame(
+        to_addr, from_addr, _CMD_PREAMP, data=bytes([level])
+    )
+
+
 # --- CW keying ---
 
 _CMD_SEND_CW = 0x17
