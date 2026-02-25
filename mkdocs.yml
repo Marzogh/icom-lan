@@ -87,6 +87,7 @@ nav:
       - Architecture: internals/architecture.md
       - Protocol Deep Dive: internals/protocol.md
       - Contributing: internals/contributing.md
+      - Roadmap: ROADMAP.md
       - Changelog: CHANGELOG.md
       - Security: SECURITY.md
 
