@@ -2,7 +2,7 @@
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-416%20passed-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-469%20passed-brightgreen.svg)](#testing)
 
 **Python library for controlling Icom transceivers over LAN (UDP).**
 
@@ -17,6 +17,7 @@ Direct connection to your radio — no wfview, hamlib, or RS-BA1 required.
 - ⚡ **Async API** — built on asyncio for seamless integration
 - 🚀 **Fast non-audio connect path** — CLI/status calls don't block on audio-port negotiation
 - 🧠 **Commander queue** — wfview-style serialized command execution with pacing, retries, and dedupe
+- 📊 **Scope/waterfall** — real-time spectrum data with callback API
 - 🔒 **Zero dependencies** — pure Python, stdlib only
 - 📝 **Type-annotated** — full `py.typed` support
 
@@ -73,6 +74,12 @@ async def main():
 
         # CW
         await radio.send_cw_text("CQ CQ DE KN4KYD K")
+
+        # Scope / Waterfall
+        def on_frame(frame):
+            print(f"{frame.start_freq_hz/1e6:.3f}–{frame.end_freq_hz/1e6:.3f} MHz, {len(frame.pixels)} px")
+        radio.on_scope_data(on_frame)
+        await radio.enable_scope()
 
 asyncio.run(main())
 ```
@@ -141,6 +148,9 @@ icom-lan discover
 | `set_attenuator_level(db, receiver)` | Set attenuator dB (0–45, 3 dB steps) |
 | `get_preamp(receiver)` → `int` | Read preamp level (Command29) |
 | `set_preamp(level, receiver)` | Set preamp (0=off, 1=PRE1, 2=PRE2) |
+| `on_scope_data(callback)` | Register callback for scope/waterfall frames |
+| `enable_scope(output=True)` | Enable scope display + data output |
+| `disable_scope()` | Disable scope data output |
 | `send_cw_text(text)` / `stop_cw_text()` | Send/stop CW via built-in keyer |
 | `power_control(on)` | Remote power on/off |
 | `snapshot_state()` / `restore_state(state)` | Best-effort state save/restore |
@@ -174,8 +184,11 @@ See the [protocol documentation](https://morozsm.github.io/icom-lan/internals/pr
 ## Testing
 
 ```bash
-# Unit tests (no radio required)
+# Unit tests (no radio required) — 469 tests
 pytest tests/test_*.py
+
+# Mock integration tests (full UDP protocol, no radio required)
+pytest tests/test_mock_integration.py
 
 # Integration tests (real radio required)
 export ICOM_HOST=192.168.55.40

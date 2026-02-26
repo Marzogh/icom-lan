@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Scope/waterfall API** — real-time spectrum data from the radio:
+    - `ScopeFrame` dataclass with receiver, mode, frequency range, pixel amplitudes
+    - `ScopeAssembler` — reassembles multi-sequence CI-V `0x27 0x00` bursts into complete frames
+    - `IcomRadio.on_scope_data(callback)` — register callback for assembled scope frames
+    - `IcomRadio.enable_scope()` / `disable_scope()` — control scope display and data output
+    - Scope command builders: `scope_on`, `scope_off`, `scope_data_output`, `scope_main_sub`,
+      `scope_single_dual`, `scope_set_mode`, `scope_set_span`, `scope_set_edge`, `scope_set_hold`,
+      `scope_set_ref`, `scope_set_speed`, `scope_set_vbw`, `scope_set_rbw`
+    - IC-7610: up to 689 pixels, 15 sequences/frame, dual receiver support
+- **Mock radio server** (`tests/mock_server.py`) — full UDP emulator for integration testing:
+    - Two-port protocol (control + CI-V), complete handshake lifecycle
+    - CI-V command responses: frequency, mode, power, meters, ATT, PREAMP, DIGI-SEL
+    - `MockIcomRadio` with configurable state and error injection (`auth_fail`, `response_delay`)
+    - 30 new integration tests (`tests/test_mock_integration.py`)
+
+### Changed
+
+- `ScopeFrame.pixels` uses `bytes` (not `list[int]`) for memory efficiency
+- `enable_scope()` / `disable_scope()` now verify ACK and raise `CommandError` on NAK
+- Scope callback persists through disconnect (user manages lifecycle)
+
 ## [0.5.1] — 2026-02-25
 
 ### Fixed

@@ -1,10 +1,25 @@
 """Shared test fixtures for icom-lan tests."""
 
+from __future__ import annotations
+
 import struct
+from collections.abc import AsyncGenerator
 
 import pytest
 
+from icom_lan.radio import IcomRadio
 from icom_lan.types import HEADER_SIZE, PacketType
+
+from mock_server import MockIcomRadio
+
+# ---------------------------------------------------------------------------
+# Patch for missing IcomRadio._handle_raw_civ_packet
+# radio.py:268 sets civ_transport.on_raw_packet to this method, but the
+# method body has not been implemented yet.  Add a no-op so the transport
+# callback doesn't AttributeError.
+# ---------------------------------------------------------------------------
+if not hasattr(IcomRadio, "_handle_raw_civ_packet"):
+    IcomRadio._handle_raw_civ_packet = lambda self, data: None  # type: ignore[attr-defined]
 
 _HEADER_FMT = "<IHHII"
 
@@ -126,3 +141,32 @@ class FakeRadio:
 def fake_radio() -> FakeRadio:
     """Create a FakeRadio instance for testing."""
     return FakeRadio()
+
+
+# ---------------------------------------------------------------------------
+# Mock radio server fixtures (full UDP server)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+async def mock_radio() -> AsyncGenerator[MockIcomRadio]:
+    """Start a mock IC-7610 UDP server for each test, stop it after."""
+    server = MockIcomRadio()
+    await server.start()
+    yield server
+    await server.stop()
+
+
+@pytest.fixture
+async def connected_radio(mock_radio: MockIcomRadio) -> AsyncGenerator[IcomRadio]:
+    """An IcomRadio that has already completed the connect() handshake."""
+    radio = IcomRadio(
+        host="127.0.0.1",
+        port=mock_radio.control_port,
+        username="testuser",
+        password="testpass",
+        timeout=5.0,
+    )
+    await radio.connect()
+    yield radio
+    await radio.disconnect()

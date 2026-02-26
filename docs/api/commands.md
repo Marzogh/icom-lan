@@ -186,6 +186,7 @@ Check if frame is ACK (`True`), NAK (`False`), or neither (`None`).
 | `0x16` | Preamp |
 | `0x17` | CW keying |
 | `0x18` | Power on/off |
+| `0x27` | Scope/waterfall |
 | `0x1C` | PTT / transceiver status |
 | `0xFB` | ACK (command accepted) |
 | `0xFA` | NAK (command rejected) |

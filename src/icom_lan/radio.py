@@ -19,7 +19,7 @@ import time
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import Awaitable, Callable
+    from typing import Any, Awaitable, Callable
 
 from .auth import (
     build_conninfo_packet,
@@ -50,6 +50,8 @@ from .commands import (
     power_on,
     ptt_off,
     ptt_on,
+    scope_data_output as _scope_data_output_cmd,
+    scope_on as _scope_on_cmd,
     select_vfo as _select_vfo_cmd,
     send_cw,
     set_attenuator,
@@ -72,10 +74,11 @@ from .exceptions import (
 )
 from .audio import AudioPacket, AudioStream
 from .commander import IcomCommander, Priority
+from .scope import ScopeAssembler, ScopeFrame
 from .transport import ConnectionState, IcomTransport
 from .types import AudioCodec, CivFrame, Mode
 
-__all__ = ["IcomRadio", "AudioCodec"]
+__all__ = ["IcomRadio", "AudioCodec", "ScopeFrame"]
 
 logger = logging.getLogger(__name__)
 
@@ -165,6 +168,8 @@ class IcomRadio:
         self._watchdog_task: asyncio.Task | None = None
         self._reconnect_task: asyncio.Task | None = None
         self._intentional_disconnect = False
+        self._scope_assembler: ScopeAssembler = ScopeAssembler()
+        self._scope_callback: Callable[[ScopeFrame], Any] | None = None
 
     @property
     def connected(self) -> bool:
@@ -903,14 +908,19 @@ class IcomRadio:
                         from_addr = frame_bytes[3]
                         cmd = frame_bytes[4]
 
-                        # Skip echoes (our command reflected back) and waterfall
-                        if (
-                            from_addr == self._radio_addr
-                            and to_addr == CONTROLLER_ADDR
-                            and cmd != 0x27
-                            and (cmd == our_cmd or cmd in (0xFB, 0xFA))
-                        ):
-                            return parse_civ_frame(frame_bytes)
+                        # Process frames from the radio to us
+                        if from_addr == self._radio_addr and to_addr == CONTROLLER_ADDR:
+                            sub_byte = frame_bytes[5] if len(frame_bytes) > 5 else None
+                            if cmd == 0x27 and sub_byte == 0x00:
+                                # Scope wave data: process as side-effect only
+                                scope_payload = frame_bytes[6:-1]
+                                if len(scope_payload) >= 3:
+                                    recv = scope_payload[0]
+                                    sf = self._scope_assembler.feed(scope_payload[1:], recv)
+                                    if sf is not None and self._scope_callback is not None:
+                                        self._scope_callback(sf)
+                            elif cmd == our_cmd or cmd in (0xFB, 0xFA):
+                                return parse_civ_frame(frame_bytes)
 
                         idx = fd_pos + 1
                     else:
@@ -1414,3 +1424,118 @@ class IcomRadio:
         ack = parse_ack_nak(resp)
         if ack is False:
             raise CommandError(f"Radio rejected power {'on' if on else 'off'}")
+
+    # ------------------------------------------------------------------
+    # Scope / Waterfall API
+    # ------------------------------------------------------------------
+
+    def on_scope_data(self, callback: "Callable[[ScopeFrame], Any] | None") -> None:
+        """Register a callback for scope/waterfall data.
+
+        The callback is called with a complete ScopeFrame each time the
+        radio delivers a full spectrum burst (all sequences assembled).
+
+        Args:
+            callback: Callable accepting a ScopeFrame, or None to unregister.
+        """
+        self._scope_callback = callback
+
+    async def enable_scope(self, *, output: bool = True) -> None:
+        """Enable scope display and data output on the radio.
+
+        Sends CI-V 0x27 0x10 0x01 (scope on) and, if output=True,
+        CI-V 0x27 0x11 0x01 (data output on).
+
+        Args:
+            output: Also enable wave data output (default True).
+
+        Raises:
+            CommandError: If the radio rejects the command.
+        """
+        self._check_connected()
+        resp = await self._send_civ_raw(_scope_on_cmd(to_addr=self._radio_addr))
+        ack = parse_ack_nak(resp)
+        if ack is False:
+            raise CommandError("Radio rejected scope enable")
+        if output:
+            resp = await self._send_civ_raw(
+                _scope_data_output_cmd(True, to_addr=self._radio_addr)
+            )
+            ack = parse_ack_nak(resp)
+            if ack is False:
+                raise CommandError("Radio rejected scope data output enable")
+
+    async def disable_scope(self) -> None:
+        """Disable scope data output on the radio.
+
+        Sends CI-V 0x27 0x11 0x00 (data output off).
+
+        Raises:
+            CommandError: If the radio rejects the command.
+        """
+        self._check_connected()
+        resp = await self._send_civ_raw(
+            _scope_data_output_cmd(False, to_addr=self._radio_addr)
+        )
+        ack = parse_ack_nak(resp)
+        if ack is False:
+            raise CommandError("Radio rejected scope data output disable")
+
+    async def capture_scope_frame(self, timeout: float = 5.0) -> ScopeFrame:
+        """Enable scope and capture one complete frame.
+
+        Does NOT disable scope after — caller decides when to stop.
+
+        Args:
+            timeout: Maximum time to wait for a frame in seconds.
+
+        Returns:
+            First complete ScopeFrame received.
+
+        Raises:
+            TimeoutError: If no frame is received within timeout.
+        """
+        frames = await self.capture_scope_frames(count=1, timeout=timeout)
+        return frames[0]
+
+    async def capture_scope_frames(
+        self, count: int = 50, timeout: float = 10.0
+    ) -> list[ScopeFrame]:
+        """Enable scope and capture *count* complete frames.
+
+        Does NOT disable scope after — caller decides when to stop.
+
+        Args:
+            count: Number of complete frames to capture.
+            timeout: Maximum time to wait in seconds.
+
+        Returns:
+            List of ScopeFrame objects, oldest first.
+
+        Raises:
+            TimeoutError: If fewer than *count* frames arrive within timeout.
+        """
+        self._check_connected()
+
+        collected: list[ScopeFrame] = []
+        frame_ready = asyncio.Event()
+
+        def _on_frame(frame: ScopeFrame) -> None:
+            collected.append(frame)
+            if len(collected) >= count:
+                frame_ready.set()
+
+        old_callback = self._scope_callback
+        self.on_scope_data(_on_frame)
+        try:
+            await self.enable_scope()
+            try:
+                await asyncio.wait_for(frame_ready.wait(), timeout=timeout)
+            except asyncio.TimeoutError:
+                raise TimeoutError(
+                    f"Scope capture timed out: received {len(collected)}/{count} frames"
+                )
+        finally:
+            self.on_scope_data(old_callback)
+
+        return collected[:count]

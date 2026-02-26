@@ -45,6 +45,21 @@ __all__ = [
     "set_preamp",
     "get_digisel",
     "set_digisel",
+    "scope_on",
+    "scope_off",
+    "scope_data_output",
+    "scope_data_output_on",
+    "scope_data_output_off",
+    "scope_main_sub",
+    "scope_single_dual",
+    "scope_set_mode",
+    "scope_set_span",
+    "scope_set_ref",
+    "scope_set_speed",
+    "scope_set_edge",
+    "scope_set_hold",
+    "scope_set_vbw",
+    "scope_set_rbw",
 ]
 
 # CI-V addresses
@@ -604,6 +619,251 @@ def set_digisel(
         sub=_SUB_DIGISEL_STATUS,
         data=bytes([_bcd_byte(1 if on else 0)]),
         receiver=receiver,
+    )
+
+
+# --- Scope / Waterfall commands (CI-V 0x27) ---
+
+_CMD_SCOPE = 0x27
+_SUB_SCOPE_ON = 0x10
+_SUB_SCOPE_DATA_OUTPUT = 0x11
+_SUB_SCOPE_MAIN_SUB = 0x12
+_SUB_SCOPE_SINGLE_DUAL = 0x13
+_SUB_SCOPE_MODE = 0x14
+_SUB_SCOPE_SPAN = 0x15
+_SUB_SCOPE_EDGE = 0x16
+_SUB_SCOPE_HOLD = 0x17
+_SUB_SCOPE_REF = 0x19
+_SUB_SCOPE_SPEED = 0x1A
+_SUB_SCOPE_VBW = 0x1D
+_SUB_SCOPE_RBW = 0x1F
+
+
+def scope_on(
+    to_addr: int = IC_7610_ADDR, from_addr: int = CONTROLLER_ADDR
+) -> bytes:
+    """Build a 'scope on' CI-V command (0x27 0x10 0x01)."""
+    return build_civ_frame(to_addr, from_addr, _CMD_SCOPE, sub=_SUB_SCOPE_ON, data=b"\x01")
+
+
+def scope_off(
+    to_addr: int = IC_7610_ADDR, from_addr: int = CONTROLLER_ADDR
+) -> bytes:
+    """Build a 'scope off' CI-V command (0x27 0x10 0x00)."""
+    return build_civ_frame(to_addr, from_addr, _CMD_SCOPE, sub=_SUB_SCOPE_ON, data=b"\x00")
+
+
+def scope_data_output(
+    on: bool,
+    to_addr: int = IC_7610_ADDR,
+    from_addr: int = CONTROLLER_ADDR,
+) -> bytes:
+    """Build a 'scope data output enable/disable' CI-V command (0x27 0x11).
+
+    Args:
+        on: True to enable wave data output, False to disable.
+    """
+    return build_civ_frame(
+        to_addr, from_addr, _CMD_SCOPE, sub=_SUB_SCOPE_DATA_OUTPUT,
+        data=b"\x01" if on else b"\x00",
+    )
+
+
+def scope_set_mode(
+    mode: int,
+    to_addr: int = IC_7610_ADDR,
+    from_addr: int = CONTROLLER_ADDR,
+) -> bytes:
+    """Build a 'set scope mode' CI-V command (0x27 0x14).
+
+    Args:
+        mode: 0=center, 1=fixed, 2=scroll-C, 3=scroll-F.
+    """
+    return build_civ_frame(
+        to_addr, from_addr, _CMD_SCOPE, sub=_SUB_SCOPE_MODE, data=bytes([mode])
+    )
+
+
+def scope_set_span(
+    span: int,
+    to_addr: int = IC_7610_ADDR,
+    from_addr: int = CONTROLLER_ADDR,
+) -> bytes:
+    """Build a 'set scope span' CI-V command (0x27 0x15).
+
+    Args:
+        span: 0–7 (span index, radio-model dependent).
+    """
+    return build_civ_frame(
+        to_addr, from_addr, _CMD_SCOPE, sub=_SUB_SCOPE_SPAN, data=bytes([span])
+    )
+
+
+def scope_set_edge(
+    edge: int,
+    to_addr: int = IC_7610_ADDR,
+    from_addr: int = CONTROLLER_ADDR,
+) -> bytes:
+    """Build a 'set scope edge' CI-V command (0x27 0x16).
+
+    Args:
+        edge: Edge number 1–4.
+    """
+    return build_civ_frame(
+        to_addr, from_addr, _CMD_SCOPE, sub=_SUB_SCOPE_EDGE, data=bytes([edge])
+    )
+
+
+def scope_set_hold(
+    on: bool,
+    to_addr: int = IC_7610_ADDR,
+    from_addr: int = CONTROLLER_ADDR,
+) -> bytes:
+    """Build a 'scope hold on/off' CI-V command (0x27 0x17).
+
+    Args:
+        on: True to enable hold, False to disable.
+    """
+    return build_civ_frame(
+        to_addr, from_addr, _CMD_SCOPE, sub=_SUB_SCOPE_HOLD,
+        data=b"\x01" if on else b"\x00",
+    )
+
+
+def _scope_ref_encode(ref: float) -> bytes:
+    """Encode scope reference level as 3-byte Icom BCD format.
+
+    Reference: wfview icomcommander.cpp line 3357 (bcdEncodeInt + sign byte).
+
+    Args:
+        ref: Reference level in dB (-30.0 to +10.0).
+
+    Returns:
+        3 bytes: [BCD thousands/hundreds, BCD tens/units, sign(0=+, 1=-)].
+    """
+    is_negative = ref < 0
+    val = int(round(abs(ref) * 10))  # e.g. 10.0 dB → 100
+    thousands = val // 1000
+    hundreds = (val % 1000) // 100
+    tens = (val % 100) // 10
+    units = val % 10
+    b0 = (thousands << 4) | hundreds
+    b1 = (tens << 4) | units
+    sign = 0x01 if is_negative else 0x00
+    return bytes([b0, b1, sign])
+
+
+def scope_set_ref(
+    ref: float,
+    to_addr: int = IC_7610_ADDR,
+    from_addr: int = CONTROLLER_ADDR,
+) -> bytes:
+    """Build a 'set scope reference level' CI-V command (0x27 0x19).
+
+    Args:
+        ref: Reference level in dB (-30.0 to +10.0).
+    """
+    return build_civ_frame(
+        to_addr, from_addr, _CMD_SCOPE, sub=_SUB_SCOPE_REF,
+        data=_scope_ref_encode(ref),
+    )
+
+
+def scope_set_speed(
+    speed: int,
+    to_addr: int = IC_7610_ADDR,
+    from_addr: int = CONTROLLER_ADDR,
+) -> bytes:
+    """Build a 'set scope speed' CI-V command (0x27 0x1A).
+
+    Args:
+        speed: 0=fast, 1=mid, 2=slow.
+    """
+    return build_civ_frame(
+        to_addr, from_addr, _CMD_SCOPE, sub=_SUB_SCOPE_SPEED, data=bytes([speed])
+    )
+
+
+def scope_set_vbw(
+    narrow: bool,
+    to_addr: int = IC_7610_ADDR,
+    from_addr: int = CONTROLLER_ADDR,
+) -> bytes:
+    """Build a 'set scope VBW' CI-V command (0x27 0x1D).
+
+    Args:
+        narrow: True for narrow VBW, False for wide.
+    """
+    return build_civ_frame(
+        to_addr, from_addr, _CMD_SCOPE, sub=_SUB_SCOPE_VBW,
+        data=b"\x01" if narrow else b"\x00",
+    )
+
+
+def scope_set_rbw(
+    rbw: int,
+    to_addr: int = IC_7610_ADDR,
+    from_addr: int = CONTROLLER_ADDR,
+) -> bytes:
+    """Build a 'set scope RBW' CI-V command (0x27 0x1F).
+
+    Args:
+        rbw: 0=wide, 1=mid, 2=narrow.
+    """
+    return build_civ_frame(
+        to_addr, from_addr, _CMD_SCOPE, sub=_SUB_SCOPE_RBW, data=bytes([rbw])
+    )
+
+
+# --- Scope convenience aliases ---
+
+
+def scope_data_output_on(
+    to_addr: int = IC_7610_ADDR, from_addr: int = CONTROLLER_ADDR
+) -> bytes:
+    """Enable scope wave data output (0x27 0x11 0x01)."""
+    return scope_data_output(True, to_addr=to_addr, from_addr=from_addr)
+
+
+def scope_data_output_off(
+    to_addr: int = IC_7610_ADDR, from_addr: int = CONTROLLER_ADDR
+) -> bytes:
+    """Disable scope wave data output (0x27 0x11 0x00)."""
+    return scope_data_output(False, to_addr=to_addr, from_addr=from_addr)
+
+
+def scope_main_sub(
+    receiver: int,
+    to_addr: int = IC_7610_ADDR,
+    from_addr: int = CONTROLLER_ADDR,
+) -> bytes:
+    """Select scope receiver (0x27 0x12 <0x00|0x01>).
+
+    Args:
+        receiver: 0 for MAIN, 1 for SUB.
+    """
+    return build_civ_frame(
+        to_addr,
+        from_addr,
+        _CMD_SCOPE,
+        sub=_SUB_SCOPE_MAIN_SUB,
+        data=bytes([receiver & 0x01]),
+    )
+
+
+def scope_single_dual(
+    dual: bool,
+    to_addr: int = IC_7610_ADDR,
+    from_addr: int = CONTROLLER_ADDR,
+) -> bytes:
+    """Select scope single/dual mode (0x27 0x13 <0x00|0x01>).
+
+    Args:
+        dual: True for dual scope, False for single.
+    """
+    return build_civ_frame(
+        to_addr, from_addr, _CMD_SCOPE, sub=_SUB_SCOPE_SINGLE_DUAL,
+        data=b"\x01" if dual else b"\x00",
     )
 
 

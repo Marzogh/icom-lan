@@ -420,6 +420,70 @@ async def run_state_transaction(self, body: Callable[[], Awaitable[None]]) -> No
 
 Run an operation with automatic snapshot/restore guard.
 
+## Scope / Waterfall
+
+### `on_scope_data()`
+
+```python
+def on_scope_data(self, callback: Callable[[ScopeFrame], Any] | None) -> None
+```
+
+Register a callback for scope/waterfall data. The callback receives a complete `ScopeFrame` each time the radio delivers a full spectrum burst (all sequences assembled).
+
+Pass `None` to unregister.
+
+```python
+from icom_lan.scope import ScopeFrame
+
+def handle_scope(frame: ScopeFrame):
+    print(f"Receiver {frame.receiver}: "
+          f"{frame.start_freq_hz/1e6:.3f}–{frame.end_freq_hz/1e6:.3f} MHz, "
+          f"{len(frame.pixels)} pixels, mode={frame.mode}")
+
+radio.on_scope_data(handle_scope)
+```
+
+### `enable_scope()`
+
+```python
+async def enable_scope(self, *, output: bool = True) -> None
+```
+
+Enable scope display and data output on the radio. Sends CI-V `0x27 0x10 0x01` (scope on) and `0x27 0x11 0x01` (data output on).
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `output` | `bool` | `True` | Also enable wave data output |
+
+**Raises:** `CommandError` if the radio rejects the command.
+
+### `disable_scope()`
+
+```python
+async def disable_scope(self) -> None
+```
+
+Disable scope data output. Sends CI-V `0x27 0x11 0x00`.
+
+**Raises:** `CommandError` if the radio rejects the command.
+
+### `ScopeFrame`
+
+```python
+from icom_lan.scope import ScopeFrame
+```
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `receiver` | `int` | 0=MAIN, 1=SUB |
+| `mode` | `int` | 0=center, 1=fixed, 2=scroll-C, 3=scroll-F |
+| `start_freq_hz` | `int` | Lower edge frequency in Hz |
+| `end_freq_hz` | `int` | Upper edge frequency in Hz |
+| `pixels` | `bytes` | Amplitude values, each 0x00–0xA0 (0–160) |
+| `out_of_range` | `bool` | True if scope data is out of range |
+
+**Note:** In center mode, `start_freq_hz` and `end_freq_hz` are already expanded from center ± half-span to actual edge frequencies.
+
 ## Raw CI-V
 
 ### `send_civ()`

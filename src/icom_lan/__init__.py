@@ -46,6 +46,12 @@ from .commands import (
     parse_mode_response,
     ptt_off,
     ptt_on,
+    scope_data_output_off,
+    scope_data_output_on,
+    scope_main_sub,
+    scope_off,
+    scope_on,
+    scope_single_dual,
     set_attenuator,
     set_attenuator_level,
     set_frequency,
@@ -53,6 +59,20 @@ from .commands import (
     set_power,
     set_preamp,
 )
+from .scope import ScopeAssembler, ScopeFrame
+
+# scope_render is an optional dep (Pillow); import lazily to avoid hard crash
+try:
+    from .scope_render import (  # noqa: F401
+        THEMES as SCOPE_THEMES,
+        amplitude_to_color,
+        render_scope_image,
+        render_spectrum,
+        render_waterfall,
+    )
+    _SCOPE_RENDER_AVAILABLE = True
+except ImportError:
+    _SCOPE_RENDER_AVAILABLE = False
 from .types import (
     HEADER_SIZE,
     AudioCodec,
@@ -117,6 +137,21 @@ __all__ = [
     "parse_mode_response",
     "parse_meter_response",
     "parse_ack_nak",
+    # Scope / Waterfall
+    "ScopeAssembler",
+    "ScopeFrame",
+    # Scope rendering (optional — requires Pillow)
+    "SCOPE_THEMES",
+    "amplitude_to_color",
+    "render_scope_image",
+    "render_spectrum",
+    "render_waterfall",
+    "scope_on",
+    "scope_off",
+    "scope_data_output_on",
+    "scope_data_output_off",
+    "scope_main_sub",
+    "scope_single_dual",
     # Protocol
     "parse_header",
     "serialize_header",
