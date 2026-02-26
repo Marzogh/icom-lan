@@ -357,11 +357,49 @@ async def test_set_split_vfo(handler: RigctldHandler, mock_radio: AsyncMock) -> 
 async def test_dump_state(handler: RigctldHandler, mock_radio: AsyncMock) -> None:
     resp = await handler.execute(get_cmd("dump_state"))
     assert resp.ok
-    assert len(resp.values) == 1
-    dump = resp.values[0]
-    assert "max_rit" in dump
-    assert "has_get_level" in dump
-    assert "60000000" in dump  # frequency range
+    lines = resp.values
+
+    # Line 0: protocol version (atol parseable)
+    assert lines[0] == "0"
+    # Line 1: rig model — IC-7610 hamlib model number
+    assert lines[1] == "3078"
+    # Line 2: ITU region
+    assert lines[2] == "1"
+    # Line 3: RX range (7 fields: startf endf modes low_power high_power vfo ant)
+    assert lines[3] == "100000.000000 60000000.000000 0x1ff -1 -1 0x3 0xf"
+    # Line 4: end of RX ranges sentinel
+    assert lines[4] == "0 0 0 0 0 0 0"
+    # Line 5: TX range
+    assert lines[5] == "1800000.000000 60000000.000000 0x1ff 5000 100000 0x3 0xf"
+    # Line 6: end of TX ranges sentinel
+    assert lines[6] == "0 0 0 0 0 0 0"
+    # Line 7: tuning step (modes ts)
+    assert lines[7] == "0x1ff 1"
+    # Line 8: end of tuning steps sentinel
+    assert lines[8] == "0 0"
+    # Lines 9-11: filters (modes width)
+    assert lines[9] == "0x1ff 3000"
+    assert lines[10] == "0x1ff 2400"
+    assert lines[11] == "0x1ff 1800"
+    # Line 12: end of filters sentinel
+    assert lines[12] == "0 0"
+    # Lines 13-16: bare scalars — no 'key: value' prefix
+    assert lines[13] == "0"   # max_rit
+    assert lines[14] == "0"   # max_xit
+    assert lines[15] == "0"   # max_ifshift
+    assert lines[16] == "0"   # announces
+    # Lines 17-18: preamp/attenuator — space-separated ints, 0-terminated
+    assert lines[17] == "12 20 0"
+    assert lines[18] == "6 12 18 0"
+    # Lines 19-24: capability bitmasks — bare hex/int, no label prefix
+    assert lines[19] == "0"             # has_get_func
+    assert lines[20] == "0"             # has_set_func
+    # has_get_level must include RIG_LEVEL_STRENGTH (0x40000000)
+    assert lines[21] == "0x54001000"    # STRENGTH|SWR|ALC|RFPOWER
+    assert lines[22] == "0x00001000"    # has_set_level (RFPOWER)
+    assert lines[23] == "0"             # has_get_parm
+    assert lines[24] == "0"             # has_set_parm
+    assert len(lines) == 25
 
 
 @pytest.mark.asyncio

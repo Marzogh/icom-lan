@@ -36,36 +36,45 @@ __all__ = ["RigctldHandler"]
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# IC-7610 hardcoded dump_state (hamlib protocol v0 format)
+# IC-7610 hardcoded dump_state (hamlib protocol v0 positional format)
 # ---------------------------------------------------------------------------
+# hamlib netrigctl.c parses dump_state as POSITIONAL bare values via atol/sscanf.
+# NO 'key: value' pairs — just bare numbers/strings, one per list entry.
+#
 # Mode bits (RIG_MODE_*): AM=0x01 CW=0x02 USB=0x04 LSB=0x08 RTTY=0x10
 #                          FM=0x20 WFM=0x40 CWR=0x80 RTTYR=0x100
 # 0x1ff = all nine modes above
-# has_get_level: RIG_LEVEL_RFPOWER(0x1000)|RIG_LEVEL_SWR(0x10000000)|
-#                RIG_LEVEL_STRENGTH(0x40000000) = 0x50001000
-_IC7610_DUMP_STATE = (
-    "0\n"                                                       # protocol version
-    "2\n"                                                       # rig model (generic)
-    "1\n"                                                       # ITU region
-    "100000.000000 60000000.000000 0x1ff -1 -1 0x3 0xf\n"     # RX range
-    "0 0 0 0 0 0 0\n"                                          # end of RX ranges
-    "1800000.000000 57000000.000000 0x1ff 5000 100000 0x3 0xf\n"  # TX range
-    "0 0 0 0 0 0 0\n"                                          # end of TX ranges
-    "0 0\n"                                                     # end of tuning steps
-    "0 0\n"                                                     # end of filters
-    "max_rit: 0\n"
-    "max_xit: 0\n"
-    "max_ifshift: 0\n"
-    "announces: 0\n"
-    "preamp: 12 20 0\n"
-    "attenuator: 6 12 18 0\n"
-    "has_get_func: 0\n"
-    "has_set_func: 0\n"
-    "has_get_level: 0x50001000\n"
-    "has_set_level: 0x00001000\n"
-    "has_get_parm: 0\n"
-    "has_set_parm: 0"
-)
+#
+# has_get_level: RIG_LEVEL_STRENGTH(0x40000000) | RIG_LEVEL_SWR(0x10000000)
+#              | RIG_LEVEL_ALC(0x04000000) | RIG_LEVEL_RFPOWER(0x00001000)
+#              = 0x54001000
+_IC7610_DUMP_STATE: list[str] = [
+    "0",                                                          # protocol version
+    "3078",                                                       # rig model (IC-7610)
+    "1",                                                          # ITU region
+    "100000.000000 60000000.000000 0x1ff -1 -1 0x3 0xf",        # RX range
+    "0 0 0 0 0 0 0",                                             # end of RX ranges
+    "1800000.000000 60000000.000000 0x1ff 5000 100000 0x3 0xf", # TX range
+    "0 0 0 0 0 0 0",                                             # end of TX ranges
+    "0x1ff 1",                                                    # tuning step (all modes, 1 Hz)
+    "0 0",                                                        # end of tuning steps
+    "0x1ff 3000",                                                 # filter: wide 3000 Hz
+    "0x1ff 2400",                                                 # filter: normal 2400 Hz
+    "0x1ff 1800",                                                 # filter: narrow 1800 Hz
+    "0 0",                                                        # end of filters
+    "0",                                                          # max_rit
+    "0",                                                          # max_xit
+    "0",                                                          # max_ifshift
+    "0",                                                          # announces
+    "12 20 0",                                                    # preamp (dB values, 0-terminated)
+    "6 12 18 0",                                                  # attenuator (dB values, 0-terminated)
+    "0",                                                          # has_get_func
+    "0",                                                          # has_set_func
+    "0x54001000",                                                 # has_get_level (STRENGTH|SWR|ALC|RFPOWER)
+    "0x00001000",                                                 # has_set_level (RFPOWER)
+    "0",                                                          # has_get_parm
+    "0",                                                          # has_set_parm
+]
 
 # Filter number → approximate passband in Hz (IC-7610 USB defaults)
 _FILTER_TO_PASSBAND: dict[int, int] = {1: 3000, 2: 2400, 3: 1800}
@@ -304,7 +313,7 @@ class RigctldHandler:
     # ------------------------------------------------------------------
 
     async def _cmd_dump_state(self, cmd: RigctldCommand) -> RigctldResponse:
-        return RigctldResponse(values=[_IC7610_DUMP_STATE])
+        return RigctldResponse(values=list(_IC7610_DUMP_STATE))
 
     async def _cmd_dump_caps(self, cmd: RigctldCommand) -> RigctldResponse:
         return await self._cmd_dump_state(cmd)
