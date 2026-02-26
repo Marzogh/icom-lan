@@ -94,7 +94,7 @@ _PREAMBLE = b"\xfe\xfe"
 _TERMINATOR = b"\xfd"
 
 # Commands that use sub-commands (for parse disambiguation)
-_COMMANDS_WITH_SUB: set[int] = {_CMD_LEVEL, _CMD_METER, _CMD_PTT}
+_COMMANDS_WITH_SUB: set[int] = {_CMD_LEVEL, _CMD_METER, _CMD_PTT, 0x27}
 
 
 def build_civ_frame(
@@ -195,7 +195,7 @@ def parse_civ_frame(data: bytes) -> CivFrame:
 
     # Handle Command29 prefix (dual-receiver): unwrap 0x29 <receiver> <real_cmd> ...
     if command == _CMD_RECEIVER_PREFIX and len(payload) >= 2:
-        _receiver = payload[0]
+        receiver = payload[0]
         real_command = payload[1]
         inner_payload = payload[2:]
         # Check if real command uses sub-commands
@@ -206,6 +206,7 @@ def parse_civ_frame(data: bytes) -> CivFrame:
                 command=real_command,
                 sub=inner_payload[0],
                 data=bytes(inner_payload[1:]),
+                receiver=receiver,
             )
         # PREAMP (0x16) uses sub-commands too
         if real_command == _CMD_PREAMP and len(inner_payload) >= 1:
@@ -215,6 +216,7 @@ def parse_civ_frame(data: bytes) -> CivFrame:
                 command=real_command,
                 sub=inner_payload[0],
                 data=bytes(inner_payload[1:]),
+                receiver=receiver,
             )
         return CivFrame(
             to_addr=to_addr,
@@ -222,6 +224,7 @@ def parse_civ_frame(data: bytes) -> CivFrame:
             command=real_command,
             sub=None,
             data=bytes(inner_payload),
+            receiver=receiver,
         )
 
     # Determine if first payload byte is a sub-command

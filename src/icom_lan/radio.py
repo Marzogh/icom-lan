@@ -16,7 +16,7 @@ import logging
 import os
 import struct
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, AsyncGenerator
 
 if TYPE_CHECKING:
     from typing import Any, Awaitable, Callable
@@ -74,11 +74,18 @@ from .exceptions import (
 )
 from .audio import AudioPacket, AudioStream
 from .commander import IcomCommander, Priority
+from .civ import (
+    CivEvent,
+    CivEventType,
+    CivRequestTracker,
+    iter_civ_frames,
+    request_key_from_frame,
+)
 from .scope import ScopeAssembler, ScopeFrame
 from .transport import ConnectionState, IcomTransport
-from .types import AudioCodec, CivFrame, Mode
+from .types import AudioCodec, CivFrame, Mode, ScopeCompletionPolicy
 
-__all__ = ["IcomRadio", "AudioCodec", "ScopeFrame"]
+__all__ = ["IcomRadio", "AudioCodec", "ScopeFrame", "ScopeCompletionPolicy"]
 
 logger = logging.getLogger(__name__)
 
@@ -170,6 +177,15 @@ class IcomRadio:
         self._intentional_disconnect = False
         self._scope_assembler: ScopeAssembler = ScopeAssembler()
         self._scope_callback: Callable[[ScopeFrame], Any] | None = None
+        self._civ_rx_task: asyncio.Task[None] | None = None
+        self._civ_request_tracker = CivRequestTracker()
+        self._scope_frame_queue: asyncio.Queue[ScopeFrame] = asyncio.Queue(maxsize=64)
+        self._scope_activity_counter: int = 0
+        self._scope_activity_event = asyncio.Event()
+        self._civ_event_queue: asyncio.Queue[CivEvent] = asyncio.Queue(maxsize=256)
+        self._civ_ack_sink_grace: float = (
+            float(os.environ.get("ICOM_CIV_ACK_SINK_GRACE_MS", "120")) / 1000.0
+        )
 
     @property
     def connected(self) -> bool:
@@ -272,6 +288,7 @@ class IcomRadio:
         await asyncio.sleep(0.3)
         await self._flush_queue(self._civ_transport)
 
+        self._start_civ_rx_pump()
         self._connected = True
         self._intentional_disconnect = False
         self._ctrl_transport.state = ConnectionState.CONNECTED
@@ -312,6 +329,7 @@ class IcomRadio:
                 except Exception:
                     pass
                 await self._stop_civ_worker()
+                await self._stop_civ_rx_pump()
                 await self._civ_transport.disconnect()
                 self._civ_transport = None
             await self._ctrl_transport.disconnect()
@@ -448,11 +466,119 @@ class IcomRadio:
         logger.info("Audio transport connected on port %d", self._audio_port)
 
     # ------------------------------------------------------------------
-    # CI-V command queue
+    # CI-V RX + command queue
     # ------------------------------------------------------------------
+
+    def _start_civ_rx_pump(self) -> None:
+        """Start always-on CI-V receive pump."""
+        if self._civ_rx_task is None or self._civ_rx_task.done():
+            self._civ_rx_task = asyncio.create_task(self._civ_rx_loop())
+
+    async def _stop_civ_rx_pump(self) -> None:
+        """Stop CI-V receive pump and fail pending request futures."""
+        self._civ_request_tracker.fail_all(ConnectionError("CI-V RX pump stopped"))
+        if self._civ_rx_task is not None and not self._civ_rx_task.done():
+            self._civ_rx_task.cancel()
+            try:
+                await self._civ_rx_task
+            except asyncio.CancelledError:
+                pass
+        self._civ_rx_task = None
+
+    def _ensure_civ_runtime(self) -> None:
+        """Ensure CI-V transport exists (tests may bypass connect()).
+
+        Note: we intentionally do NOT start the CI-V RX pump here.
+        The RX pump should be started explicitly (connect() or right before
+        sending) to avoid races with tests that pre-queue mock packets.
+        """
+        if self._civ_transport is None:
+            raise ConnectionError("Not connected to radio")
+
+    async def _civ_rx_loop(self) -> None:
+        """Continuously consume CI-V transport packets and route events."""
+        assert self._civ_transport is not None
+        try:
+            while self._civ_transport is not None:
+                try:
+                    packet = await self._civ_transport.receive_packet(timeout=0.2)
+                except asyncio.TimeoutError:
+                    continue
+                if len(packet) <= CIV_HEADER_SIZE:
+                    continue
+                payload = packet[CIV_HEADER_SIZE:]
+                for frame_bytes in iter_civ_frames(payload):
+                    try:
+                        frame = parse_civ_frame(frame_bytes)
+                    except ValueError:
+                        continue
+                    try:
+                        await self._route_civ_frame(frame)
+                    except Exception:
+                        logger.exception("Unhandled exception while routing CI-V frame")
+        except asyncio.CancelledError:
+            pass
+
+    async def _route_civ_frame(self, frame: CivFrame) -> None:
+        """Route one parsed CI-V frame into command/scope event paths."""
+        if frame.from_addr != self._radio_addr or frame.to_addr != CONTROLLER_ADDR:
+            return
+
+        if frame.command == 0x27 and frame.sub == 0x00 and len(frame.data) >= 3:
+            receiver = frame.data[0]
+            self._scope_activity_counter += 1
+            self._scope_activity_event.set()
+            self._publish_civ_event(
+                CivEvent(
+                    type=CivEventType.SCOPE_CHUNK,
+                    frame=frame,
+                    receiver=receiver,
+                )
+            )
+            scope_frame = self._scope_assembler.feed(frame.data[1:], receiver)
+            if scope_frame is not None:
+                self._publish_scope_frame(scope_frame)
+            return
+
+        if frame.command == 0xFB:
+            event = CivEvent(type=CivEventType.ACK, frame=frame)
+        elif frame.command == 0xFA:
+            event = CivEvent(type=CivEventType.NAK, frame=frame)
+        else:
+            event = CivEvent(type=CivEventType.RESPONSE, frame=frame)
+
+        self._publish_civ_event(event)
+        self._civ_request_tracker.resolve(event)
+
+    def _publish_scope_frame(self, frame: ScopeFrame) -> None:
+        """Publish a complete scope frame to callback and bounded queue."""
+        self._publish_civ_event(CivEvent(type=CivEventType.SCOPE_FRAME))
+        if self._scope_frame_queue.full():
+            try:
+                self._scope_frame_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                pass
+        self._scope_frame_queue.put_nowait(frame)
+        callback = self._scope_callback
+        if callback is not None:
+            try:
+                callback(frame)
+            except Exception:
+                logger.exception("Scope callback raised an exception")
+
+    def _publish_civ_event(self, event: CivEvent) -> None:
+        """Publish CI-V event to internal event queue (best effort)."""
+        if self._civ_event_queue.full():
+            try:
+                self._civ_event_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                pass
+        self._civ_event_queue.put_nowait(event)
 
     def _start_civ_worker(self) -> None:
         """Start serialized CI-V commander (wfview-like queueing)."""
+        self._ensure_civ_runtime()
+        self._start_civ_rx_pump()
         if self._commander is None:
             self._commander = IcomCommander(
                 self._execute_civ_raw,
@@ -842,31 +968,107 @@ class IcomRadio:
         priority: Priority = Priority.NORMAL,
         key: str | None = None,
         dedupe: bool = False,
-    ) -> CivFrame:
+        wait_response: bool = True,
+    ) -> CivFrame | None:
         """Enqueue a CI-V command and wait for its response."""
         assert self._civ_transport is not None
+        self._ensure_civ_runtime()
 
         if self._commander is None:
             # Fallback path (e.g. during tests/mocks before queue init).
-            return await self._execute_civ_raw(civ_frame)
+            return await self._execute_civ_raw(civ_frame, wait_response=wait_response)
 
         return await self._commander.send(
             civ_frame,
             priority=priority,
             key=key,
             dedupe=dedupe,
+            wait_response=wait_response,
         )
 
-    async def _execute_civ_raw(self, civ_frame: bytes) -> CivFrame:
-        """Execute one CI-V command on transport (serialized by worker)."""
-        assert self._civ_transport is not None
+    @staticmethod
+    def _civ_expects_response(frame: CivFrame) -> bool:
+        """Determine if a CI-V frame expects a data RESPONSE or just an ACK/NAK."""
+        if frame.command in (0x03, 0x04):
+            return True
+        if frame.command == 0x17:
+            return False
+        if frame.command == 0x27:
+            return False
+        # If no further payload beyond command/sub is included, it's typically a GET
+        return len(frame.data) == 0
 
-        # Extract our command byte for matching the response
-        # Frame: FE FE <to> <from> <cmd> [sub] [data] FD
-        our_cmd = civ_frame[4] if len(civ_frame) > 4 else 0xFF
+    async def _drain_ack_sinks_before_blocking(self) -> None:
+        """Give fire-and-forget ACK sinks a short chance to drain, then clear stale ones.
+
+        This prevents a missing ACK from poisoning the ACK waiter queue for the
+        next blocking command.
+        """
+        if self._civ_request_tracker.ack_sink_count == 0:
+            return
+
+        deadline = time.monotonic() + self._civ_ack_sink_grace
+        while self._civ_request_tracker.ack_sink_count > 0 and time.monotonic() < deadline:
+            await asyncio.sleep(0.005)
+
+        dropped = self._civ_request_tracker.drop_ack_sinks()
+        if dropped:
+            logger.debug("Dropped %d stale ACK sink waiter(s) before blocking command", dropped)
+
+    async def _execute_civ_raw(self, civ_frame: bytes, wait_response: bool = True) -> CivFrame | None:
+        """Execute one CI-V command via request tracker (serialized by worker)."""
+        assert self._civ_transport is not None
+        self._ensure_civ_runtime()
+
+        parsed_frame = parse_civ_frame(civ_frame)
+        request_key = request_key_from_frame(parsed_frame)
+        expects_response = self._civ_expects_response(parsed_frame)
 
         attempts = 3
         for attempt in range(1, attempts + 1):
+            if not wait_response:
+                ack_sink_token: int | None = None
+
+                # Fire-and-forget: sink the ACK so it doesn't shift the queue.
+                if not expects_response:
+                    token_or_future = self._civ_request_tracker.register_ack(wait=False)
+                    if isinstance(token_or_future, int):
+                        ack_sink_token = token_or_future
+
+                # Ensure RX pump is running for event routing.
+                self._start_civ_rx_pump()
+
+                # Rate limit applies to fire-and-forget as well
+                now = time.monotonic()
+                delta = now - self._last_civ_send_monotonic
+                if delta < self._civ_min_interval:
+                    await asyncio.sleep(self._civ_min_interval - delta)
+
+                pkt = self._wrap_civ(civ_frame)
+                try:
+                    await self._civ_transport.send_tracked(pkt)
+                except Exception:
+                    if ack_sink_token is not None:
+                        self._civ_request_tracker.unregister_ack_sink(ack_sink_token)
+                    raise
+
+                self._last_civ_send_monotonic = time.monotonic()
+                return None
+
+            await self._drain_ack_sinks_before_blocking()
+
+            # Register future BEFORE starting RX pump / sending.
+            if expects_response:
+                pending = self._civ_request_tracker.register_response(request_key)
+            else:
+                pending_or_token = self._civ_request_tracker.register_ack(wait=True)
+                if isinstance(pending_or_token, int):
+                    raise RuntimeError("ACK waiter registration returned sink token")
+                pending = pending_or_token
+
+            # Ensure RX pump is running for event routing.
+            self._start_civ_rx_pump()
+
             # Rate-limit CI-V commands slightly (wfview-like pacing).
             now = time.monotonic()
             delta = now - self._last_civ_send_monotonic
@@ -874,66 +1076,33 @@ class IcomRadio:
                 await asyncio.sleep(self._civ_min_interval - delta)
 
             pkt = self._wrap_civ(civ_frame)
-            await self._civ_transport.send_tracked(pkt)
-            self._last_civ_send_monotonic = time.monotonic()
 
-            deadline = time.monotonic() + self._timeout
-            timed_out = False
+            try:
+                await self._civ_transport.send_tracked(pkt)
+                self._last_civ_send_monotonic = time.monotonic()
+                assert pending is not None
+                return await asyncio.wait_for(pending, timeout=self._timeout)
+            except asyncio.TimeoutError:
+                self._civ_request_tracker.unregister(pending)
+                if attempt < attempts:
+                    logger.debug(
+                        "CI-V command 0x%02X timed out (attempt %d/%d), retrying",
+                        request_key.command,
+                        attempt,
+                        attempts,
+                    )
+                    continue
+            except Exception:
+                self._civ_request_tracker.unregister(pending)
+                raise
 
-            while True:
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    timed_out = True
-                    break
-                try:
-                    resp = await self._civ_transport.receive_packet(timeout=remaining)
-                except asyncio.TimeoutError:
-                    timed_out = True
-                    break
-
-                if len(resp) <= CIV_HEADER_SIZE:
-                    continue  # idle/control packet
-
-                payload = resp[CIV_HEADER_SIZE:]
-
-                # Scan payload for CI-V frames (there may be waterfall data too)
-                idx = 0
-                while idx < len(payload) - 4:
-                    if payload[idx] == 0xFE and payload[idx + 1] == 0xFE:
-                        fd_pos = payload.find(b"\xfd", idx + 4)
-                        if fd_pos < 0:
-                            break
-                        frame_bytes = payload[idx : fd_pos + 1]
-                        to_addr = frame_bytes[2]
-                        from_addr = frame_bytes[3]
-                        cmd = frame_bytes[4]
-
-                        # Process frames from the radio to us
-                        if from_addr == self._radio_addr and to_addr == CONTROLLER_ADDR:
-                            sub_byte = frame_bytes[5] if len(frame_bytes) > 5 else None
-                            if cmd == 0x27 and sub_byte == 0x00:
-                                # Scope wave data: process as side-effect only
-                                scope_payload = frame_bytes[6:-1]
-                                if len(scope_payload) >= 3:
-                                    recv = scope_payload[0]
-                                    sf = self._scope_assembler.feed(scope_payload[1:], recv)
-                                    if sf is not None and self._scope_callback is not None:
-                                        self._scope_callback(sf)
-                            elif cmd == our_cmd or cmd in (0xFB, 0xFA):
-                                return parse_civ_frame(frame_bytes)
-
-                        idx = fd_pos + 1
-                    else:
-                        idx += 1
-
-            if timed_out and attempt < attempts:
+            if attempt < attempts:
                 logger.debug(
                     "CI-V command 0x%02X timed out (attempt %d/%d), retrying",
-                    our_cmd,
+                    request_key.command,
                     attempt,
                     attempts,
                 )
-                await self._flush_queue(self._civ_transport, max_pkts=50)
                 continue
 
         raise TimeoutError("CI-V response timed out")
@@ -944,7 +1113,7 @@ class IcomRadio:
 
     async def send_civ(
         self, command: int, sub: int | None = None, data: bytes | None = None
-    ) -> CivFrame:
+    ) -> CivFrame | None:
         """Send a CI-V command and return the response.
 
         Args:
@@ -1429,57 +1598,103 @@ class IcomRadio:
     # Scope / Waterfall API
     # ------------------------------------------------------------------
 
-    def on_scope_data(self, callback: "Callable[[ScopeFrame], Any] | None") -> None:
-        """Register a callback for scope/waterfall data.
-
-        The callback is called with a complete ScopeFrame each time the
-        radio delivers a full spectrum burst (all sequences assembled).
+    def on_scope_data(self, callback: "Callable[[ScopeFrame], None] | None") -> None:
+        """Register a callback for completed scope frames.
 
         Args:
-            callback: Callable accepting a ScopeFrame, or None to unregister.
+            callback: Function taking a ScopeFrame, or None to unregister.
         """
         self._scope_callback = callback
 
-    async def enable_scope(self, *, output: bool = True) -> None:
-        """Enable scope display and data output on the radio.
+    async def scope_stream(self) -> AsyncGenerator[ScopeFrame, None]:
+        """Consume scope frames asynchronously.
 
-        Sends CI-V 0x27 0x10 0x01 (scope on) and, if output=True,
-        CI-V 0x27 0x11 0x01 (data output on).
+        Yields:
+            ScopeFrame objects as they are assembled.
+            Stops yielding if the radio disconnects.
+
+        Note:
+            Uses a bounded queue (maxsize=64) that drops oldest frames if not
+            consumed fast enough. Call enable_scope() separately to start data.
+        """
+        while self._connected:
+            try:
+                frame = await asyncio.wait_for(
+                    self._scope_frame_queue.get(), timeout=1.0
+                )
+                yield frame
+                self._scope_frame_queue.task_done()
+            except asyncio.TimeoutError:
+                continue
+
+    async def enable_scope(
+        self,
+        *,
+        output: bool = True,
+        policy: ScopeCompletionPolicy | str = ScopeCompletionPolicy.VERIFY,
+        timeout: float = 5.0,
+    ) -> None:
+        """Enable scope display and data output on the radio.
 
         Args:
             output: Also enable wave data output (default True).
+            policy: Completion policy (strict, fast, verify).
+            timeout: Verification timeout in seconds.
 
         Raises:
-            CommandError: If the radio rejects the command.
+            CommandError: If the radio rejects the command (in strict mode).
+            TimeoutError: If verification times out (in verify mode).
         """
         self._check_connected()
-        resp = await self._send_civ_raw(_scope_on_cmd(to_addr=self._radio_addr))
-        ack = parse_ack_nak(resp)
-        if ack is False:
-            raise CommandError("Radio rejected scope enable")
+        pol = ScopeCompletionPolicy(policy)
+        wait_resp = pol == ScopeCompletionPolicy.STRICT
+
+        if pol == ScopeCompletionPolicy.VERIFY:
+            self._scope_activity_event.clear()
+
+        resp = await self._send_civ_raw(
+            _scope_on_cmd(to_addr=self._radio_addr), wait_response=wait_resp
+        )
+        if wait_resp and resp is not None:
+            if parse_ack_nak(resp) is False:
+                raise CommandError("Radio rejected scope enable")
         if output:
             resp = await self._send_civ_raw(
-                _scope_data_output_cmd(True, to_addr=self._radio_addr)
+                _scope_data_output_cmd(True, to_addr=self._radio_addr),
+                wait_response=wait_resp,
             )
-            ack = parse_ack_nak(resp)
-            if ack is False:
-                raise CommandError("Radio rejected scope data output enable")
+            if wait_resp and resp is not None:
+                if parse_ack_nak(resp) is False:
+                    raise CommandError("Radio rejected scope data output enable")
 
-    async def disable_scope(self) -> None:
+        if pol == ScopeCompletionPolicy.VERIFY:
+            try:
+                await asyncio.wait_for(self._scope_activity_event.wait(), timeout=timeout)
+            except asyncio.TimeoutError:
+                raise TimeoutError("Scope enable verification timed out (no data seen)")
+
+    async def disable_scope(
+        self, *, policy: ScopeCompletionPolicy | str = ScopeCompletionPolicy.FAST
+    ) -> None:
         """Disable scope data output on the radio.
 
-        Sends CI-V 0x27 0x11 0x00 (data output off).
+        Args:
+            policy: Completion policy, usually fast.
 
         Raises:
-            CommandError: If the radio rejects the command.
+            CommandError: If the radio rejects the command (strict mode).
         """
         self._check_connected()
+        pol = ScopeCompletionPolicy(policy)
+        wait_resp = pol == ScopeCompletionPolicy.STRICT
+
         resp = await self._send_civ_raw(
-            _scope_data_output_cmd(False, to_addr=self._radio_addr)
+            _scope_data_output_cmd(False, to_addr=self._radio_addr),
+            wait_response=wait_resp,
         )
-        ack = parse_ack_nak(resp)
-        if ack is False:
-            raise CommandError("Radio rejected scope data output disable")
+        if wait_resp and resp is not None:
+            if parse_ack_nak(resp) is False:
+                raise CommandError("Radio rejected scope data output disable")
 
     async def capture_scope_frame(self, timeout: float = 5.0) -> ScopeFrame:
         """Enable scope and capture one complete frame.
@@ -1528,7 +1743,7 @@ class IcomRadio:
         old_callback = self._scope_callback
         self.on_scope_data(_on_frame)
         try:
-            await self.enable_scope()
+            await self.enable_scope(policy=ScopeCompletionPolicy.VERIFY, timeout=timeout)
             try:
                 await asyncio.wait_for(frame_ready.wait(), timeout=timeout)
             except asyncio.TimeoutError:

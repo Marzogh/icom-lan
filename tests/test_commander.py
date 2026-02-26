@@ -13,7 +13,7 @@ from icom_lan.types import CivFrame
 async def test_priority_ordering() -> None:
     order: list[bytes] = []
 
-    async def execute(cmd: bytes) -> CivFrame:
+    async def execute(cmd: bytes, wait_response: bool = True) -> CivFrame | None:
         await asyncio.sleep(0)
         order.append(cmd)
         return CivFrame(to_addr=0xE0, from_addr=0x98, command=0xFB, sub=None, data=b"")
@@ -33,7 +33,7 @@ async def test_priority_ordering() -> None:
 
 @pytest.mark.asyncio
 async def test_transaction_restores_on_error() -> None:
-    async def execute(cmd: bytes) -> CivFrame:
+    async def execute(cmd: bytes, wait_response: bool = True) -> CivFrame | None:
         return CivFrame(to_addr=0xE0, from_addr=0x98, command=0xFB, sub=None, data=b"")
 
     c = IcomCommander(execute, min_interval=0.0)
@@ -64,7 +64,7 @@ async def test_transaction_restores_on_error() -> None:
 async def test_min_interval_throttling() -> None:
     times: list[float] = []
 
-    async def execute(cmd: bytes) -> CivFrame:
+    async def execute(cmd: bytes, wait_response: bool = True) -> CivFrame | None:
         times.append(asyncio.get_running_loop().time())
         return CivFrame(to_addr=0xE0, from_addr=0x98, command=0xFB, sub=None, data=b"")
 
@@ -84,7 +84,7 @@ async def test_min_interval_throttling() -> None:
 async def test_dedupe_returns_existing_future() -> None:
     count = 0
 
-    async def execute(cmd: bytes) -> CivFrame:
+    async def execute(cmd: bytes, wait_response: bool = True) -> CivFrame | None:
         nonlocal count
         count += 1
         await asyncio.sleep(0.02)
@@ -111,14 +111,14 @@ async def test_dedupe_returns_existing_future() -> None:
     reason="Flaky under OpenClaw exec (intermittent SIGTERM)", strict=False
 )
 async def test_stop_fails_pending() -> None:
-    async def execute(cmd: bytes) -> CivFrame:
-        await asyncio.sleep(1)
+    async def execute(cmd: bytes, wait_response: bool = True) -> CivFrame | None:
+        await asyncio.sleep(0.5)
         return CivFrame(to_addr=0xE0, from_addr=0x98, command=0xFB, sub=None, data=b"")
 
     c = IcomCommander(execute, min_interval=0.0)
     c.start()
     task = asyncio.create_task(c.send(b"long"))
-    await asyncio.sleep(0.05)
+    await asyncio.sleep(0.01)
     await c.stop()
     with pytest.raises(ConnectionError):
-        await task
+        await asyncio.wait_for(task, timeout=0.1)

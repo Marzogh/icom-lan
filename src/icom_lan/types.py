@@ -1,12 +1,13 @@
 """Enums, dataclasses, and helper functions for the Icom LAN protocol."""
 
 from dataclasses import dataclass
-from enum import IntEnum
+from enum import IntEnum, StrEnum
 
 __all__ = [
     "PacketType",
     "Mode",
     "AudioCodec",
+    "ScopeCompletionPolicy",
     "PacketHeader",
     "CivFrame",
     "HEADER_SIZE",
@@ -76,6 +77,15 @@ class Mode(IntEnum):
     DV = 0x17
 
 
+class ScopeCompletionPolicy(StrEnum):
+    """Policies for awaiting completion of scope commands."""
+
+    STRICT = "strict"  # Wait for a CI-V ACK response
+    FAST = "fast"      # Fire-and-forget, do not wait for ACK
+    VERIFY = "verify"  # Fire-and-forget, but await actual scope data activity
+
+
+
 @dataclass(frozen=True, slots=True)
 class PacketHeader:
     """Fixed 16-byte header present in every Icom LAN UDP packet.
@@ -105,6 +115,7 @@ class CivFrame:
         command: CI-V command byte.
         sub: Optional sub-command byte.
         data: Payload data (excluding command and sub bytes).
+        receiver: Optional receiver index for Command29-wrapped frames.
     """
 
     to_addr: int
@@ -112,6 +123,7 @@ class CivFrame:
     command: int
     sub: int | None = None
     data: bytes = b""
+    receiver: int | None = None
 
 
 def bcd_encode(freq_hz: int) -> bytes:

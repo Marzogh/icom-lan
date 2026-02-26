@@ -120,6 +120,12 @@ icom-lan att 18           # Set 18 dB
 icom-lan preamp           # Get preamp level
 icom-lan preamp 1         # Set PREAMP 1
 
+# Scope / Waterfall snapshot (requires: pip install icom-lan[scope])
+icom-lan scope                      # Combined spectrum + waterfall → scope.png
+icom-lan scope --spectrum-only      # Spectrum only (1 frame)
+icom-lan scope --theme grayscale    # Grayscale theme
+icom-lan scope --json               # Raw data as JSON (no Pillow needed)
+
 # Discover radios on network
 icom-lan discover
 ```

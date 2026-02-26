@@ -18,6 +18,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
       `scope_single_dual`, `scope_set_mode`, `scope_set_span`, `scope_set_edge`, `scope_set_hold`,
       `scope_set_ref`, `scope_set_speed`, `scope_set_vbw`, `scope_set_rbw`
     - IC-7610: up to 689 pixels, 15 sequences/frame, dual receiver support
+- **Scope rendering** (`pip install icom-lan[scope]`):
+    - `render_spectrum()` — spectrum plot (amplitude vs frequency) with grid and labels
+    - `render_waterfall()` — heatmap waterfall display, newest frame at top
+    - `render_scope_image()` — combined spectrum + waterfall PNG
+    - Color themes: `classic` (WSJT-X style) and `grayscale`, extensible via THEMES dict
+    - `capture_scope_frame()` / `capture_scope_frames()` — convenience capture methods
+- **CLI `icom-lan scope`**:
+    - `--output`, `--frames`, `--theme`, `--spectrum-only`, `--width`, `--json`, `--capture-timeout`
 - **Mock radio server** (`tests/mock_server.py`) — full UDP emulator for integration testing:
     - Two-port protocol (control + CI-V), complete handshake lifecycle
     - CI-V command responses: frequency, mode, power, meters, ATT, PREAMP, DIGI-SEL

@@ -13,6 +13,7 @@ from icom_lan.cli import (
     _cmd_mode,
     _cmd_power,
     _cmd_ptt,
+    _cmd_scope,
     _cmd_status,
     _run,
     main,
@@ -41,6 +42,9 @@ def mock_radio():
     radio.set_ptt = AsyncMock()
     radio.send_cw_text = AsyncMock()
     radio.power_control = AsyncMock()
+    radio.capture_scope_frame = AsyncMock()
+    radio.capture_scope_frames = AsyncMock()
+    radio.disable_scope = AsyncMock()
     return radio
 
 
@@ -263,6 +267,58 @@ class TestRunErrorHandling:
         assert rc == 1
         err = capsys.readouterr().err
         assert "Error" in err
+
+
+# ---------------------------------------------------------------------------
+# _cmd_scope
+# ---------------------------------------------------------------------------
+
+
+class TestCmdScope:
+    @pytest.mark.asyncio
+    async def test_rejects_invalid_frames(self, mock_radio, capsys) -> None:
+        args = Namespace(
+            frames=0,
+            width=800,
+            capture_timeout=None,
+            spectrum_only=False,
+            json=True,
+            output="scope.png",
+            theme="classic",
+        )
+        rc = await _cmd_scope(mock_radio, args)
+        assert rc == 1
+        assert "--frames must be >= 1" in capsys.readouterr().err
+
+    @pytest.mark.asyncio
+    async def test_rejects_invalid_width(self, mock_radio, capsys) -> None:
+        args = Namespace(
+            frames=1,
+            width=10,
+            capture_timeout=None,
+            spectrum_only=True,
+            json=True,
+            output="scope.png",
+            theme="classic",
+        )
+        rc = await _cmd_scope(mock_radio, args)
+        assert rc == 1
+        assert "--width must be >= 64" in capsys.readouterr().err
+
+    @pytest.mark.asyncio
+    async def test_rejects_non_positive_timeout(self, mock_radio, capsys) -> None:
+        args = Namespace(
+            frames=1,
+            width=800,
+            capture_timeout=0.0,
+            spectrum_only=True,
+            json=True,
+            output="scope.png",
+            theme="classic",
+        )
+        rc = await _cmd_scope(mock_radio, args)
+        assert rc == 1
+        assert "--capture-timeout must be > 0" in capsys.readouterr().err
 
 
 # ---------------------------------------------------------------------------

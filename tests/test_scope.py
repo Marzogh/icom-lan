@@ -470,6 +470,8 @@ class TestRadioScopeCallback:
         transport.queue_response(_wrap_civ_in_udp(scope_seq2))
         transport.queue_response(_ack_udp())
 
+        # Use SET frequency (0x05): this path expects ACK/NAK, unlike GET (0x03)
+        # which expects a data response and would not match queued ACK packets here.
         civ_cmd = build_civ_frame(IC_7610_ADDR, CONTROLLER_ADDR, 0x05,
                                   data=bcd_encode(14_074_000))
         response = await radio._execute_civ_raw(civ_cmd)
@@ -501,7 +503,9 @@ class TestRadioScopeCallback:
         transport.queue_response(_wrap_civ_in_udp(scope_frame))
         transport.queue_response(_ack_udp())
 
-        civ_cmd = build_civ_frame(IC_7610_ADDR, CONTROLLER_ADDR, 0x03)
+        civ_cmd = build_civ_frame(
+            IC_7610_ADDR, CONTROLLER_ADDR, 0x05, data=bcd_encode(14_074_000)
+        )
         response = await radio._execute_civ_raw(civ_cmd)
         assert response.command == 0xFB
 
@@ -523,7 +527,9 @@ class TestRadioScopeCallback:
         transport.queue_response(_wrap_civ_in_udp(scope_frame))
         transport.queue_response(_ack_udp())
 
-        civ_cmd = build_civ_frame(IC_7610_ADDR, CONTROLLER_ADDR, 0x03)
+        civ_cmd = build_civ_frame(
+            IC_7610_ADDR, CONTROLLER_ADDR, 0x05, data=bcd_encode(14_074_000)
+        )
         await radio._execute_civ_raw(civ_cmd)
         assert len(received) == 0
 

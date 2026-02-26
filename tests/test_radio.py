@@ -136,6 +136,7 @@ class MockTransport:
         self.disconnected = False
         self.sent_packets: list[bytes] = []
         self._responses: asyncio.Queue[bytes] = asyncio.Queue()
+        self._responses_by_send: dict[int, list[bytes]] = {}
         self._packet_queue: asyncio.Queue[bytes] = asyncio.Queue()
         self.my_id: int = 0x00010001
         self.remote_id: int = 0xDEADBEEF
@@ -157,6 +158,9 @@ class MockTransport:
 
     async def send_tracked(self, data: bytes) -> None:
         self.sent_packets.append(data)
+        self.send_seq += 1
+        for pkt in self._responses_by_send.pop(self.send_seq, []):
+            self._responses.put_nowait(pkt)
 
     async def receive_packet(self, timeout: float = 5.0) -> bytes:
         try:
@@ -166,6 +170,14 @@ class MockTransport:
 
     def queue_response(self, data: bytes) -> None:
         self._responses.put_nowait(data)
+
+    def queue_response_on_send(self, send_number: int, data: bytes) -> None:
+        """Queue a response to be released after N-th send_tracked() call.
+
+        Useful for tests where one high-level API call sends multiple CI-V commands
+        and each command should receive its own response in-order.
+        """
+        self._responses_by_send.setdefault(send_number, []).append(data)
 
     @property
     def _raw_send(self):
@@ -398,3 +410,87 @@ class TestConnectedProperty:
     def test_initially_disconnected(self) -> None:
         radio = IcomRadio("192.168.1.100")
         assert not radio.connected
+
+
+class TestAckSinkRobustness:
+    """Regression tests for fire-and-forget ACK sink behavior."""
+
+    @pytest.mark.asyncio
+    async def test_fire_and_forget_missing_ack_does_not_poison_next_ack(
+        self, radio: IcomRadio, mock_transport: MockTransport
+    ) -> None:
+        # Fire-and-forget scope enable (ACK intentionally missing)
+        ff = build_civ_frame(IC_7610_ADDR, CONTROLLER_ADDR, 0x27, sub=0x10, data=b"\x01")
+        await radio._execute_civ_raw(ff, wait_response=False)
+
+        # Next ACK should satisfy this set command, not a stale sink.
+        mock_transport.queue_response_on_send(2, _ack_response())
+        await radio.set_frequency(7_074_000)
+
+    @pytest.mark.asyncio
+    async def test_fire_and_forget_send_failure_rolls_back_sink(self) -> None:
+        class FailingTransport(MockTransport):
+            async def send_tracked(self, data: bytes) -> None:  # pragma: no cover - simple stub
+                raise OSError("send failed")
+
+        t = FailingTransport()
+        radio = IcomRadio("192.168.1.100")
+        radio._ctrl_transport = t
+        radio._civ_transport = t
+        radio._connected = True
+
+        ff = build_civ_frame(IC_7610_ADDR, CONTROLLER_ADDR, 0x27, sub=0x10, data=b"\x01")
+        with pytest.raises(OSError):
+            await radio._execute_civ_raw(ff, wait_response=False)
+
+        assert radio._civ_request_tracker.pending_count == 0
+
+
+class TestScopeCallbackSafety:
+    """Scope callback failures must not break command routing."""
+
+    @pytest.mark.asyncio
+    async def test_scope_callback_exception_does_not_break_ack_flow(
+        self, radio: IcomRadio, mock_transport: MockTransport
+    ) -> None:
+        def _bad_callback(_frame) -> None:
+            raise RuntimeError("boom")
+
+        radio.on_scope_data(_bad_callback)
+
+        scope_payload = bytes(
+            [
+                0x00,  # receiver
+                0x01,  # seq
+                0x01,  # seq_max
+                0x01,  # mode=fixed
+                *bcd_encode(14_000_000),
+                *bcd_encode(14_350_000),
+                0x00,  # out_of_range
+                0x10,  # one pixel
+            ]
+        )
+        scope_frame = build_civ_frame(
+            CONTROLLER_ADDR,
+            IC_7610_ADDR,
+            0x27,
+            sub=0x00,
+            data=scope_payload,
+        )
+
+        mock_transport.queue_response(_wrap_civ_in_udp(scope_frame))
+        mock_transport.queue_response(_ack_response())
+
+        cmd = build_civ_frame(
+            IC_7610_ADDR,
+            CONTROLLER_ADDR,
+            0x05,
+            data=bcd_encode(14_074_000),
+        )
+        resp = await radio._execute_civ_raw(cmd)
+        assert resp is not None
+        assert resp.command == _CMD_ACK
+
+        # RX pump should continue to route subsequent ACK traffic.
+        mock_transport.queue_response(_ack_response())
+        await radio.set_frequency(7_074_000)

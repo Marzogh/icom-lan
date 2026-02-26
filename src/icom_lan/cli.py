@@ -148,6 +148,50 @@ def _build_parser() -> argparse.ArgumentParser:
     # discover
     sub.add_parser("discover", help="Discover radios on the network")
 
+    # scope
+    scope_p = sub.add_parser("scope", help="Capture scope/waterfall and render image")
+    scope_p.add_argument(
+        "--output",
+        "-o",
+        default="scope.png",
+        help="Output file path (default: scope.png)",
+    )
+    scope_p.add_argument(
+        "--frames",
+        "-n",
+        type=int,
+        default=50,
+        help="Number of frames to capture for waterfall (default: 50)",
+    )
+    scope_p.add_argument(
+        "--theme",
+        choices=["classic", "grayscale"],
+        default="classic",
+        help="Color theme (default: classic)",
+    )
+    scope_p.add_argument(
+        "--spectrum-only",
+        action="store_true",
+        help="Capture 1 frame and render spectrum only",
+    )
+    scope_p.add_argument(
+        "--width",
+        type=int,
+        default=800,
+        help="Image width in pixels (default: 800)",
+    )
+    scope_p.add_argument(
+        "--json",
+        action="store_true",
+        help="Output raw frame data as JSON instead of image",
+    )
+    scope_p.add_argument(
+        "--capture-timeout",
+        type=float,
+        default=None,
+        help="Capture timeout in seconds (default: 10 for spectrum-only, 15 for waterfall)",
+    )
+
     return p
 
 
@@ -193,6 +237,8 @@ async def _run(args: argparse.Namespace) -> int:
                 return await _cmd_att(radio, args)
             elif args.command == "preamp":
                 return await _cmd_preamp(radio, args)
+            elif args.command == "scope":
+                return await _cmd_scope(radio, args)
             elif args.command == "power-on":
                 await radio.power_control(True)
                 print("Power ON")
@@ -379,6 +425,91 @@ async def _cmd_preamp(radio: IcomRadio, args: argparse.Namespace) -> int:
             )
         else:
             print(f"Preamp: {_PREAMP_NAMES.get(level, str(level))}")
+    return 0
+
+
+async def _cmd_scope(radio: IcomRadio, args: argparse.Namespace) -> int:
+    if args.frames < 1:
+        print("Error: --frames must be >= 1", file=sys.stderr)
+        return 1
+    if args.width < 64:
+        print("Error: --width must be >= 64", file=sys.stderr)
+        return 1
+    if args.capture_timeout is not None and args.capture_timeout <= 0:
+        print("Error: --capture-timeout must be > 0", file=sys.stderr)
+        return 1
+
+    if not args.json:
+        try:
+            from .scope_render import render_scope_image, render_spectrum
+        except ImportError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+
+    try:
+        if args.spectrum_only:
+            timeout = args.capture_timeout if args.capture_timeout is not None else 10.0
+            print("Capturing 1 scope frame...", file=sys.stderr)
+            frame = await radio.capture_scope_frame(timeout=timeout)
+
+            if args.json:
+                import json
+
+                print(
+                    json.dumps(
+                        {
+                            "receiver": frame.receiver,
+                            "mode": frame.mode,
+                            "start_freq_hz": frame.start_freq_hz,
+                            "end_freq_hz": frame.end_freq_hz,
+                            "out_of_range": frame.out_of_range,
+                            "pixels": list(frame.pixels),
+                        }
+                    )
+                )
+            else:
+                img = render_spectrum(frame, width=args.width, theme=args.theme)
+                img.save(args.output, "PNG")
+                print(f"Saved spectrum to {args.output}")
+        else:
+            n = args.frames
+            timeout = args.capture_timeout if args.capture_timeout is not None else 15.0
+            print(f"Capturing {n} scope frames...", file=sys.stderr)
+            frames = await radio.capture_scope_frames(count=n, timeout=timeout)
+
+            if args.json:
+                import json
+
+                data = [
+                    {
+                        "receiver": f.receiver,
+                        "mode": f.mode,
+                        "start_freq_hz": f.start_freq_hz,
+                        "end_freq_hz": f.end_freq_hz,
+                        "out_of_range": f.out_of_range,
+                        "pixels": list(f.pixels),
+                    }
+                    for f in frames
+                ]
+                print(json.dumps(data))
+            else:
+                render_scope_image(
+                    frames,
+                    width=args.width,
+                    theme=args.theme,
+                    output=args.output,
+                )
+                print(f"Saved scope image to {args.output}")
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    finally:
+        # Always disable scope data output when CLI is done
+        try:
+            await radio.disable_scope()
+        except Exception:
+            pass
+
     return 0
 
 

@@ -231,6 +231,46 @@ Scanning for Icom radios (3 seconds)...
 1 radio(s) found.
 ```
 
+## Scope / Waterfall
+
+Capture spectrum and waterfall data from the radio's scope display and render as PNG.
+
+Requires optional dependency: `pip install icom-lan[scope]`
+
+```bash
+# Combined spectrum + waterfall (50 frames, ~3 seconds)
+icom-lan scope
+
+# Spectrum only (1 frame, fast)
+icom-lan scope --spectrum-only
+
+# Custom output and frame count
+icom-lan scope --output waterfall.png --frames 100
+
+# Grayscale theme
+icom-lan scope --theme grayscale
+
+# Wider image
+icom-lan scope --width 1200
+
+# Raw JSON data (no Pillow needed)
+icom-lan scope --json
+icom-lan scope --spectrum-only --json
+
+# Custom capture timeout
+icom-lan scope --capture-timeout 20
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--output`, `-o` | `scope.png` | Output file path |
+| `--frames`, `-n` | `50` | Number of frames for waterfall |
+| `--theme` | `classic` | Color theme (`classic` or `grayscale`) |
+| `--spectrum-only` | — | Capture 1 frame, render spectrum only |
+| `--width` | `800` | Image width in pixels |
+| `--json` | — | Output raw frame data as JSON |
+| `--capture-timeout` | `10`/`15` | Capture timeout in seconds |
+
 ## Exit Codes
 
 | Code | Meaning |

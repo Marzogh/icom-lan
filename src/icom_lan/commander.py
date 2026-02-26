@@ -24,8 +24,9 @@ class _QueueItem:
     priority: int
     seq: int
     payload: bytes
-    future: asyncio.Future[CivFrame]
+    future: asyncio.Future[CivFrame | None]
     key: str | None = None
+    wait_response: bool = True
 
 
 class IcomCommander:
@@ -40,7 +41,7 @@ class IcomCommander:
 
     def __init__(
         self,
-        execute: Callable[[bytes], Awaitable[CivFrame]],
+        execute: Callable[[bytes, bool], Awaitable[CivFrame | None]],
         *,
         min_interval: float = 0.035,
     ) -> None:
@@ -50,7 +51,7 @@ class IcomCommander:
         self._worker: asyncio.Task[None] | None = None
         self._seq = 0
         self._last_send = 0.0
-        self._pending_by_key: dict[str, asyncio.Future[CivFrame]] = {}
+        self._pending_by_key: dict[str, asyncio.Future[CivFrame | None]] = {}
 
     def start(self) -> None:
         if self._worker is None or self._worker.done():
@@ -89,7 +90,8 @@ class IcomCommander:
         key: str | None = None,
         dedupe: bool = False,
         timeout: float | None = None,
-    ) -> CivFrame:
+        wait_response: bool = True,
+    ) -> CivFrame | None:
         if self._queue is None or self._worker is None:
             raise ConnectionError("Commander is not started")
 
@@ -101,9 +103,11 @@ class IcomCommander:
                 return await existing
 
         loop = asyncio.get_running_loop()
-        fut: asyncio.Future[CivFrame] = loop.create_future()
+        fut: asyncio.Future[CivFrame | None] = loop.create_future()
         self._seq += 1
-        item = _QueueItem(int(priority), self._seq, payload, fut, key=key)
+        item = _QueueItem(
+            int(priority), self._seq, payload, fut, key=key, wait_response=wait_response
+        )
 
         if key is not None:
             self._pending_by_key[key] = fut
@@ -138,7 +142,7 @@ class IcomCommander:
                     if delta < self._min_interval:
                         await asyncio.sleep(self._min_interval - delta)
 
-                    resp = await self._execute(item.payload)
+                    resp = await self._execute(item.payload, item.wait_response)
                     self._last_send = asyncio.get_running_loop().time()
                     if not item.future.done():
                         item.future.set_result(resp)

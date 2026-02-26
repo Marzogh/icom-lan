@@ -6,7 +6,6 @@ from icom_lan.commands import (
     CONTROLLER_ADDR,
     IC_7610_ADDR,
     build_civ_frame,
-    RECEIVER_MAIN,
 )
 from icom_lan.exceptions import ConnectionError, CommandError
 from icom_lan.radio import IcomRadio
@@ -21,14 +20,8 @@ from test_radio import (
 
 
 def _digisel_off_response() -> bytes:
-    """DIGI-SEL response: OFF (0x00) — Command29-wrapped."""
     # Radio responds: FE FE E0 98 29 00 16 4E 00 FD
-    civ = build_civ_frame(
-        CONTROLLER_ADDR,
-        IC_7610_ADDR,
-        0x29,
-        data=bytes([RECEIVER_MAIN, 0x16, 0x4E, 0x00]),
-    )
+    civ = bytes.fromhex("fefee0982900164e00fd")
     return _wrap_civ_in_udp(civ)
 
 
@@ -204,8 +197,10 @@ class TestPreamp:
     ) -> None:
         mock_transport.queue_response(
             _digisel_off_response()
-        )  # pre-flight DIGI-SEL check
-        mock_transport.queue_response(_ack_response())
+        )  # pre-flight DIGI-SEL check (send #1)
+        mock_transport.queue_response_on_send(
+            2, _ack_response()
+        )  # set_preamp ACK (send #2)
         await radio.set_preamp(1)
 
     @pytest.mark.asyncio
@@ -214,8 +209,10 @@ class TestPreamp:
     ) -> None:
         mock_transport.queue_response(
             _digisel_off_response()
-        )  # pre-flight DIGI-SEL check
-        mock_transport.queue_response(_ack_response())
+        )  # pre-flight DIGI-SEL check (send #1)
+        mock_transport.queue_response_on_send(
+            2, _ack_response()
+        )  # set_preamp ACK (send #2)
         await radio.set_preamp(2)
 
     @pytest.mark.asyncio
@@ -232,8 +229,10 @@ class TestPreamp:
     ) -> None:
         mock_transport.queue_response(
             _digisel_off_response()
-        )  # pre-flight DIGI-SEL check
-        mock_transport.queue_response(_nak_response())
+        )  # pre-flight DIGI-SEL check (send #1)
+        mock_transport.queue_response_on_send(
+            2, _nak_response()
+        )  # set_preamp NAK (send #2)
         with pytest.raises(CommandError):
             await radio.set_preamp(1)
 
@@ -264,8 +263,10 @@ class TestCW:
     ) -> None:
         """Text longer than 30 chars should produce multiple frames."""
         text = "A" * 60  # 2 chunks
-        mock_transport.queue_response(_ack_response())
-        mock_transport.queue_response(_ack_response())
+        mock_transport.queue_response(_ack_response())  # ACK for chunk #1 (send #1)
+        mock_transport.queue_response_on_send(
+            2, _ack_response()
+        )  # ACK for chunk #2 (send #2)
         await radio.send_cw_text(text)
         assert len(mock_transport.sent_packets) == 2
 

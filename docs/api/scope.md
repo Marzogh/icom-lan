@@ -109,3 +109,77 @@ FE FE <to> <from> 27 00 <receiver> <seq_bcd> <seq_max_bcd> <data...> FD
 In center mode, the radio sends center frequency and half-span; the assembler expands these to actual edge frequencies.
 
 Scope data arrives **unsolicited** mixed with normal CI-V traffic. The library processes it as a side-effect in the CI-V receive loop without blocking command responses.
+
+## Capture Helpers
+
+### `capture_scope_frame()`
+
+```python
+async def capture_scope_frame(self, timeout: float = 5.0) -> ScopeFrame
+```
+
+Enable scope and capture one complete frame. Does NOT disable scope after.
+
+### `capture_scope_frames()`
+
+```python
+async def capture_scope_frames(self, count: int = 50, timeout: float = 10.0) -> list[ScopeFrame]
+```
+
+Enable scope and capture `count` complete frames. Returns list oldest-first.
+
+**Raises:** `TimeoutError` if fewer than `count` frames arrive within timeout.
+
+## Rendering (optional, requires Pillow)
+
+```bash
+pip install icom-lan[scope]
+```
+
+### `render_spectrum()`
+
+```python
+from icom_lan.scope_render import render_spectrum
+
+img = render_spectrum(frame, width=800, height=200, theme="classic")
+img.save("spectrum.png")
+```
+
+Renders a single ScopeFrame as a spectrum plot (amplitude vs frequency) with grid lines and frequency labels.
+
+### `render_waterfall()`
+
+```python
+from icom_lan.scope_render import render_waterfall
+
+img = render_waterfall(frames, width=800, height=400, theme="classic")
+```
+
+Renders multiple frames as a waterfall display. Newest frame at top, color encodes amplitude.
+
+### `render_scope_image()`
+
+```python
+from icom_lan.scope_render import render_scope_image
+
+img = render_scope_image(frames, output="scope.png", theme="classic")
+```
+
+Combined image: spectrum on top, waterfall below.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `frames` | `list[ScopeFrame]` | *required* | Frames (oldest first) |
+| `width` | `int` | `800` | Image width |
+| `spectrum_height` | `int` | `200` | Spectrum section height |
+| `waterfall_height` | `int` | `400` | Waterfall section height |
+| `theme` | `str` | `"classic"` | `"classic"` or `"grayscale"` |
+| `output` | `str \| Path \| None` | `None` | Save path (PNG) |
+
+### Color Themes
+
+**`classic`** — WSJT-X inspired: dark blue (noise) → blue → cyan → yellow → red (max)
+
+**`grayscale`** — black (noise) → white (max)
+
+Custom themes can be added to `scope_render.THEMES` dict with anchor points for linear interpolation.

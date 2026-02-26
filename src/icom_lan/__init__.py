@@ -80,6 +80,7 @@ from .types import (
     Mode,
     PacketHeader,
     PacketType,
+    ScopeCompletionPolicy,
     bcd_decode,
     bcd_encode,
 )
@@ -104,6 +105,7 @@ __all__ = [
     "PacketType",
     "Mode",
     "AudioCodec",
+    "ScopeCompletionPolicy",
     "PacketHeader",
     "CivFrame",
     "HEADER_SIZE",
