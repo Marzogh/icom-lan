@@ -34,7 +34,8 @@
         type="button"
         class="band-btn v2-control-button"
         class:active={isActive}
-        data-indicator-style="fill"
+        data-surface="hardware"
+        data-indicator-style="edge-left"
         data-indicator-color="cyan"
         data-band={band.name}
         data-active={isActive}

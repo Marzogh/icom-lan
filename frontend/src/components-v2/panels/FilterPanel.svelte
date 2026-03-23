@@ -119,6 +119,9 @@
             type="button"
             class="filter-select-button v2-control-button"
             class:active={currentFilter === index + 1}
+            data-surface="hardware"
+            data-indicator-style="edge-left"
+            data-indicator-color="cyan"
             style="--control-accent:var(--v2-accent-cyan); --control-active-text:var(--v2-text-white)"
             data-shortcut-hint={cycleFilterShortcut ?? undefined}
             title={cycleFilterShortcut ?? undefined}

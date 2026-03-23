@@ -50,6 +50,9 @@
           type="button"
           class="mode-button v2-control-button"
           class:active={currentMode === mode}
+          data-surface="hardware"
+          data-indicator-style="edge-left"
+          data-indicator-color="cyan"
           style="--control-accent:var(--v2-accent-cyan); --control-active-text:var(--v2-text-white)"
           data-mode={mode}
           data-shortcut-hint={modeShortcut(mode) ?? undefined}
@@ -69,6 +72,9 @@
             type="button"
             class="data-button v2-control-button"
             class:active={dataMode === option.value}
+            data-surface="hardware"
+            data-indicator-style="edge-left"
+            data-indicator-color="cyan"
             style="--control-accent:var(--v2-accent-cyan); --control-active-text:var(--v2-text-white)"
             data-data-mode={option.value}
             data-shortcut-hint={dataShortcut ?? undefined}
