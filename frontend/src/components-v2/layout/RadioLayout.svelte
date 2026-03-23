@@ -13,6 +13,7 @@
   }
   
   import { radio } from '$lib/stores/radio.svelte';
+  import { getConnectionStatus } from '$lib/stores/connection.svelte';
   import { applyModeDefault } from '$lib/stores/tuning.svelte';
   import { getCapabilities, getKeyboardConfig, hasDualReceiver, hasTx } from '$lib/stores/capabilities.svelte';
   import SpectrumPanel from '../../components/spectrum/SpectrumPanel.svelte';
@@ -52,7 +53,9 @@
   let isMobile = $derived(windowWidth < 640);
   let isLandscape = $state(false);
   let landscapeSpectrumDismissed = $state(false);
-  let spectrumLandscape = $derived(isMobile && isLandscape && !landscapeSpectrumDismissed);
+  let landscapeAutoLocked = $state(false);
+  let spectrumLandscape = $derived(isMobile && isLandscape && !landscapeSpectrumDismissed && !landscapeAutoLocked);
+  let connectionStatus = $derived(getConnectionStatus());
   let activeTab = $state<TabId>(DEFAULT_TAB);
 
   let activeReceiverLabel = $derived(radioState?.active === 'SUB' ? 'SUB' : 'MAIN');
@@ -164,6 +167,27 @@
       </div>
 
       <div class="hud-spacer"></div>
+
+      <div class="hud-status" title={connectionStatus}>
+        <span
+          class="hud-dot"
+          style="background: {connectionStatus === 'connected' ? 'var(--v2-accent-green, #4ade80)' : connectionStatus === 'disconnected' ? 'var(--v2-accent-red, #ef4444)' : 'var(--v2-accent-yellow, #facc15)'}"
+        ></span>
+      </div>
+
+      <button
+        type="button"
+        class="hud-btn"
+        class:hud-btn--active={landscapeAutoLocked}
+        onclick={() => {
+          landscapeAutoLocked = !landscapeAutoLocked;
+          if (landscapeAutoLocked) landscapeSpectrumDismissed = false;
+        }}
+        aria-label={landscapeAutoLocked ? 'Unlock landscape auto-fullscreen' : 'Lock landscape auto-fullscreen off'}
+        title={landscapeAutoLocked ? 'Auto-spectrum locked OFF' : 'Lock OFF'}
+      >
+        {landscapeAutoLocked ? '🔒' : '🔓'}
+      </button>
     </div>
 
     <div class="spectrum-landscape-frame">
@@ -684,6 +708,24 @@
 
   .hud-spacer {
     flex: 1;
+  }
+
+  .hud-status {
+    display: flex;
+    align-items: center;
+  }
+
+  .hud-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: block;
+  }
+
+  .hud-btn--active {
+    background: var(--v2-bg-input);
+    border-color: var(--v2-accent-cyan);
+    color: var(--v2-accent-cyan);
   }
 
   .spectrum-landscape-frame {
