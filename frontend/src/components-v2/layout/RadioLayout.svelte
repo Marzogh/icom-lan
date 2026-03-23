@@ -50,6 +50,8 @@
   let dualReceiver = $derived(hasDualReceiver());
   let windowWidth = $state(typeof window !== 'undefined' ? window.innerWidth : 1200);
   let isMobile = $derived(windowWidth < 640);
+  let isLandscape = $state(false);
+  let spectrumLandscape = $derived(isMobile && isLandscape);
   let activeTab = $state<TabId>(DEFAULT_TAB);
   let receiverDeckElement = $state<HTMLElement | null>(null);
   let receiverDeckWidth = $state<number | null>(null);
@@ -75,17 +77,35 @@
     // Theme already applied at module load
     manualVfoScaleOverrides = parseVfoLayoutScaleOverrides(window.location.search);
 
-    const handleResize = () => { windowWidth = window.innerWidth; };
+    const handleResize = () => {
+      windowWidth = window.innerWidth;
+    };
     window.addEventListener('resize', handleResize);
 
+    const mql = window.matchMedia?.('(orientation: landscape)');
+    const handleOrientationChange = (e: MediaQueryListEvent) => {
+      isLandscape = e.matches;
+    };
+
+    if (mql) {
+      isLandscape = mql.matches;
+      mql.addEventListener('change', handleOrientationChange);
+    }
+
     if (!receiverDeckElement) {
-      return () => window.removeEventListener('resize', handleResize);
+      return () => {
+        window.removeEventListener('resize', handleResize);
+        mql?.removeEventListener('change', handleOrientationChange);
+      };
     }
 
     receiverDeckWidth = receiverDeckElement.getBoundingClientRect().width || receiverDeckElement.clientWidth || null;
 
     if (typeof ResizeObserver === 'undefined') {
-      return () => window.removeEventListener('resize', handleResize);
+      return () => {
+        window.removeEventListener('resize', handleResize);
+        mql?.removeEventListener('change', handleOrientationChange);
+      };
     }
 
     const observer = new ResizeObserver((entries) => {
@@ -100,12 +120,19 @@
     observer.observe(receiverDeckElement);
     return () => {
       window.removeEventListener('resize', handleResize);
+      mql?.removeEventListener('change', handleOrientationChange);
       observer.disconnect();
     };
   });
 </script>
 
-{#if isMobile}
+{#if spectrumLandscape}
+  <div class="spectrum-landscape" aria-label="Spectrum landscape">
+    <div class="spectrum-landscape-frame">
+      <SpectrumPanel />
+    </div>
+  </div>
+{:else if isMobile}
   <div class="radio-layout radio-layout--mobile">
     <StatusBar />
     <KeyboardHandler config={keyboardConfig} onAction={keyboardHandlers.dispatch} />
@@ -528,5 +555,40 @@
     flex-direction: column;
     gap: 6px;
     padding: 4px;
+  }
+
+  /* Mobile landscape fullscreen spectrum */
+  .spectrum-landscape {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background:
+      linear-gradient(180deg, var(--v2-bg-gradient-start) 0%, var(--v2-bg-darkest) 100%),
+      var(--v2-bg-app, var(--v2-bg-darker));
+    padding:
+      env(safe-area-inset-top, 0px)
+      env(safe-area-inset-right, 0px)
+      env(safe-area-inset-bottom, 0px)
+      env(safe-area-inset-left, 0px);
+    box-sizing: border-box;
+    display: flex;
+  }
+
+  .spectrum-landscape-frame {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    border: 1px solid var(--v2-border-panel);
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--v2-bg-card);
+    box-shadow: var(--v2-shadow-sm);
+  }
+
+  .spectrum-landscape-frame :global(.spectrum-panel) {
+    height: 100%;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
   }
 </style>
