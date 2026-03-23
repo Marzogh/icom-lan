@@ -1901,6 +1901,44 @@ class TestRadioPoller:
         assert task1 is task2
         poller.stop()
 
+    async def test_set_key_speed_updates_radio_and_state(self) -> None:
+        """SetKeySpeed(speed) calls radio.set_key_speed and updates RadioState.key_speed."""
+        from icom_lan.web.radio_poller import CommandQueue, RadioPoller, SetKeySpeed
+
+        radio = self._make_radio()
+        radio.set_key_speed = AsyncMock()
+        queue = CommandQueue()
+        poller = RadioPoller(radio, StateCache(), queue, radio_state=RadioState())
+
+        poller.start()
+        queue.put(SetKeySpeed(24))
+        await asyncio.sleep(0.15)
+        poller.stop()
+
+        radio.set_key_speed.assert_awaited_once_with(24)
+        assert poller._radio_state is not None
+        assert poller._radio_state.key_speed == 24
+        assert poller.revision > 0
+
+    async def test_set_break_in_updates_radio_and_state(self) -> None:
+        """SetBreakIn(mode) calls radio.set_break_in and updates RadioState.break_in."""
+        from icom_lan.web.radio_poller import CommandQueue, RadioPoller, SetBreakIn
+
+        radio = self._make_radio()
+        radio.set_break_in = AsyncMock()
+        queue = CommandQueue()
+        poller = RadioPoller(radio, StateCache(), queue, radio_state=RadioState())
+
+        poller.start()
+        queue.put(SetBreakIn(1))
+        await asyncio.sleep(0.15)
+        poller.stop()
+
+        radio.set_break_in.assert_awaited_once_with(1)
+        assert poller._radio_state is not None
+        assert poller._radio_state.break_in == 1
+        assert poller.revision > 0
+
 
 # ---------------------------------------------------------------------------
 # #92: SUB scope receiver switching

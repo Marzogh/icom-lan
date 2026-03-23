@@ -76,6 +76,7 @@ afterEach(() => {
 
 const baseProps: ComponentProps<typeof TxPanel> = {
   txActive: false,
+  rfPower: 128,
   micGain: 128,
   atuActive: false,
   atuTuning: false,
@@ -84,6 +85,7 @@ const baseProps: ComponentProps<typeof TxPanel> = {
   compLevel: 64,
   monActive: false,
   monLevel: 64,
+  onRfPowerChange: vi.fn(),
   onMicGainChange: vi.fn(),
   onAtuToggle: vi.fn(),
   onAtuTune: vi.fn(),
@@ -218,9 +220,11 @@ describe('callbacks', () => {
   it('calls onMicGainChange when Mic Gain slider changes', () => {
     const onMicGainChange = vi.fn();
     const t = mountPanel({ ...baseProps, onMicGainChange });
-    const slider = t.querySelector<HTMLElement>('[role="slider"]');
-    if (slider) {
-      slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    // Find the Mic Gain slider (second [role="slider"], after RF Power)
+    const sliders = t.querySelectorAll<HTMLElement>('[role="slider"]');
+    const micSlider = sliders[1]; // RF Power is [0], Mic Gain is [1]
+    if (micSlider) {
+      micSlider.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
     }
     vi.advanceTimersByTime(60);
 

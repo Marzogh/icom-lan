@@ -355,15 +355,26 @@ export function makeDspHandlers() {
   };
 }
 
-/** CW panel (future) — not wired to DspPanel. */
+/** CW panel — RightSidebar / CwPanel.svelte */
 export function makeCwPanelHandlers() {
   return {
-    onCwAutoTuneToggle: (_on: boolean) => {
-      // CW auto-tune not yet implemented
-    },
     onCwPitchChange: (value: number) => {
       patchRadioState({ cwPitch: value });
       cmd('set_cw_pitch', { value });
+    },
+    onKeySpeedChange: (speed: number) => {
+      patchRadioState({ keySpeed: speed });
+      cmd('set_key_speed', { speed });
+    },
+    onBreakInToggle: () => {
+      const current = getRadioState()?.breakIn ?? 0;
+      const next = current > 0 ? 0 : 1;
+      patchRadioState({ breakIn: next });
+      cmd('set_break_in', { mode: next });
+    },
+    /** Same action as TX panel TUNE — starts ATU tuning when supported. */
+    onAutoTune: () => {
+      cmd('set_tuner_status', { value: 2 });
     },
   };
 }
@@ -372,6 +383,10 @@ export function makeCwPanelHandlers() {
 
 export function makeTxHandlers() {
   return {
+    onRfPowerChange: (level: number) => {
+      patchRadioState({ powerLevel: level });
+      cmd('set_rf_power', { level });
+    },
     onMicGainChange: (level: number) => {
       patchRadioState({ micGain: level });
       cmd('set_mic_gain', { level });
@@ -640,13 +655,13 @@ export function makeKeyboardHandlers() {
         case 'toggle_rit': {
           const on = !(getRadioState()?.ritOn ?? false);
           patchRadioState({ ritOn: on });
-          cmd('set_rit', { on });
+          cmd('set_rit_status', { on });
           return;
         }
         case 'toggle_xit': {
           const on = !(getRadioState()?.ritTx ?? false);
           patchRadioState({ ritTx: on });
-          cmd('set_xit', { on });
+          cmd('set_rit_tx_status', { on });
           return;
         }
         case 'clear_rit_xit': {

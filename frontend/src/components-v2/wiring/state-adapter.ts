@@ -285,6 +285,7 @@ export function toDspProps(
 
 export interface TxProps {
   txActive: boolean;
+  rfPower: number;
   micGain: number;
   atuActive: boolean;
   atuTuning: boolean;
@@ -301,6 +302,7 @@ export function toTxProps(
 ): TxProps {
   return {
     txActive: state?.ptt ?? false,
+    rfPower: state?.powerLevel ?? 128,
     micGain: state?.micGain ?? 128,
     atuActive: (state?.tunerStatus ?? 0) > 0,
     atuTuning: (state?.tunerStatus ?? 0) === 2,
@@ -309,6 +311,28 @@ export function toTxProps(
     compLevel: state?.compressorLevel ?? 0,
     monActive: state?.monitorOn ?? false,
     monLevel: state?.monitorGain ?? 128,
+  };
+}
+
+/* ── CW Panel ────────────────────────────────────────────────── */
+
+export interface CwProps {
+  cwPitch: number;
+  keySpeed: number;
+  breakIn: number;
+  currentMode: string;
+}
+
+export function toCwProps(
+  state: ServerState | null,
+  _caps: Capabilities | null,
+): CwProps {
+  const rx = state ? activeRx(state) : null;
+  return {
+    cwPitch: state?.cwPitch ?? 600,
+    keySpeed: state?.keySpeed ?? 12,
+    breakIn: state?.breakIn ?? 0,
+    currentMode: rx?.mode ?? 'USB',
   };
 }
 

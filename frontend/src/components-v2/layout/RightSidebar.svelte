@@ -1,20 +1,23 @@
 <script lang="ts">
   import { radio } from '$lib/stores/radio.svelte';
   import { getAudioState } from '$lib/stores/audio.svelte';
-  import { getCapabilities } from '$lib/stores/capabilities.svelte';
+  import { getCapabilities, hasCapability } from '$lib/stores/capabilities.svelte';
   import RxAudioPanel from '../panels/RxAudioPanel.svelte';
   import DspPanel from '../panels/DspPanel.svelte';
   import TxPanel from '../panels/TxPanel.svelte';
+  import CwPanel from '../panels/CwPanel.svelte';
   import CollapsiblePanel from '../controls/CollapsiblePanel.svelte';
   import {
     toRxAudioProps,
     toDspProps,
     toTxProps,
+    toCwProps,
   } from '../wiring/state-adapter';
   import {
     makeRxAudioHandlers,
     makeDspHandlers,
     makeTxHandlers,
+    makeCwPanelHandlers,
   } from '../wiring/command-bus';
 
   // Reactive state + capabilities
@@ -26,11 +29,13 @@
   let rxAudio = $derived(toRxAudioProps(radioState, caps, audioState));
   let dsp = $derived(toDspProps(radioState, caps));
   let tx = $derived(toTxProps(radioState, caps));
+  let cw = $derived(toCwProps(radioState, caps));
 
   // Command handlers via command-bus
   const rxAudioHandlers = makeRxAudioHandlers();
   const dspHandlers = makeDspHandlers();
   const txHandlers = makeTxHandlers();
+  const cwHandlers = makeCwPanelHandlers();
 </script>
 
 <aside class="right-sidebar">
@@ -64,6 +69,7 @@
   <CollapsiblePanel title="TX" panelId="tx">
     <TxPanel
       txActive={tx.txActive}
+      rfPower={tx.rfPower}
       micGain={tx.micGain}
       atuActive={tx.atuActive}
       atuTuning={tx.atuTuning}
@@ -72,6 +78,7 @@
       compLevel={tx.compLevel}
       monActive={tx.monActive}
       monLevel={tx.monLevel}
+      onRfPowerChange={txHandlers.onRfPowerChange}
       onMicGainChange={txHandlers.onMicGainChange}
       onAtuToggle={txHandlers.onAtuToggle}
       onAtuTune={txHandlers.onAtuTune}
@@ -82,6 +89,21 @@
       onMonLevelChange={txHandlers.onMonLevelChange}
     />
   </CollapsiblePanel>
+
+  {#if hasCapability('cw')}
+    <CollapsiblePanel title="CW" panelId="cw">
+      <CwPanel
+        cwPitch={cw.cwPitch}
+        keySpeed={cw.keySpeed}
+        breakIn={cw.breakIn}
+        currentMode={cw.currentMode}
+        onCwPitchChange={cwHandlers.onCwPitchChange}
+        onKeySpeedChange={cwHandlers.onKeySpeedChange}
+        onBreakInToggle={cwHandlers.onBreakInToggle}
+        onAutoTune={cwHandlers.onAutoTune}
+      />
+    </CollapsiblePanel>
+  {/if}
 </aside>
 
 <style>

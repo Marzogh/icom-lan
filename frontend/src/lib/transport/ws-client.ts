@@ -337,6 +337,15 @@ function _applyOptimistic(name: string, params: Record<string, unknown>): void {
     case 'set_mic_gain':
       if (typeof params.level === 'number') patchRadioState({ micGain: params.level });
       break;
+    case 'set_cw_pitch':
+      if (typeof params.value === 'number') patchRadioState({ cwPitch: params.value });
+      break;
+    case 'set_key_speed':
+      if (typeof params.speed === 'number') patchRadioState({ keySpeed: params.speed });
+      break;
+    case 'set_break_in':
+      if (typeof params.mode === 'number') patchRadioState({ breakIn: params.mode });
+      break;
     case 'set_vox':
       if (typeof params.on === 'boolean') patchRadioState({ voxOn: params.on });
       break;

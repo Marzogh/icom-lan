@@ -231,6 +231,16 @@ class SetCwPitch:
 
 
 @dataclass(frozen=True, slots=True)
+class SetKeySpeed:
+    speed: int
+
+
+@dataclass(frozen=True, slots=True)
+class SetBreakIn:
+    mode: int
+
+
+@dataclass(frozen=True, slots=True)
 class SetDataMode:
     mode: int
     receiver: int = 0
@@ -441,6 +451,8 @@ Command = (
     | SetNotchFilter
     | SetAgcTimeConstant
     | SetCwPitch
+    | SetKeySpeed
+    | SetBreakIn
     | SetDataMode
     | SetMicGain
     | SetVox
@@ -1262,6 +1274,16 @@ class RadioPoller:
                 await radio.set_cw_pitch(value)
                 if self._radio_state:
                     self._radio_state.cw_pitch = value
+                    self.bump_revision()
+            case SetKeySpeed(speed=speed):
+                await radio.set_key_speed(speed)
+                if self._radio_state:
+                    self._radio_state.key_speed = speed
+                    self.bump_revision()
+            case SetBreakIn(mode=mode):
+                await radio.set_break_in(mode)
+                if self._radio_state:
+                    self._radio_state.break_in = mode
                     self.bump_revision()
             case SetDataMode(mode=mode, receiver=rx):
                 self._ensure_receiver_supported(rx, operation="set_data_mode")

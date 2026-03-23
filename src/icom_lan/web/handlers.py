@@ -44,8 +44,10 @@ from .radio_poller import (
     SetBand,
     SetCompressor,
     SetCompressorLevel,
+    SetBreakIn,
     SetCwPitch,
     SetDataMode,
+    SetKeySpeed,
     SetDialLock,
     SetDigiSel,
     SetDualWatch,
@@ -165,6 +167,8 @@ class ControlHandler:
             "set_pbt_inner",
             "set_pbt_outer",
             "set_cw_pitch",
+            "set_key_speed",
+            "set_break_in",
             "set_data_mode",
             "set_mic_gain",
             "set_vox",
@@ -899,6 +903,16 @@ class ControlHandler:
                 self._ensure_capability("cw", "set_cw_pitch")
                 q.put(SetCwPitch(value))
                 return {"value": value}
+            case "set_key_speed":
+                speed = int(params["speed"])
+                self._ensure_capability("cw", "set_key_speed")
+                q.put(SetKeySpeed(speed))
+                return {"speed": speed}
+            case "set_break_in":
+                mode = int(params["mode"])
+                self._ensure_capability("break_in", "set_break_in")
+                q.put(SetBreakIn(mode))
+                return {"mode": mode}
             case "set_data_mode":
                 mode = int(params["mode"])
                 rx = int(params.get("receiver", 0))

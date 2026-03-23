@@ -7,6 +7,7 @@
 
   interface Props {
     txActive: boolean;
+    rfPower: number;
     micGain: number;
     atuActive: boolean;
     atuTuning: boolean;
@@ -15,6 +16,7 @@
     compLevel: number;
     monActive: boolean;
     monLevel: number;
+    onRfPowerChange: (v: number) => void;
     onMicGainChange: (v: number) => void;
     onAtuToggle: () => void;
     onAtuTune: () => void;
@@ -27,6 +29,7 @@
 
   let {
     txActive,
+    rfPower,
     micGain,
     atuActive,
     atuTuning,
@@ -35,6 +38,7 @@
     compLevel,
     monActive,
     monLevel,
+    onRfPowerChange,
     onMicGainChange,
     onAtuToggle,
     onAtuTune,
@@ -58,6 +62,19 @@
         color={txActive ? 'red' : 'muted'}
       />
     </div>
+
+    <ValueControl
+      label="RF Power"
+      value={rfPower}
+      min={0}
+      max={255}
+      step={1}
+      renderer="hbar"
+      displayFn={rawToPercentDisplay}
+      accentColor="var(--v2-accent-red)"
+      onChange={onRfPowerChange}
+      variant="hardware-illuminated"
+    />
 
     <ValueControl
       label="Mic Gain"
