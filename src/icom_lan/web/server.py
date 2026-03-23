@@ -32,6 +32,7 @@ from typing import TYPE_CHECKING, Any, cast
 from .. import __version__
 from ..radio_state import RadioState
 from ..radio_protocol import AudioCapable, PowerControlCapable
+from ._delta_encoder import DeltaEncoder
 from .dx_cluster import DXClusterClient, SpotBuffer
 from .handlers import AudioBroadcaster, AudioHandler, ControlHandler, ScopeHandler
 from .radio_poller import CommandQueue, DisableScope, EnableScope, RadioPoller
@@ -242,6 +243,8 @@ class WebServer:
         self._control_event_queues: set[asyncio.Queue[dict[str, Any]]] = set()
         # State broadcast throttle
         self._last_state_broadcast: float = 0.0
+        # Delta encoder for efficient state broadcasting
+        self._delta_encoder: DeltaEncoder = DeltaEncoder(full_state_interval=100)
         # Audio bridge (virtual device integration)
         self._audio_bridge: "AudioBridge | None" = None
         # Scope health monitor
@@ -406,7 +409,11 @@ class WebServer:
                 pass
 
     def _broadcast_state_update(self) -> None:
-        """Broadcast current state to all control WS clients (throttled)."""
+        """Broadcast current state to all control WS clients (throttled).
+
+        Uses delta encoding to reduce payload size for subsequent updates.
+        Sends full state on initial connection, then only changed fields.
+        """
         import time
 
         now = time.monotonic()
@@ -415,7 +422,11 @@ class WebServer:
         self._last_state_broadcast = now
 
         body = self.build_public_state()
-        event = {"type": "state_update", "data": body}
+
+        # Encode state as delta to reduce bandwidth
+        delta = self._delta_encoder.encode(body)
+        event = {"type": "state_update", "data": delta}
+
         for q in list(self._control_event_queues):
             try:
                 q.put_nowait(event)
