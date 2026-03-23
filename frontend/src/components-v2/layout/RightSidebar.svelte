@@ -52,17 +52,12 @@
       nbLevel={dsp.nbLevel}
       notchMode={dsp.notchMode}
       notchFreq={dsp.notchFreq}
-      cwAutoTune={dsp.cwAutoTune}
-      cwPitch={dsp.cwPitch}
-      currentMode={dsp.currentMode}
       onNrModeChange={dspHandlers.onNrModeChange}
       onNrLevelChange={dspHandlers.onNrLevelChange}
       onNbToggle={dspHandlers.onNbToggle}
       onNbLevelChange={dspHandlers.onNbLevelChange}
       onNotchModeChange={dspHandlers.onNotchModeChange}
       onNotchFreqChange={dspHandlers.onNotchFreqChange}
-      onCwAutoTuneToggle={dspHandlers.onCwAutoTuneToggle}
-      onCwPitchChange={dspHandlers.onCwPitchChange}
     />
   </CollapsiblePanel>
 

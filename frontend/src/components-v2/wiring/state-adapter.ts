@@ -258,9 +258,6 @@ export interface DspProps {
   nbLevel: number;
   notchMode: 'off' | 'auto' | 'manual';
   notchFreq: number;
-  cwAutoTune: boolean;
-  cwPitch: number;
-  currentMode: string;
 }
 
 export function toDspProps(
@@ -281,9 +278,6 @@ export function toDspProps(
     nbLevel: rx?.nbLevel ?? 0,
     notchMode,
     notchFreq: state?.notchFilter ?? 0,
-    cwAutoTune: false, // Not currently in ServerState
-    cwPitch: state?.cwPitch ?? 600,
-    currentMode: rx?.mode ?? 'USB',
   };
 }
 

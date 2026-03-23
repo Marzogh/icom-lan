@@ -352,6 +352,12 @@ export function makeDspHandlers() {
       const receiver = activeReceiverParam();
       cmd('set_notch_filter', { value, receiver });
     },
+  };
+}
+
+/** CW panel (future) — not wired to DspPanel. */
+export function makeCwPanelHandlers() {
+  return {
     onCwAutoTuneToggle: (_on: boolean) => {
       // CW auto-tune not yet implemented
     },

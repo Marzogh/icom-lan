@@ -12,12 +12,13 @@ export function isCwMode(mode: string): boolean {
 
 /**
  * Builds the options array for the NR mode SegmentedButton.
- * Values: 0=OFF, 1=NR1, 2=NR2, 3=NR3
+ * Values: 0=OFF, 1=NR1, 2=NR2 (both 1 and 2 turn NR on; backend is on/off only).
  */
 export function buildNrOptions(): DspOption[] {
   return [
     { value: 0, label: 'OFF' },
-    { value: 1, label: 'ON' },
+    { value: 1, label: '1' },
+    { value: 2, label: '2' },
   ];
 }
 
