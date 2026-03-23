@@ -247,6 +247,19 @@ Each UDP packet has a fixed-format header (see `packettypes.h` in wfview):
 - **M5.3 IC-9700 Multi-Radio Backend (2026-03-23):** IC-9700 serial backend complete with Ic9700SerialRadio class, dual-receiver support (receiver_count=2, unique to IC-9700), LAN-capable profile (ic9700.toml, CI-V addr 0xA2), factory routing with case-insensitive matching, and 6 new backend tests validating dual-receiver capability. **Blocked on hardware procurement** (research and profile complete).
 - **Multi-model factory architecture (2026-03-23):** Factory.create_radio() now routes by model parameter: IC-7610 → Icom7610SerialRadio (default), IC-705 → Ic705SerialRadio, IC-7300 → Ic7300SerialRadio, IC-9700 → Ic9700SerialRadio. All backends inherit from Icom7610CoreRadio (shared command logic). Profile-driven CI-V address resolution (0x80, 0xA4, 0x94, 0xA2). Extensible pattern for future models (IC-705 and IC-9700 are LAN-capable).
 - **State contract unification (issue #301, 2026-03-17):** web HTTP/WS public state and the web runtime path now derive from canonical `RadioState` without a web-side `StateCache` runtime dependency; default `rigctld` reads are `RadioState`-first with only handler-local fallback/optimistic state, and default server startup no longer binds consumer layers to backend-shared `StateCache`/poller state.
+
+### Phase 11 — M6 Productization (M6) 🚧 IN PROGRESS
+
+**Goal:** Production-ready library with audio codec support, documentation, and performance optimization.
+
+#### M6.1 ulaw→pcm Audio Codec Decoder ✅ COMPLETE (2026-03-23)
+- [x] Pure-Python ulaw→PCM16 decoder (`_audio_codecs.py`) with standard 256-entry lookup table
+- [x] No external dependencies (zero new imports)
+- [x] Integration into `AudioBroadcaster._relay_loop()` with graceful fallback
+- [x] Radios with `ULAW_1CH` / `ULAW_2CH` codecs now stream correctly to web clients
+- [x] 11 comprehensive unit tests covering all 256 byte values, edge cases, format verification
+- [x] 3384 tests passing (+11 audio codec tests)
+- **Result:** Web audio streaming now supports all Icom audio codecs; resolves issue with ulaw-returning radios
 - **M4 advanced scope parity (issue #137, 2026-03-06):** `advanced_scope` is now fully implemented in maintained library/runtime surfaces, including receiver select, single/dual, mode/span/edge/hold/ref/speed, during-TX, center type, VBW/RBW, fixed-edge bounds, and receive-side projection into `RadioState.scope_controls`.
 - **IC-7610 parity matrix (issue #139, 2026-03-07): 134 implemented, 0 partial, 0 missing (100%)**; source of truth is `docs/parity/ic7610_command_matrix.json`, and the explicit parity smoke profile is `pytest -m "integration and ic7610_parity" tests/integration`.
 - **M4 parity family counts (from matrix):**
