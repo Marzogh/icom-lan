@@ -66,33 +66,35 @@
 - [x] Bidirectional sync (active receiver, Dual Watch)
 - [x] Freq/mode on SUB via VFO-switch pattern
 
-### IC-7610 Command Parity (Epic #140, in progress)
-#### Completed command families:
+### IC-7610 Command Parity (Epic #140, v0.11.0 COMPLETE)
+#### All command families complete:
 - [x] #130: DSP level controls (APF/NR/PBT/NB/filter/AF-mute)
 - [x] #131: Operator toggles/status (AGC/VOX/ANF/compressor/break-in)
 - [x] #132: VFO/dual-watch/scanning
+- [x] #133: Memory and band-stacking
 - [x] #134: Repeater/tone (tone+TSQL)
+- [x] #135: System/config (antenna, CI-V options, mod routing, time)
 - [x] #136: Transceiver/RIT/TX status
 - [x] #137: Advanced scope controls (center/during-TX/fixed-edge)
+- [x] #138: Expose parity commands across API/CLI/Web
 - [x] #139: Command parity matrix test+docs gate
 
-#### In progress:
-- [ ] #133: Memory and band-stacking
-- [ ] #135: System/config (antenna, CI-V options, mod routing, time)
-- [ ] #138: Expose parity commands across API/CLI/Web consistently
-
-**Coverage status** (as of 2026-03-07):
-- Fully implemented: ~100 / 134 wfview commands
-- Partial support: ~10 / 134
-- Missing: ~24 / 134
-- Known hardware limitations: #153 (TX Freq Monitor)
+**Parity status** (2026-03-22):
+- **134/134 wfview commands implemented (100%)**
+- Zero partial implementations
+- Zero missing commands
+- Known hardware limitation: #153 (TX Freq Monitor not hardware-supported on IC-7610)
 
 ### Testing & Quality
-- [x] 2962+ unit/integration/mock tests
-- [x] 95% code coverage
-- [x] Golden protocol response suite
+- [x] 3365+ unit/integration/mock tests (95% coverage)
+  - 2962+ base tests
+  - +134 IC-7610 parity tests
+  - +269 web UI / backend integration tests
+  - +16 multi-radio backend tests
+- [x] Golden protocol response suite (45+ fixtures)
 - [x] Integration tests with real IC-7610
-- [x] Soak tests
+- [x] Contract tests for IC-705, IC-7300, IC-9700 backends
+- [x] Soak tests and reliability validation
 - [x] CI parity matrix gate
 - [x] Type annotations (`py.typed`)
 
@@ -125,12 +127,14 @@
 
 ## Future (Post-Parity)
 
-### Multi-Radio Support
-- [ ] IC-705 validation (LAN protocol)
-- [ ] IC-7300 validation (LAN protocol)
-- [ ] IC-9700 support
-- [ ] Radio capability auto-detection
-- [ ] Profile-driven radio abstraction (#119)
+### Multi-Radio Support (M5, v0.11.0 COMPLETE)
+- [x] IC-705 backend (serial + LAN-capable, CI-V 0xA4, single-receiver)
+- [x] IC-7300 backend (serial only, CI-V 0x94, single-receiver)
+- [x] IC-9700 backend (serial + LAN-capable, CI-V 0xA2, dual-receiver)
+- [x] Factory model-based routing with case-insensitive matching
+- [x] Profile-driven radio abstraction (#119) — ic705.toml, ic7300.toml, ic9700.toml
+- [x] 3365 tests passing (+16 multi-model tests)
+- [ ] Hardware validation (IC-705, IC-7300, IC-9700 procurement pending)
 
 ### Protocol Completeness
 - [ ] Mock Radio Server — UDP emulator for CI without hardware
@@ -162,4 +166,5 @@
 
 ---
 
-*Updated: 2026-03-07*
+*Updated: 2026-03-23 (v0.11.0)*
+**Current version: 0.11.0 — M4 (IC-7610 Command Parity) and M5 (Multi-Radio Expansion) complete.**
