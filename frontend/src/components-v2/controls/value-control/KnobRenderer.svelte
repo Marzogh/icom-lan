@@ -28,7 +28,7 @@
     showValue?: boolean;
     showLabel?: boolean;
     compact?: boolean;
-    variant?: 'modern' | 'hardware';
+    variant?: 'modern' | 'hardware' | 'hardware-illuminated';
     arcAngle?: number;
     tickCount?: number;
     tickLabels?: string[];

@@ -110,7 +110,12 @@
     <StatusBar />
     <KeyboardHandler config={keyboardConfig} onAction={keyboardHandlers.dispatch} />
 
-    <section class="receiver-deck receiver-deck--mobile" bind:this={receiverDeckElement} style={receiverDeckStyle}>
+    <section
+      class="receiver-deck receiver-deck--mobile"
+      class:receiver-deck--mobile-focus={activeTab === 'vfo'}
+      bind:this={receiverDeckElement}
+      style={receiverDeckStyle}
+    >
       <VfoHeader
         {mainVfo}
         {subVfo}
@@ -140,14 +145,17 @@
             <SpectrumPanel />
           </div>
         </div>
-      {:else if activeTab === 'controls'}
+      {:else if activeTab === 'vfo'}
         <div class="mobile-panels">
           <LeftSidebar />
-          <RightSidebar />
+        </div>
+      {:else if activeTab === 'controls'}
+        <div class="mobile-panels">
+          <RightSidebar mode="rx" />
         </div>
       {:else if activeTab === 'tx'}
         <div class="mobile-panels">
-          <RightSidebar />
+          <RightSidebar mode="tx" />
         </div>
       {:else if activeTab === 'meters'}
         <div class="mobile-meters">
@@ -485,7 +493,6 @@
     height: 100vh;
     background: linear-gradient(180deg, var(--v2-bg-gradient-start) 0%, var(--v2-bg-darkest) 100%);
     padding: 4px;
-    padding-bottom: 60px;
     gap: 4px;
     box-sizing: border-box;
   }
@@ -497,18 +504,23 @@
     padding: 4px;
   }
 
+  .receiver-deck--mobile.receiver-deck--mobile-focus {
+    max-height: 156px;
+  }
+
   .mobile-content {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
+    padding-bottom: 56px; /* MobileNav height */
+    box-sizing: border-box;
   }
 
   .mobile-panels {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    padding-bottom: 60px;
   }
 
   .mobile-meters {
@@ -516,6 +528,5 @@
     flex-direction: column;
     gap: 6px;
     padding: 4px;
-    padding-bottom: 60px;
   }
 </style>

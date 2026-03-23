@@ -15,6 +15,9 @@
     displayFn?: (v: number) => string;
     renderer: 'hbar' | 'bipolar' | 'knob' | 'discrete';
     accentColor?: string;
+    fillColor?: string;
+    fillGradient?: string[];
+    trackColor?: string;
     showValue?: boolean;
     showLabel?: boolean;
     compact?: boolean;
@@ -50,6 +53,9 @@
     displayFn,
     renderer,
     accentColor = 'var(--v2-accent-cyan)',
+    fillColor,
+    fillGradient,
+    trackColor,
     showValue = true,
     showLabel = true,
     compact = false,
@@ -82,6 +88,9 @@
     label,
     displayFn,
     accentColor,
+    fillColor,
+    fillGradient,
+    trackColor,
     showValue,
     showLabel,
     compact,

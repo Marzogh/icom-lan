@@ -25,7 +25,7 @@
 
   let menuOpen = $state(false);
   let menuStyle = $state('');
-  let moreButtonEl: HTMLButtonElement | undefined = $state();
+  let moreButtonEl: HTMLElement | undefined = $state();
   let controlModel = $derived(buildAttControlModel(values));
   let overflowSelected = $derived(controlModel.overflowOptions.some((option) => option.value === selected));
   let overflowLabel = $derived(getAttOverflowLabel(selected, controlModel.overflowOptions));

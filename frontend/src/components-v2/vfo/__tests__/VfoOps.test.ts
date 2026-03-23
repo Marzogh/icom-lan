@@ -85,11 +85,13 @@ function mountComponent(props: ComponentProps<typeof VfoOps>) {
 
 const baseProps: ComponentProps<typeof VfoOps> = {
   splitActive: false,
+  dualWatchActive: false,
   txVfo: 'main',
   onSwap: vi.fn(),
   onCopy: vi.fn(),
   onEqual: vi.fn(),
   onSplitToggle: vi.fn(),
+  onDualWatchToggle: vi.fn(),
   onTxVfoChange: vi.fn(),
 };
 

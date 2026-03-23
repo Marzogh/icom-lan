@@ -110,6 +110,7 @@ const vfoProps = {
     badges: { digisel: 'DIGI-SEL' },
   },
   splitActive: true,
+  dualWatchActive: false,
   txVfo: 'main' as const,
 };
 

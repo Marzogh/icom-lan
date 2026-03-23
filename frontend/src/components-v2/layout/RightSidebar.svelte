@@ -36,79 +36,94 @@
   const dspHandlers = makeDspHandlers();
   const txHandlers = makeTxHandlers();
   const cwHandlers = makeCwPanelHandlers();
+
+  type RightSidebarMode = 'all' | 'rx' | 'tx';
+
+  interface Props {
+    mode?: RightSidebarMode;
+  }
+
+  let { mode = 'all' }: Props = $props();
+
+  let showRx = $derived(mode === 'all' || mode === 'rx');
+  let showTx = $derived(mode === 'all' || mode === 'tx');
 </script>
 
 <aside class="right-sidebar">
-  <CollapsiblePanel title="RX AUDIO" panelId="rx-audio">
-    <RxAudioPanel
-      monitorMode={rxAudio.monitorMode}
-      afLevel={rxAudio.afLevel}
-      hasLiveAudio={rxAudio.hasLiveAudio}
-      onMonitorModeChange={rxAudioHandlers.onMonitorModeChange}
-      onAfLevelChange={rxAudioHandlers.onAfLevelChange}
-    />
-  </CollapsiblePanel>
-
-  <CollapsiblePanel title="DSP" panelId="dsp">
-    <DspPanel
-      nrMode={dsp.nrMode}
-      nrLevel={dsp.nrLevel}
-      nbActive={dsp.nbActive}
-      nbLevel={dsp.nbLevel}
-      notchMode={dsp.notchMode}
-      notchFreq={dsp.notchFreq}
-      onNrModeChange={dspHandlers.onNrModeChange}
-      onNrLevelChange={dspHandlers.onNrLevelChange}
-      onNbToggle={dspHandlers.onNbToggle}
-      onNbLevelChange={dspHandlers.onNbLevelChange}
-      onNotchModeChange={dspHandlers.onNotchModeChange}
-      onNotchFreqChange={dspHandlers.onNotchFreqChange}
-    />
-  </CollapsiblePanel>
-
-  <CollapsiblePanel title="TX" panelId="tx">
-    <TxPanel
-      txActive={tx.txActive}
-      rfPower={tx.rfPower}
-      micGain={tx.micGain}
-      atuActive={tx.atuActive}
-      atuTuning={tx.atuTuning}
-      voxActive={tx.voxActive}
-      compActive={tx.compActive}
-      compLevel={tx.compLevel}
-      monActive={tx.monActive}
-      monLevel={tx.monLevel}
-      driveGain={tx.driveGain}
-      onRfPowerChange={txHandlers.onRfPowerChange}
-      onMicGainChange={txHandlers.onMicGainChange}
-      onAtuToggle={txHandlers.onAtuToggle}
-      onAtuTune={txHandlers.onAtuTune}
-      onVoxToggle={txHandlers.onVoxToggle}
-      onCompToggle={txHandlers.onCompToggle}
-      onCompLevelChange={txHandlers.onCompLevelChange}
-      onMonToggle={txHandlers.onMonToggle}
-      onMonLevelChange={txHandlers.onMonLevelChange}
-      onDriveGainChange={txHandlers.onDriveGainChange}
-    />
-  </CollapsiblePanel>
-
-  {#if hasCapability('cw')}
-    <CollapsiblePanel title="CW" panelId="cw">
-      <CwPanel
-        cwPitch={cw.cwPitch}
-        keySpeed={cw.keySpeed}
-        breakIn={cw.breakIn}
-        apfMode={cw.apfMode}
-        twinPeak={cw.twinPeak}
-        currentMode={cw.currentMode}
-        onCwPitchChange={cwHandlers.onCwPitchChange}
-        onKeySpeedChange={cwHandlers.onKeySpeedChange}
-        onBreakInToggle={cwHandlers.onBreakInToggle}
-        onApfChange={cwHandlers.onApfChange}
-        onTwinPeakToggle={cwHandlers.onTwinPeakToggle}
-        onAutoTune={cwHandlers.onAutoTune}
+  {#if showRx}
+    <CollapsiblePanel title="RX AUDIO" panelId="rx-audio">
+      <RxAudioPanel
+        monitorMode={rxAudio.monitorMode}
+        afLevel={rxAudio.afLevel}
+        hasLiveAudio={rxAudio.hasLiveAudio}
+        onMonitorModeChange={rxAudioHandlers.onMonitorModeChange}
+        onAfLevelChange={rxAudioHandlers.onAfLevelChange}
       />
     </CollapsiblePanel>
+
+    <CollapsiblePanel title="DSP" panelId="dsp">
+      <DspPanel
+        nrMode={dsp.nrMode}
+        nrLevel={dsp.nrLevel}
+        nbActive={dsp.nbActive}
+        nbLevel={dsp.nbLevel}
+        notchMode={dsp.notchMode}
+        notchFreq={dsp.notchFreq}
+        onNrModeChange={dspHandlers.onNrModeChange}
+        onNrLevelChange={dspHandlers.onNrLevelChange}
+        onNbToggle={dspHandlers.onNbToggle}
+        onNbLevelChange={dspHandlers.onNbLevelChange}
+        onNotchModeChange={dspHandlers.onNotchModeChange}
+        onNotchFreqChange={dspHandlers.onNotchFreqChange}
+      />
+    </CollapsiblePanel>
+  {/if}
+
+  {#if showTx}
+    <CollapsiblePanel title="TX" panelId="tx">
+      <TxPanel
+        txActive={tx.txActive}
+        rfPower={tx.rfPower}
+        micGain={tx.micGain}
+        atuActive={tx.atuActive}
+        atuTuning={tx.atuTuning}
+        voxActive={tx.voxActive}
+        compActive={tx.compActive}
+        compLevel={tx.compLevel}
+        monActive={tx.monActive}
+        monLevel={tx.monLevel}
+        driveGain={tx.driveGain}
+        onRfPowerChange={txHandlers.onRfPowerChange}
+        onMicGainChange={txHandlers.onMicGainChange}
+        onAtuToggle={txHandlers.onAtuToggle}
+        onAtuTune={txHandlers.onAtuTune}
+        onVoxToggle={txHandlers.onVoxToggle}
+        onCompToggle={txHandlers.onCompToggle}
+        onCompLevelChange={txHandlers.onCompLevelChange}
+        onMonToggle={txHandlers.onMonToggle}
+        onMonLevelChange={txHandlers.onMonLevelChange}
+        onDriveGainChange={txHandlers.onDriveGainChange}
+      />
+    </CollapsiblePanel>
+
+    {#if hasCapability('cw')}
+      <CollapsiblePanel title="CW" panelId="cw">
+        <CwPanel
+          cwPitch={cw.cwPitch}
+          keySpeed={cw.keySpeed}
+          breakIn={cw.breakIn}
+          apfMode={cw.apfMode}
+          twinPeak={cw.twinPeak}
+          currentMode={cw.currentMode}
+          onCwPitchChange={cwHandlers.onCwPitchChange}
+          onKeySpeedChange={cwHandlers.onKeySpeedChange}
+          onBreakInToggle={cwHandlers.onBreakInToggle}
+          onApfChange={cwHandlers.onApfChange}
+          onTwinPeakToggle={cwHandlers.onTwinPeakToggle}
+          onAutoTune={cwHandlers.onAutoTune}
+        />
+      </CollapsiblePanel>
+    {/if}
   {/if}
 </aside>
 
