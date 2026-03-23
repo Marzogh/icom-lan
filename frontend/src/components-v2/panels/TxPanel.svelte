@@ -95,7 +95,7 @@
 
     <div class="atu-row">
       <!-- status-toggle: sustained on/off state, current visual candidate: fill -->
-      <HardwareButton indicator="dot" active={atuActive} color="green" onclick={() => onAtuToggle()}>ATU</HardwareButton>
+      <HardwareButton indicator="edge-left" active={atuActive} color="green" onclick={() => onAtuToggle()}>ATU</HardwareButton>
       <button
         type="button"
         class="tune-button v2-control-button"
@@ -107,12 +107,12 @@
 
     <div class="toggle-row">
       <!-- status-toggle -->
-      <HardwareButton indicator="dot" active={voxActive} color="orange" onclick={() => onVoxToggle()}>VOX</HardwareButton>
+      <HardwareButton indicator="edge-left" active={voxActive} color="orange" onclick={() => onVoxToggle()}>VOX</HardwareButton>
     </div>
 
     <div class="toggle-row">
       <!-- status-toggle -->
-      <HardwareButton indicator="dot" active={compActive} color="orange" onclick={() => onCompToggle()}>COMP</HardwareButton>
+      <HardwareButton indicator="edge-left" active={compActive} color="orange" onclick={() => onCompToggle()}>COMP</HardwareButton>
     </div>
     {#if compActive}
       <ValueControl
@@ -131,7 +131,7 @@
 
     <div class="toggle-row">
       <!-- status-toggle -->
-      <HardwareButton indicator="dot" active={monActive} color="orange" onclick={() => onMonToggle()}>MON</HardwareButton>
+      <HardwareButton indicator="edge-left" active={monActive} color="orange" onclick={() => onMonToggle()}>MON</HardwareButton>
     </div>
     {#if monActive}
       <ValueControl

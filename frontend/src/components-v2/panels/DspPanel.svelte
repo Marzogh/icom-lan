@@ -189,7 +189,7 @@
           onpointercancel={endLongPressPointer}
           onpointerleave={endLongPressPointer}
         >
-          <HardwareButton indicator="dot"
+          <HardwareButton indicator="edge-left"
             compact
             active={nrActive}
             color="cyan"
@@ -218,7 +218,7 @@
           onpointercancel={endLongPressPointer}
           onpointerleave={endLongPressPointer}
         >
-          <HardwareButton indicator="dot"
+          <HardwareButton indicator="edge-left"
             compact
             active={nbActive}
             color="orange"
@@ -246,7 +246,7 @@
         onpointercancel={endLongPressPointer}
         onpointerleave={endLongPressPointer}
       >
-        <HardwareButton indicator="dot"
+        <HardwareButton indicator="edge-left"
           compact
           active={notchToggleActive}
           color="cyan"
@@ -313,7 +313,7 @@
     <div class="menu-title">Noise blanker</div>
     <div class="dsp-modal-block dsp-modal-row">
       <span class="dsp-modal-inline-label">NB</span>
-      <HardwareButton indicator="dot" active={nbActive} color="orange" onclick={() => onNbToggle(!nbActive)}>
+      <HardwareButton indicator="edge-left" active={nbActive} color="orange" onclick={() => onNbToggle(!nbActive)}>
         {nbActive ? 'ON' : 'OFF'}
       </HardwareButton>
     </div>

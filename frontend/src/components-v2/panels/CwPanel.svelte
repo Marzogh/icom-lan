@@ -77,17 +77,17 @@
 
     <div class="toggle-row">
       {#if showBreakIn}
-        <HardwareButton indicator="dot" active={breakInActive} color="cyan" onclick={() => onBreakInToggle()}>
+        <HardwareButton indicator="edge-left" active={breakInActive} color="cyan" onclick={() => onBreakInToggle()}>
           BK-IN
         </HardwareButton>
       {/if}
       {#if showApf}
-        <HardwareButton indicator="dot" active={apfActive} color="cyan" onclick={() => onApfChange(apfActive ? 0 : 2)}>
+        <HardwareButton indicator="edge-left" active={apfActive} color="cyan" onclick={() => onApfChange(apfActive ? 0 : 2)}>
           APF
         </HardwareButton>
       {/if}
       {#if showTwinPeak}
-        <HardwareButton indicator="dot" active={twinPeak} color="cyan" onclick={() => onTwinPeakToggle()}>
+        <HardwareButton indicator="edge-left" active={twinPeak} color="cyan" onclick={() => onTwinPeakToggle()}>
           TPF
         </HardwareButton>
       {/if}

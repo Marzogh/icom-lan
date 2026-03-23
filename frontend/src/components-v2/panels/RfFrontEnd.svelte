@@ -114,7 +114,7 @@
         {#if showDigiSel}
           <HardwareButton
             active={digiSel}
-            indicator="dot"
+            indicator="edge-left"
             color="green"
             onclick={() => onDigiSelToggle(!digiSel)}
           >
@@ -124,7 +124,7 @@
         {#if showIpPlus}
           <HardwareButton
             active={ipPlus}
-            indicator="dot"
+            indicator="edge-left"
             color="cyan"
             onclick={() => onIpPlusToggle(!ipPlus)}
           >
