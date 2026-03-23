@@ -7,6 +7,7 @@ from ..radio_protocol import Radio
 from .config import BackendConfig, LanBackendConfig, SerialBackendConfig
 from .ic7300.serial import Ic7300SerialRadio
 from .ic705.serial import Ic705SerialRadio
+from .ic9700.serial import Ic9700SerialRadio
 from .icom7610.serial import Icom7610SerialRadio
 
 
@@ -42,6 +43,8 @@ def create_radio(config: BackendConfig) -> Radio:
             serial_class = Ic705SerialRadio
         elif model == "IC-7300":
             serial_class = Ic7300SerialRadio
+        elif model == "IC-9700":
+            serial_class = Ic9700SerialRadio
         else:
             # Default to IC-7610 for compatibility
             serial_class = Icom7610SerialRadio

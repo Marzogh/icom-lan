@@ -213,11 +213,12 @@ Each UDP packet has a fixed-format header (see `packettypes.h` in wfview):
 - [x] Test suite (5 tests: factory, profile, case-insensitive routing)
 - **Blocker:** IC-7300 hardware not yet procured
 
-#### M5.3 IC-9700 Backend ⏳ PENDING
-- [ ] Profile research + TOML definition
-- [ ] Ic9700SerialRadio class
-- [ ] Factory routing
-- [ ] Test suite
+#### M5.3 IC-9700 Backend ✅ COMPLETE (2026-03-23)
+- [x] Profile research + TOML definition (ic9700.toml, CI-V addr 0xA2, dual-receiver)
+- [x] Ic9700SerialRadio class (inherits Icom7610CoreRadio)
+- [x] Factory routing (model="IC-9700" detection, case-insensitive)
+- [x] Test suite (6 tests: factory, profile, dual-receiver, case-insensitive, inheritance)
+- **Blocker:** IC-9700 hardware not yet procured
 
 #### Multi-Model Architecture Features ✅
 - Factory.create_radio() routes by model parameter
@@ -226,7 +227,7 @@ Each UDP packet has a fixed-format header (see `packettypes.h` in wfview):
 - Case-insensitive model matching
 - Extensible pattern for future models
 - Zero code duplication (drivers reused)
-- 3357 tests passing (+10 multi-model tests)
+- 3365 tests passing (+16 multi-model tests)
 
 ### Current Status
 **Package version in `pyproject.toml`: `0.11.0`.**
@@ -243,7 +244,8 @@ Each UDP packet has a fixed-format header (see `packettypes.h` in wfview):
 - **M4 status:** complete (2026-03-22); all 134 IC-7610 parity commands implemented; Protocol interface exposure delivered (49 methods); optional surface expansion (Web UI, CLI, rigctld, docs) deferred as incremental follow-up work.
 - **M5.1 IC-705 Multi-Radio Backend (2026-03-23):** IC-705 serial backend complete with Ic705SerialRadio class, profile-driven routing (ic705.toml, CI-V addr 0xA4), factory integration, and 5 new backend tests. Commit 2e10765. **Blocked on hardware procurement** (research complete).
 - **M5.2 IC-7300 Multi-Radio Backend (2026-03-23):** IC-7300 serial backend complete with Ic7300SerialRadio class, case-insensitive model routing, factory update (dual-model support validated), and 5 new backend tests. Commit 01dfb1b. **Blocked on hardware procurement** (research complete).
-- **Multi-model factory architecture (2026-03-23):** Factory.create_radio() now routes by model parameter: IC-7610 → Icom7610SerialRadio (default), IC-705 → Ic705SerialRadio, IC-7300 → Ic7300SerialRadio. All backends inherit from Icom7610CoreRadio (shared command logic). Profile-driven CI-V address resolution (0x80, 0xA4, 0x94). Extensible pattern for future models.
+- **M5.3 IC-9700 Multi-Radio Backend (2026-03-23):** IC-9700 serial backend complete with Ic9700SerialRadio class, dual-receiver support (receiver_count=2, unique to IC-9700), LAN-capable profile (ic9700.toml, CI-V addr 0xA2), factory routing with case-insensitive matching, and 6 new backend tests validating dual-receiver capability. **Blocked on hardware procurement** (research and profile complete).
+- **Multi-model factory architecture (2026-03-23):** Factory.create_radio() now routes by model parameter: IC-7610 → Icom7610SerialRadio (default), IC-705 → Ic705SerialRadio, IC-7300 → Ic7300SerialRadio, IC-9700 → Ic9700SerialRadio. All backends inherit from Icom7610CoreRadio (shared command logic). Profile-driven CI-V address resolution (0x80, 0xA4, 0x94, 0xA2). Extensible pattern for future models (IC-705 and IC-9700 are LAN-capable).
 - **State contract unification (issue #301, 2026-03-17):** web HTTP/WS public state and the web runtime path now derive from canonical `RadioState` without a web-side `StateCache` runtime dependency; default `rigctld` reads are `RadioState`-first with only handler-local fallback/optimistic state, and default server startup no longer binds consumer layers to backend-shared `StateCache`/poller state.
 - **M4 advanced scope parity (issue #137, 2026-03-06):** `advanced_scope` is now fully implemented in maintained library/runtime surfaces, including receiver select, single/dual, mode/span/edge/hold/ref/speed, during-TX, center type, VBW/RBW, fixed-edge bounds, and receive-side projection into `RadioState.scope_controls`.
 - **IC-7610 parity matrix (issue #139, 2026-03-07): 134 implemented, 0 partial, 0 missing (100%)**; source of truth is `docs/parity/ic7610_command_matrix.json`, and the explicit parity smoke profile is `pytest -m "integration and ic7610_parity" tests/integration`.
