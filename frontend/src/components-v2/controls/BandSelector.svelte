@@ -1,5 +1,5 @@
 <script lang="ts">
-  import './control-button.css';
+  import { HardwareButton } from '$lib/Button';
   import { getCapabilities } from '$lib/stores/capabilities.svelte';
   import { flattenBands, findActiveBand } from './band-utils';
   import { getShortcutHint } from '../layout/shortcut-hints';
@@ -56,7 +56,7 @@
     gap: 3px;
   }
 
-  .band-btn {
+  .grid > :global(button) {
     min-width: 0;
   }
 </style>

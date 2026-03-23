@@ -1,5 +1,5 @@
 <script lang="ts">
-  import '../controls/control-button.css';
+  import { HardwareButton } from '$lib/Button';
   import { getShortcutHint } from '../layout/shortcut-hints';
 
   interface Props {
@@ -46,21 +46,16 @@
 <div class="panel-body" data-mode-panel="true" data-highlight={undefined}>
     <div class="mode-grid">
       {#each visibleModes as mode}
-        <button
-          type="button"
-          class="mode-button v2-control-button"
-          class:active={currentMode === mode}
-          data-surface="hardware"
-          data-indicator-style="edge-left"
-          data-indicator-color="cyan"
-          style="--control-accent:var(--v2-accent-cyan); --control-active-text:var(--v2-text-white)"
-          data-mode={mode}
-          data-shortcut-hint={modeShortcut(mode) ?? undefined}
-          title={modeShortcut(mode) ?? undefined}
+        <HardwareButton
+          active={currentMode === mode}
+          indicator="edge-left"
+          color="cyan"
+          title={modeShortcut(mode)}
+          shortcutHint={modeShortcut(mode)}
           onclick={() => onModeChange(mode)}
         >
           {mode}
-        </button>
+        </HardwareButton>
       {/each}
     </div>
 
@@ -68,21 +63,16 @@
       <div class="section-label">DATA</div>
       <div class="data-grid">
         {#each dataOptions as option}
-          <button
-            type="button"
-            class="data-button v2-control-button"
-            class:active={dataMode === option.value}
-            data-surface="hardware"
-            data-indicator-style="edge-left"
-            data-indicator-color="cyan"
-            style="--control-accent:var(--v2-accent-cyan); --control-active-text:var(--v2-text-white)"
-            data-data-mode={option.value}
-            data-shortcut-hint={dataShortcut ?? undefined}
-            title={dataShortcut ?? undefined}
+          <HardwareButton
+            active={dataMode === option.value}
+            indicator="edge-left"
+            color="cyan"
+            title={dataShortcut}
+            shortcutHint={dataShortcut}
             onclick={() => onDataModeChange(option.value)}
           >
             {option.label}
-          </button>
+          </HardwareButton>
         {/each}
       </div>
     {/if}
@@ -111,8 +101,8 @@
     letter-spacing: 0.08em;
   }
 
-  .mode-button,
-  .data-button {
+  .mode-grid > :global(button),
+  .data-grid > :global(button) {
     min-width: 0;
   }
   </style>

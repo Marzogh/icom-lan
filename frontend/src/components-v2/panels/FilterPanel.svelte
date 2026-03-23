@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { FilterModeConfig } from '$lib/types/capabilities';
-  import '../controls/control-button.css';
+  import { HardwareButton } from '$lib/Button';
   import { ValueControl } from '../controls/value-control';
   import { formatFilterWidth } from './filter-utils';
   import { getShortcutHint, joinShortcutHints } from '../layout/shortcut-hints';
@@ -115,20 +115,16 @@
     <div class="filter-top-row">
       <div class="filter-grid">
         {#each normalizedLabels as label, index}
-          <button
-            type="button"
-            class="filter-select-button v2-control-button"
-            class:active={currentFilter === index + 1}
-            data-surface="hardware"
-            data-indicator-style="edge-left"
-            data-indicator-color="cyan"
-            style="--control-accent:var(--v2-accent-cyan); --control-active-text:var(--v2-text-white)"
-            data-shortcut-hint={cycleFilterShortcut ?? undefined}
-            title={cycleFilterShortcut ?? undefined}
+          <HardwareButton
+            active={currentFilter === index + 1}
+            indicator="edge-left"
+            color="cyan"
+            title={cycleFilterShortcut}
+            shortcutHint={cycleFilterShortcut}
             onclick={() => onFilterChange?.(index + 1)}
           >
             {label}
-          </button>
+          </HardwareButton>
         {/each}
       </div>
 
