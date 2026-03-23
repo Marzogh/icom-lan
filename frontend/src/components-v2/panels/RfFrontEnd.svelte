@@ -170,7 +170,8 @@
   }
 
   .control-row > :global(.segmented-button),
-  .control-row > :global(.att-control) {
+  .control-row > :global(.att-control),
+  .control-row > .button-group {
     flex: 1 1 auto;
     min-width: 0;
   }

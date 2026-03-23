@@ -30,21 +30,16 @@
 <div class="grid">
     {#each bands as band (band.name)}
       {@const isActive = activeBand === band.name}
-      <button
-        type="button"
-        class="band-btn v2-control-button"
-        class:active={isActive}
-        data-surface="hardware"
-        data-indicator-style="edge-left"
-        data-indicator-color="cyan"
-        data-band={band.name}
-        data-active={isActive}
-        data-shortcut-hint={bandShortcut(band.bsrCode) ?? undefined}
-        title={bandShortcut(band.bsrCode) ?? undefined}
+      <HardwareButton
+        active={isActive}
+        indicator="edge-left"
+        color="cyan"
+        title={bandShortcut(band.bsrCode)}
+        shortcutHint={bandShortcut(band.bsrCode)}
         onclick={() => handleClick(band.name, band.defaultFreq, band.bsrCode)}
       >
         {band.name}
-      </button>
+      </HardwareButton>
     {/each}
   </div>
 
