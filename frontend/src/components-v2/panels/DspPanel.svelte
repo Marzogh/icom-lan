@@ -1,7 +1,7 @@
 <script lang="ts">
   import { SegmentedControl } from '$lib/SegmentedControl';
   import { ValueControl, rawToPercentDisplay } from '../controls/value-control';
-  import { FillButton } from '$lib/Button';
+  import { HardwareButton } from '$lib/Button';
   import { hasCapability } from '$lib/stores/capabilities.svelte';
   import { buildNrOptions, buildNotchOptions } from './dsp-utils';
 
