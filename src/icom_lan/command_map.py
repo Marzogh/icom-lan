@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+
 __all__ = ["CommandMap"]
 
 
@@ -36,7 +38,7 @@ class CommandMap:
         """Return ``True`` if *name* is a known command."""
         return name in self._commands
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[str]:
         return iter(self._commands)
 
     def __len__(self) -> int:

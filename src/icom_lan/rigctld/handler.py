@@ -238,7 +238,7 @@ class RigctldHandler:
 
     def _effective_pending_mode(
         self, main_state: ReceiverState | None
-    ) -> tuple[str, int, bool] | None:
+    ) -> tuple[str, int, int] | None:
         pending_mode = self._pending.mode
         if pending_mode is None:
             return None
@@ -350,13 +350,13 @@ class RigctldHandler:
         if pending_mode is not None:
             mode_str, passband, data_mode = pending_mode
             self._cache.update_mode(mode_str, self._pending.filter_width)
-            self._cache.update_data_mode(data_mode)
+            self._cache.update_data_mode(bool(data_mode))
         elif main_state is not None:
             mode_str = main_state.mode.upper()
             passband = _filter_to_passband(main_state.filter)
             data_mode = main_state.data_mode
             self._cache.update_mode(mode_str, main_state.filter)
-            self._cache.update_data_mode(data_mode)
+            self._cache.update_data_mode(bool(data_mode))
         elif self._cache.is_fresh("mode", self._config.cache_ttl):
             mode_str = self._cache.mode
             passband = _filter_to_passband(self._cache.filter_width)

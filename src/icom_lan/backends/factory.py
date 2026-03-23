@@ -39,6 +39,12 @@ def create_radio(config: BackendConfig) -> Radio:
     if isinstance(config, SerialBackendConfig):
         # Route to model-specific serial backend
         model = (config.model or "IC-7610").upper()
+        serial_class: (
+            type[Ic705SerialRadio]
+            | type[Ic7300SerialRadio]
+            | type[Ic9700SerialRadio]
+            | type[Icom7610SerialRadio]
+        )
         if model == "IC-705":
             serial_class = Ic705SerialRadio
         elif model == "IC-7300":

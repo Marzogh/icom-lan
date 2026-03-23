@@ -31,7 +31,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from .. import __version__
 from ..radio_state import RadioState
-from ..radio_protocol import AudioCapable
+from ..radio_protocol import AudioCapable, PowerControlCapable
 from .dx_cluster import DXClusterClient, SpotBuffer
 from .handlers import AudioBroadcaster, AudioHandler, ControlHandler, ScopeHandler
 from .radio_poller import CommandQueue, DisableScope, EnableScope, RadioPoller
@@ -176,7 +176,6 @@ class ConnectionManager:
             evicted.append(conns.pop(0))
         # Debug: log current connection count per channel
         if evicted:
-            from . import logger
             logger.debug(
                 "conn_manager: %s from %s now has %d connections (evicted %d)",
                 channel, ip, len(conns), len(evicted)
@@ -1275,7 +1274,7 @@ class WebServer:
                         {"Content-Type": "application/json"},
                     )
                     return
-                await radio.set_powerstat(power_state == "on")
+                await cast(PowerControlCapable, radio).set_powerstat(power_state == "on")
                 resp = {"status": "ok", "power": power_state}
             else:
                 await _send_response(writer, 404, "Not Found", b"", {})

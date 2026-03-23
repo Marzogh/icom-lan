@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 __all__ = [
     "FilterWidthSegment",
@@ -126,9 +127,9 @@ class RadioProfile:
     data_mode_count: int = 0
     data_mode_labels: dict[str, str] | None = None
     protocol_type: str = "civ"
-    controls: dict[str, dict] | None = None
-    meter_calibrations: dict[str, list[dict]] | None = None
-    rules: tuple[dict, ...] = ()
+    controls: dict[str, dict[str, Any]] | None = None
+    meter_calibrations: dict[str, list[dict[str, Any]]] | None = None
+    rules: tuple[dict[str, Any], ...] = ()
     keyboard: KeyboardConfig | None = None
 
     def supports_capability(self, capability: str) -> bool:

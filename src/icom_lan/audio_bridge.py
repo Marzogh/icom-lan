@@ -232,7 +232,7 @@ class AudioBridge:
         self._rx_stream.start()
 
         # Silence frame for gap filling
-        self._silence = np.zeros((samples_per_frame, self._channels), dtype=np.int16)
+        self._silence: Any = np.zeros((samples_per_frame, self._channels), dtype=np.int16)
 
         # --- RX: subscribe to AudioBus for audio packets ---
         # Detect codec to decide if we need opus decoding

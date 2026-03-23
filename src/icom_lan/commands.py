@@ -39,6 +39,7 @@ __all__ = [
     "CONTROLLER_ADDR",
     "RECEIVER_MAIN",
     "RECEIVER_SUB",
+    "bcd_decode",
     "build_civ_frame",
     "build_cmd29_frame",
     "bcd_encode_value",

@@ -2056,8 +2056,8 @@ async def _cmd_discover(_radio: Radio, args: argparse.Namespace) -> int:
     else:
         lan_result, serial_result = results[0], []
 
-    lan_radios: list[dict] = lan_result if not isinstance(lan_result, BaseException) else []
-    serial_radios: list[dict] = (
+    lan_radios: list[dict[str, Any]] = lan_result if not isinstance(lan_result, BaseException) else []
+    serial_radios: list[dict[str, Any]] = (
         serial_result if not isinstance(serial_result, BaseException) else []
     )
 

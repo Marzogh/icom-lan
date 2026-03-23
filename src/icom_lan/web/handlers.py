@@ -33,6 +33,8 @@ from .protocol import (
 from .radio_poller import (
     PttOff,
     PttOn,
+    ScanStart,
+    ScanStop,
     SelectVfo,
     SetAcc1ModLevel,
     SetAfLevel,
@@ -40,6 +42,7 @@ from .radio_poller import (
     SetAgcTimeConstant,
     SetAntenna1,
     SetAntenna2,
+    SetApf,
     SetAttenuator,
     SetAutoNotch,
     SetBand,
@@ -86,6 +89,8 @@ from .radio_poller import (
     SetSquelch,
     SetSystemDate,
     SetSystemTime,
+    SetTwinPeak,
+    SetDriveGain,
     SetUsbModLevel,
     SetVox,
     SwitchScopeReceiver,
@@ -921,17 +926,17 @@ class ControlHandler:
                 q.put(SetKeySpeed(speed))
                 return {"speed": speed}
             case "set_break_in":
-                mode = int(params["mode"])
+                break_in_mode = int(params["mode"])
                 self._ensure_capability("break_in", "set_break_in")
-                q.put(SetBreakIn(mode))
-                return {"mode": mode}
+                q.put(SetBreakIn(break_in_mode))
+                return {"mode": break_in_mode}
             case "set_apf":
-                mode = int(params["mode"])
+                apf_mode = int(params["mode"])
                 rx = int(params.get("receiver", 0))
                 self._ensure_capability("apf", "set_apf")
                 self._ensure_receiver_supported(rx)
-                q.put(SetApf(mode, receiver=rx))
-                return {"mode": mode, "receiver": rx}
+                q.put(SetApf(apf_mode, receiver=rx))
+                return {"mode": apf_mode, "receiver": rx}
             case "set_twin_peak":
                 on = bool(params.get("on", False))
                 rx = int(params.get("receiver", 0))
@@ -953,12 +958,12 @@ class ControlHandler:
                 q.put(ScanStop())
                 return {}
             case "set_data_mode":
-                mode = int(params["mode"])
+                dm = int(params["mode"])
                 rx = int(params.get("receiver", 0))
                 self._ensure_capability("data_mode", "set_data_mode")
                 self._ensure_receiver_supported(rx)
-                q.put(SetDataMode(mode, receiver=rx))
-                return {"mode": mode, "receiver": rx}
+                q.put(SetDataMode(dm, receiver=rx))
+                return {"mode": dm, "receiver": rx}
             case "set_mic_gain":
                 level = int(params["level"])
                 q.put(SetMicGain(level))
@@ -994,11 +999,11 @@ class ControlHandler:
                 q.put(SetAgcTimeConstant(value, receiver=rx))
                 return {"value": value, "receiver": rx}
             case "set_agc":
-                mode = int(params["mode"])
+                agc_mode = int(params["mode"])
                 rx = int(params.get("receiver", 0))
                 self._ensure_receiver_supported(rx)
-                q.put(SetAgc(mode, receiver=rx))
-                return {"mode": mode, "receiver": rx}
+                q.put(SetAgc(agc_mode, receiver=rx))
+                return {"mode": agc_mode, "receiver": rx}
             case "set_rit_status":
                 on = bool(params.get("on", False))
                 self._ensure_capability("rit", "set_rit_status")

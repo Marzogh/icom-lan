@@ -38,7 +38,7 @@ from ..profiles import RadioProfile, resolve_radio_profile
 
 if TYPE_CHECKING:
     from ..radio_protocol import Radio
-    from ..radio_state import RadioState
+    from ..radio_state import RadioState, ReceiverState
 
 __all__ = [
     "RadioPoller",
@@ -70,6 +70,11 @@ __all__ = [
     "SetLanModLevel",
     "SetDualWatch",
     "SetCompressor",
+    "SetApf",
+    "SetTwinPeak",
+    "SetDriveGain",
+    "ScanStart",
+    "ScanStop",
 ]
 
 logger = logging.getLogger(__name__)
@@ -921,6 +926,7 @@ class RadioPoller:
 
     async def _execute(self, cmd: Command) -> None:
         radio = self._radio
+        _r: Any = radio  # cast for capability methods not on base Radio protocol
         from ..radio_protocol import (
             AdvancedControlCapable,
             DualReceiverCapable,
@@ -1020,13 +1026,13 @@ class RadioPoller:
                     raise CommandError(
                         f"set_filter_width value must be 50-10000 Hz, got {width}"
                     )
-                target = (
+                _fw_target = (
                     self._radio_state.sub
                     if self._radio_state and rx != 0
                     else self._radio_state.main if self._radio_state else None
                 )
-                mode_name = getattr(target, "mode", None)
-                data_mode = int(getattr(target, "data_mode", 0) or 0)
+                mode_name = getattr(_fw_target, "mode", None)
+                data_mode = int(getattr(_fw_target, "data_mode", 0) or 0)
                 rule = self._profile.resolve_filter_rule(mode_name, data_mode=data_mode)
                 min_hz = self._profile.filter_width_min
                 max_hz = self._profile.filter_width_max
@@ -1240,7 +1246,7 @@ class RadioPoller:
                         "preamp_changed", {"level": level, "receiver": rx}
                     )
             case SetPbtInner(level=level, receiver=rx):
-                await radio.set_pbt_inner(level, receiver=rx)
+                await _r.set_pbt_inner(level, receiver=rx)
                 if self._radio_state:
                     target = (
                         self._radio_state.sub if rx != 0 else self._radio_state.main
@@ -1252,7 +1258,7 @@ class RadioPoller:
                         "pbt_inner_changed", {"level": level, "receiver": rx}
                     )
             case SetPbtOuter(level=level, receiver=rx):
-                await radio.set_pbt_outer(level, receiver=rx)
+                await _r.set_pbt_outer(level, receiver=rx)
                 if self._radio_state:
                     target = (
                         self._radio_state.sub if rx != 0 else self._radio_state.main
@@ -1264,7 +1270,7 @@ class RadioPoller:
                         "pbt_outer_changed", {"level": level, "receiver": rx}
                     )
             case SetNRLevel(level=level, receiver=rx):
-                await radio.set_nr_level(level, receiver=rx)
+                await _r.set_nr_level(level, receiver=rx)
                 if self._radio_state:
                     target = (
                         self._radio_state.sub if rx != 0 else self._radio_state.main
@@ -1272,7 +1278,7 @@ class RadioPoller:
                     target.nr_level = level
                     self.bump_revision()
             case SetNBLevel(level=level, receiver=rx):
-                await radio.set_nb_level(level, receiver=rx)
+                await _r.set_nb_level(level, receiver=rx)
                 if self._radio_state:
                     target = (
                         self._radio_state.sub if rx != 0 else self._radio_state.main
@@ -1280,7 +1286,7 @@ class RadioPoller:
                     target.nb_level = level
                     self.bump_revision()
             case SetAutoNotch(on=on, receiver=rx):
-                await radio.set_auto_notch(on, receiver=rx)
+                await _r.set_auto_notch(on, receiver=rx)
                 if self._radio_state:
                     target = (
                         self._radio_state.sub if rx != 0 else self._radio_state.main
@@ -1288,7 +1294,7 @@ class RadioPoller:
                     target.auto_notch = on
                     self.bump_revision()
             case SetManualNotch(on=on, receiver=rx):
-                await radio.set_manual_notch(on, receiver=rx)
+                await _r.set_manual_notch(on, receiver=rx)
                 if self._radio_state:
                     target = (
                         self._radio_state.sub if rx != 0 else self._radio_state.main
@@ -1296,12 +1302,12 @@ class RadioPoller:
                     target.manual_notch = on
                     self.bump_revision()
             case SetNotchFilter(level=level):
-                await radio.set_notch_filter(level)
+                await _r.set_notch_filter(level)
                 if self._radio_state:
                     self._radio_state.notch_filter = level
                     self.bump_revision()
             case SetAgcTimeConstant(value=value, receiver=rx):
-                await radio.set_agc_time_constant(value, receiver=rx)
+                await _r.set_agc_time_constant(value, receiver=rx)
                 if self._radio_state:
                     target = (
                         self._radio_state.sub if rx != 0 else self._radio_state.main
@@ -1309,46 +1315,46 @@ class RadioPoller:
                     target.agc_time_constant = value
                     self.bump_revision()
             case SetCwPitch(value=value):
-                await radio.set_cw_pitch(value)
+                await _r.set_cw_pitch(value)
                 if self._radio_state:
                     self._radio_state.cw_pitch = value
                     self.bump_revision()
             case SetKeySpeed(speed=speed):
-                await radio.set_key_speed(speed)
+                await _r.set_key_speed(speed)
                 if self._radio_state:
                     self._radio_state.key_speed = speed
                     self.bump_revision()
             case SetBreakIn(mode=mode):
-                await radio.set_break_in(mode)
+                await _r.set_break_in(mode)
                 if self._radio_state:
                     self._radio_state.break_in = mode
                     self.bump_revision()
             case SetApf(mode=mode, receiver=rx):
                 self._ensure_receiver_supported(rx, operation="set_apf")
-                await radio.set_audio_peak_filter(mode, receiver=rx)
+                await _r.set_audio_peak_filter(mode, receiver=rx)
                 if self._radio_state:
                     target = self._radio_state.sub if rx != 0 else self._radio_state.main
                     target.apf_type_level = mode
                     self.bump_revision()
             case SetTwinPeak(on=on, receiver=rx):
                 self._ensure_receiver_supported(rx, operation="set_twin_peak")
-                await radio.set_twin_peak_filter(on, receiver=rx)
+                await _r.set_twin_peak_filter(on, receiver=rx)
                 if self._radio_state:
                     target = self._radio_state.sub if rx != 0 else self._radio_state.main
                     target.twin_peak_filter = on
                     self.bump_revision()
             case SetDriveGain(level=level):
-                await radio.set_drive_gain(level)
+                await _r.set_drive_gain(level)
                 if self._radio_state:
                     self._radio_state.drive_gain = level
                     self.bump_revision()
             case ScanStart():
-                await radio.scan_start()
+                await _r.scan_start()
                 if self._radio_state:
                     self._radio_state.scanning = True
                     self.bump_revision()
             case ScanStop():
-                await radio.scan_stop()
+                await _r.scan_stop()
                 if self._radio_state:
                     self._radio_state.scanning = False
                     self.bump_revision()
@@ -1368,32 +1374,32 @@ class RadioPoller:
                         "data_mode_changed", {"mode": mode, "receiver": rx}
                     )
             case SetMicGain(level=level):
-                await radio.set_mic_gain(level)
+                await _r.set_mic_gain(level)
                 if self._radio_state:
                     self._radio_state.mic_gain = level
                     self.bump_revision()
             case SetVox(on=on):
-                await radio.set_vox(on)
+                await _r.set_vox(on)
                 if self._radio_state:
                     self._radio_state.vox_on = on
                     self.bump_revision()
             case SetCompressorLevel(level=level):
-                await radio.set_compressor_level(level)
+                await _r.set_compressor_level(level)
                 if self._radio_state:
                     self._radio_state.compressor_level = level
                     self.bump_revision()
             case SetMonitor(on=on):
-                await radio.set_monitor(on)
+                await _r.set_monitor(on)
                 if self._radio_state:
                     self._radio_state.monitor_on = on
                     self.bump_revision()
             case SetMonitorGain(level=level):
-                await radio.set_monitor_gain(level)
+                await _r.set_monitor_gain(level)
                 if self._radio_state:
                     self._radio_state.monitor_gain = level
                     self.bump_revision()
             case SetDialLock(on=on):
-                await radio.set_dial_lock(on)
+                await _r.set_dial_lock(on)
                 if self._radio_state:
                     self._radio_state.dial_lock = on
                     self.bump_revision()
@@ -1413,28 +1419,28 @@ class RadioPoller:
                 if self._on_state_event:
                     self._on_state_event("agc_changed", {"mode": mode, "receiver": rx})
             case SetRitStatus(on=on):
-                await radio.set_rit_status(on)
+                await _r.set_rit_status(on)
                 if self._radio_state:
                     self._radio_state.rit_on = on
                     self.bump_revision()
                 if self._on_state_event:
                     self._on_state_event("rit_changed", {"on": on})
             case SetRitTxStatus(on=on):
-                await radio.set_rit_tx_status(on)
+                await _r.set_rit_tx_status(on)
                 if self._radio_state:
                     self._radio_state.rit_tx = on
                     self.bump_revision()
                 if self._on_state_event:
                     self._on_state_event("rit_tx_changed", {"on": on})
             case SetRitFrequency(freq=freq):
-                await radio.set_rit_frequency(freq)
+                await _r.set_rit_frequency(freq)
                 if self._radio_state:
                     self._radio_state.rit_freq = freq
                     self.bump_revision()
                 if self._on_state_event:
                     self._on_state_event("rit_freq_changed", {"hz": freq})
             case SetSplit(on=on):
-                await radio.set_split_mode(on)
+                await _r.set_split_mode(on)
                 if self._radio_state:
                     self._radio_state.split = on
                     self.bump_revision()

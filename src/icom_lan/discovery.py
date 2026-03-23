@@ -163,7 +163,7 @@ async def _try_baud(
 def _default_open_serial() -> _OpenSerial:
     """Return the real serial_asyncio opener, or raise ImportError with hint."""
     try:
-        import serial_asyncio  # type: ignore[import-untyped]
+        import serial_asyncio
 
         return serial_asyncio.open_serial_connection  # type: ignore[no-any-return]
     except ImportError as exc:
@@ -327,8 +327,8 @@ async def discover_serial_radios() -> list[dict[str, object]]:
 
 
 def dedupe_radios(
-    lan_radios: list[dict[str, object]], serial_radios: list[dict[str, object]]
-) -> list[dict[str, object]]:
+    lan_radios: list[dict[str, Any]], serial_radios: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
     """Group LAN and serial discovery results by radio identity.
 
     Two entries are considered the same radio when their ``model`` **and**
@@ -343,7 +343,7 @@ def dedupe_radios(
         List of dicts, each with keys ``model``, ``lan`` (list), ``serial``
         (list).  ``model`` is the display name of the radio.
     """
-    radios: dict[tuple[object, ...], dict[str, object]] = {}
+    radios: dict[tuple[object, ...], dict[str, Any]] = {}
     _counter = 0
 
     for lan in lan_radios:

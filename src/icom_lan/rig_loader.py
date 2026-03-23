@@ -5,6 +5,7 @@ from __future__ import annotations
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from .command_map import CommandMap
 from .profiles import (
@@ -122,7 +123,7 @@ class RigConfig:
     vfo_main_select: tuple[int, ...] | None
     vfo_sub_select: tuple[int, ...] | None
     vfo_swap: tuple[int, ...] | None
-    freq_ranges: tuple[dict, ...]
+    freq_ranges: tuple[dict[str, Any], ...]
     commands: dict[str, tuple[int, ...]]
     cmd29_routes: tuple[tuple[int, int | None], ...]
     spectrum: dict[str, int] | None
@@ -139,10 +140,10 @@ class RigConfig:
     protocol_type: str = "civ"
     protocol_address: int | None = None
     protocol_baud: int | None = None
-    controls: dict[str, dict] | None = None
-    meter_calibrations: dict[str, list[dict]] | None = None
+    controls: dict[str, dict[str, Any]] | None = None
+    meter_calibrations: dict[str, list[dict[str, Any]]] | None = None
     meter_redlines: dict[str, int] | None = None
-    rules: tuple[dict, ...] = ()
+    rules: tuple[dict[str, Any], ...] = ()
     keyboard: KeyboardConfig | None = None
 
     def to_profile(self) -> RadioProfile:
@@ -209,7 +210,7 @@ class RigConfig:
 
 def _parse_keyboard_binding(
     filename: str,
-    binding_raw: dict,
+    binding_raw: dict[str, Any],
     *,
     index: int,
 ) -> KeyboardBinding:
@@ -269,7 +270,7 @@ def _parse_keyboard_binding(
 
 def _parse_keyboard_config(
     filename: str,
-    keyboard_section: dict,
+    keyboard_section: dict[str, Any],
 ) -> KeyboardConfig:
     leader_key = str(keyboard_section.get("leader_key", "g"))
     leader_timeout_ms = int(keyboard_section.get("leader_timeout_ms", 1000))
@@ -324,7 +325,7 @@ def _load_default_keyboard_config(path: Path) -> KeyboardConfig | None:
 
 def _merge_keyboard_config(
     base: KeyboardConfig | None,
-    override_section: dict,
+    override_section: dict[str, Any],
     *,
     filename: str,
 ) -> KeyboardConfig | None:
@@ -551,7 +552,7 @@ def load_rig(path: Path) -> RigConfig:
 
     # Parse [controls] (optional)
     controls_raw = data.get("controls")
-    controls: dict[str, dict] | None = None
+    controls: dict[str, dict[str, Any]] | None = None
     if controls_raw is not None:
         controls = {}
         for ctrl_name, ctrl_data in controls_raw.items():
@@ -566,7 +567,7 @@ def load_rig(path: Path) -> RigConfig:
 
     # Parse [meters] (optional)
     meters_raw = data.get("meters")
-    meter_calibrations: dict[str, list[dict]] | None = None
+    meter_calibrations: dict[str, list[dict[str, Any]]] | None = None
     meter_redlines: dict[str, int] | None = None
     if meters_raw is not None:
         meter_calibrations = {}
@@ -584,7 +585,7 @@ def load_rig(path: Path) -> RigConfig:
 
     # Parse [[rules]] (optional)
     rules_raw = data.get("rules", [])
-    rules: list[dict] = []
+    rules: list[dict[str, Any]] = []
     for rule in rules_raw:
         kind = rule.get("kind")
         if kind not in VALID_RULE_KINDS:

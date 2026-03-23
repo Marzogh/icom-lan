@@ -503,6 +503,9 @@ class Icom7610CoreRadio:
     def _start_civ_data_watchdog(self) -> None:
         self._civ_runtime.start_data_watchdog()
 
+    async def _stop_civ_data_watchdog(self) -> None:
+        await self._civ_runtime.stop_data_watchdog()
+
     def _start_civ_worker(self) -> None:
         self._civ_runtime.start_worker()
 
