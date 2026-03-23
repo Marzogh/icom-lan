@@ -1,6 +1,6 @@
 <script lang="ts">
   import '../controls/control-button.css';
-  import { StatusIndicator, FillButton } from '$lib/Button';
+  import { StatusIndicator, HardwareButton } from '$lib/Button';
   import { ValueControl, rawToPercentDisplay } from '../controls/value-control';
   import { hasTx } from '$lib/stores/capabilities.svelte';
   import { txStatusColor } from './tx-utils';
@@ -95,7 +95,7 @@
 
     <div class="atu-row">
       <!-- status-toggle: sustained on/off state, current visual candidate: fill -->
-      <FillButton active={atuActive} color="green" onclick={() => onAtuToggle()}>ATU</FillButton>
+      <HardwareButton indicator="dot" active={atuActive} color="green" onclick={() => onAtuToggle()}>ATU</HardwareButton>
       <button
         type="button"
         class="tune-button v2-control-button"
@@ -107,12 +107,12 @@
 
     <div class="toggle-row">
       <!-- status-toggle -->
-      <FillButton active={voxActive} color="orange" onclick={() => onVoxToggle()}>VOX</FillButton>
+      <HardwareButton indicator="dot" active={voxActive} color="orange" onclick={() => onVoxToggle()}>VOX</HardwareButton>
     </div>
 
     <div class="toggle-row">
       <!-- status-toggle -->
-      <FillButton active={compActive} color="orange" onclick={() => onCompToggle()}>COMP</FillButton>
+      <HardwareButton indicator="dot" active={compActive} color="orange" onclick={() => onCompToggle()}>COMP</HardwareButton>
     </div>
     {#if compActive}
       <ValueControl
@@ -131,7 +131,7 @@
 
     <div class="toggle-row">
       <!-- status-toggle -->
-      <FillButton active={monActive} color="orange" onclick={() => onMonToggle()}>MON</FillButton>
+      <HardwareButton indicator="dot" active={monActive} color="orange" onclick={() => onMonToggle()}>MON</HardwareButton>
     </div>
     {#if monActive}
       <ValueControl

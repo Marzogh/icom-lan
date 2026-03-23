@@ -1,6 +1,6 @@
 <script lang="ts">
   import '../controls/control-button.css';
-  import { FillButton } from '$lib/Button';
+  import { HardwareButton } from '$lib/Button';
   import { ValueControl } from '../controls/value-control';
   import { hasCapability } from '$lib/stores/capabilities.svelte';
 
@@ -77,19 +77,19 @@
 
     <div class="toggle-row">
       {#if showBreakIn}
-        <FillButton active={breakInActive} color="cyan" onclick={() => onBreakInToggle()}>
+        <HardwareButton indicator="dot" active={breakInActive} color="cyan" onclick={() => onBreakInToggle()}>
           BK-IN
-        </FillButton>
+        </HardwareButton>
       {/if}
       {#if showApf}
-        <FillButton active={apfActive} color="cyan" onclick={() => onApfChange(apfActive ? 0 : 2)}>
+        <HardwareButton indicator="dot" active={apfActive} color="cyan" onclick={() => onApfChange(apfActive ? 0 : 2)}>
           APF
-        </FillButton>
+        </HardwareButton>
       {/if}
       {#if showTwinPeak}
-        <FillButton active={twinPeak} color="cyan" onclick={() => onTwinPeakToggle()}>
+        <HardwareButton indicator="dot" active={twinPeak} color="cyan" onclick={() => onTwinPeakToggle()}>
           TPF
-        </FillButton>
+        </HardwareButton>
       {/if}
     </div>
 

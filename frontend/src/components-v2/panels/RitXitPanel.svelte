@@ -1,6 +1,6 @@
 <script lang="ts">
   import { ValueControl } from '../controls/value-control';
-  import { FillButton, HardwarePlainButton } from '../../lib/Button';
+  import { HardwareButton, HardwarePlainButton } from '../../lib/Button';
   import { formatOffset, shouldShowPanel } from './rit-utils';
   import { getShortcutHint } from '../layout/shortcut-hints';
 
@@ -51,13 +51,13 @@
     <div class="panel-body">
       {#if hasRit}
         <div class="row">
-          <FillButton active={ritActive} color="cyan" onclick={onRitToggle} shortcutHint={ritShortcut} title={ritShortcut}>RIT</FillButton>
+          <HardwareButton indicator="dot" active={ritActive} color="cyan" onclick={onRitToggle} shortcutHint={ritShortcut} title={ritShortcut}>RIT</HardwareButton>
           <span class="offset" class:active={ritActive}>{formatOffset(ritOffset)}</span>
         </div>
       {/if}
       {#if hasXit}
         <div class="row">
-          <FillButton active={xitActive} color="orange" onclick={onXitToggle} shortcutHint={xitShortcut} title={xitShortcut}>XIT</FillButton>
+          <HardwareButton indicator="dot" active={xitActive} color="orange" onclick={onXitToggle} shortcutHint={xitShortcut} title={xitShortcut}>XIT</HardwareButton>
           <span class="offset" class:active={xitActive}>{formatOffset(xitOffset)}</span>
         </div>
       {/if}

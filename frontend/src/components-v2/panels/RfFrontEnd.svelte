@@ -112,24 +112,24 @@
     {#if showDigiSel || showIpPlus}
       <div class="button-row">
         {#if showDigiSel}
-          <DotButton
+          <HardwareButton
             active={digiSel}
+            indicator="dot"
             color="green"
-            compact
             onclick={() => onDigiSelToggle(!digiSel)}
           >
             DIGI-SEL
-          </DotButton>
+          </HardwareButton>
         {/if}
         {#if showIpPlus}
-          <DotButton
+          <HardwareButton
             active={ipPlus}
+            indicator="dot"
             color="cyan"
-            compact
             onclick={() => onIpPlusToggle(!ipPlus)}
           >
             IP+
-          </DotButton>
+          </HardwareButton>
         {/if}
       </div>
     {/if}

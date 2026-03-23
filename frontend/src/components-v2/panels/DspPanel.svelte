@@ -189,13 +189,13 @@
           onpointercancel={endLongPressPointer}
           onpointerleave={endLongPressPointer}
         >
-          <FillButton
+          <HardwareButton indicator="dot"
             compact
             active={nrActive}
             color="cyan"
             title="NR — click to toggle; long-press or ⚙ for settings"
             onclick={onNrClick}
-          >NR</FillButton>
+          >NR</HardwareButton>
         </div>
         <button
           type="button"
@@ -218,13 +218,13 @@
           onpointercancel={endLongPressPointer}
           onpointerleave={endLongPressPointer}
         >
-          <FillButton
+          <HardwareButton indicator="dot"
             compact
             active={nbActive}
             color="orange"
             title="NB — click to toggle; long-press or ⚙ for settings"
             onclick={onNbClick}
-          >NB</FillButton>
+          >NB</HardwareButton>
         </div>
         <button
           type="button"
@@ -246,13 +246,13 @@
         onpointercancel={endLongPressPointer}
         onpointerleave={endLongPressPointer}
       >
-        <FillButton
+        <HardwareButton indicator="dot"
           compact
           active={notchToggleActive}
           color="cyan"
           title="Notch — click: off ↔ auto; long-press or ⚙ for settings"
           onclick={onNotchClick}
-        >NOTCH</FillButton>
+        >NOTCH</HardwareButton>
       </div>
       <button
         type="button"
@@ -313,9 +313,9 @@
     <div class="menu-title">Noise blanker</div>
     <div class="dsp-modal-block dsp-modal-row">
       <span class="dsp-modal-inline-label">NB</span>
-      <FillButton active={nbActive} color="orange" onclick={() => onNbToggle(!nbActive)}>
+      <HardwareButton indicator="dot" active={nbActive} color="orange" onclick={() => onNbToggle(!nbActive)}>
         {nbActive ? 'ON' : 'OFF'}
-      </FillButton>
+      </HardwareButton>
     </div>
     <ValueControl
       label="NB Level"
