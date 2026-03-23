@@ -32,6 +32,8 @@
   } from './vfo-layout-tokens';
   import { toVfoProps, toVfoOpsProps, toMeterProps } from '../wiring/state-adapter';
   import { makeKeyboardHandlers, makeMeterHandlers, makeVfoHandlers } from '../wiring/command-bus';
+  import MobileNav from './MobileNav.svelte';
+  import { DEFAULT_TAB, type TabId } from './mobile-nav-utils';
 
   // Reactive state + capabilities
   let radioState = $derived(radio.current);
@@ -46,6 +48,9 @@
   let meter = $derived(toMeterProps(radioState));
   let txCapable = $derived(hasTx());
   let dualReceiver = $derived(hasDualReceiver());
+  let windowWidth = $state(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  let isMobile = $derived(windowWidth < 640);
+  let activeTab = $state<TabId>(DEFAULT_TAB);
   let receiverDeckElement = $state<HTMLElement | null>(null);
   let receiverDeckWidth = $state<number | null>(null);
   let manualVfoScaleOverrides = $state<VfoLayoutScaleOverrides>({});
@@ -70,14 +75,17 @@
     // Theme already applied at module load
     manualVfoScaleOverrides = parseVfoLayoutScaleOverrides(window.location.search);
 
+    const handleResize = () => { windowWidth = window.innerWidth; };
+    window.addEventListener('resize', handleResize);
+
     if (!receiverDeckElement) {
-      return;
+      return () => window.removeEventListener('resize', handleResize);
     }
 
     receiverDeckWidth = receiverDeckElement.getBoundingClientRect().width || receiverDeckElement.clientWidth || null;
 
     if (typeof ResizeObserver === 'undefined') {
-      return;
+      return () => window.removeEventListener('resize', handleResize);
     }
 
     const observer = new ResizeObserver((entries) => {
@@ -90,10 +98,105 @@
     });
 
     observer.observe(receiverDeckElement);
-    return () => observer.disconnect();
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      observer.disconnect();
+    };
   });
 </script>
 
+{#if isMobile}
+  <div class="radio-layout radio-layout--mobile">
+    <StatusBar />
+    <KeyboardHandler config={keyboardConfig} onAction={keyboardHandlers.dispatch} />
+
+    <section class="receiver-deck receiver-deck--mobile" bind:this={receiverDeckElement} style={receiverDeckStyle}>
+      <VfoHeader
+        {mainVfo}
+        {subVfo}
+        layoutProfile={vfoLayoutProfile}
+        splitActive={vfoOps.splitActive}
+        dualWatchActive={vfoOps.dualWatch}
+        txVfo={vfoOps.txVfo}
+        onSwap={vfoHandlers.onSwap}
+        onCopy={vfoHandlers.onCopy}
+        onEqual={vfoHandlers.onEqual}
+        onSplitToggle={vfoHandlers.onSplitToggle}
+        onDualWatchToggle={() => vfoHandlers.onDualWatchToggle(!vfoOps.dualWatch)}
+        onTxVfoChange={vfoHandlers.onTxVfoChange}
+        onMainVfoClick={vfoHandlers.onMainVfoClick}
+        onSubVfoClick={vfoHandlers.onSubVfoClick}
+        onMainModeClick={vfoHandlers.onMainModeClick}
+        onMainFreqChange={vfoHandlers.onMainFreqChange}
+        onSubFreqChange={vfoHandlers.onSubFreqChange}
+        onSubModeClick={vfoHandlers.onSubModeClick}
+      />
+    </section>
+
+    <main class="mobile-content">
+      {#if activeTab === 'spectrum'}
+        <div class="spectrum-slot">
+          <div class="spectrum-frame">
+            <SpectrumPanel />
+          </div>
+        </div>
+      {:else if activeTab === 'controls'}
+        <div class="mobile-panels">
+          <LeftSidebar />
+          <RightSidebar />
+        </div>
+      {:else if activeTab === 'tx'}
+        <div class="mobile-panels">
+          <RightSidebar />
+        </div>
+      {:else if activeTab === 'meters'}
+        <div class="mobile-meters">
+          <article class="receiver-summary-card receiver-summary-card-main">
+            <div class="receiver-summary-header">
+              <span class="receiver-summary-label">RX 1</span>
+              <span class="receiver-summary-mode">{mainVfo.mode} / {mainVfo.filter}</span>
+            </div>
+            <div class="receiver-summary-frequency">
+              <FrequencyDisplay freq={mainVfo.freq} compact active={mainVfo.isActive} />
+            </div>
+            <div class="receiver-summary-meter">
+              <LinearSMeter value={mainVfo.sValue} compact label="MAIN" />
+            </div>
+          </article>
+
+          {#if dualReceiver}
+            <article class="receiver-summary-card receiver-summary-card-sub">
+              <div class="receiver-summary-header">
+                <span class="receiver-summary-label">RX 2</span>
+                <span class="receiver-summary-mode">{subVfo.mode} / {subVfo.filter}</span>
+              </div>
+              <div class="receiver-summary-frequency">
+                <FrequencyDisplay freq={subVfo.freq} compact active={subVfo.isActive} />
+              </div>
+              <div class="receiver-summary-meter">
+                <LinearSMeter value={subVfo.sValue} compact label="SUB" />
+              </div>
+            </article>
+          {/if}
+
+          {#if txCapable}
+            <DockMeterPanel
+              sValue={meter.sValue}
+              rfPower={meter.rfPower}
+              swr={meter.swr}
+              alc={meter.alc}
+              txActive={meter.txActive}
+              meterSource={meter.meterSource as 'S' | 'SWR' | 'POWER'}
+              onMeterSourceChange={meterHandlers.onMeterSourceChange}
+            />
+          {/if}
+        </div>
+      {/if}
+    </main>
+
+    <MobileNav bind:activeTab={activeTab} />
+  </div>
+{:else}
 <div class="radio-layout">
   <StatusBar />
   <KeyboardHandler config={keyboardConfig} onAction={keyboardHandlers.dispatch} />
@@ -181,6 +284,7 @@
     {/if}
   </section>
 </div>
+{/if}
 
 <style>
   .radio-layout {
@@ -372,5 +476,46 @@
     .bottom-dock {
       flex-direction: column;
     }
+  }
+
+  /* Mobile layout */
+  .radio-layout--mobile {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background: linear-gradient(180deg, var(--v2-bg-gradient-start) 0%, var(--v2-bg-darkest) 100%);
+    padding: 4px;
+    padding-bottom: 60px;
+    gap: 4px;
+    box-sizing: border-box;
+  }
+
+  .receiver-deck--mobile {
+    flex-shrink: 0;
+    min-height: 80px;
+    max-height: 100px;
+    padding: 4px;
+  }
+
+  .mobile-content {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .mobile-panels {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-bottom: 60px;
+  }
+
+  .mobile-meters {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 4px;
+    padding-bottom: 60px;
   }
 </style>

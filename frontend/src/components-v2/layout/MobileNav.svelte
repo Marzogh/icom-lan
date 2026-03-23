@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { TABS, DEFAULT_TAB, getVisibleTabs, type TabId } from './mobile-nav-utils';
+  import { DEFAULT_TAB, getVisibleTabs, type TabId } from './mobile-nav-utils';
   import { hasTx } from '$lib/stores/capabilities.svelte';
 
-  let activeTab: TabId = $state(DEFAULT_TAB);
+  let { activeTab = $bindable(DEFAULT_TAB) }: { activeTab?: TabId } = $props();
 
   let visibleTabs = $derived(getVisibleTabs({ hasTx: hasTx() }));
 </script>
