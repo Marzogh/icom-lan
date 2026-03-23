@@ -260,18 +260,14 @@ Each UDP packet has a fixed-format header (see `packettypes.h` in wfview):
 - [x] 11 comprehensive unit tests covering all 256 byte values, edge cases, format verification
 - [x] 3384 tests passing (+11 audio codec tests)
 - **Result:** Web audio streaming now supports all Icom audio codecs; resolves issue with ulaw-returning radios
-- **M4 advanced scope parity (issue #137, 2026-03-06):** `advanced_scope` is now fully implemented in maintained library/runtime surfaces, including receiver select, single/dual, mode/span/edge/hold/ref/speed, during-TX, center type, VBW/RBW, fixed-edge bounds, and receive-side projection into `RadioState.scope_controls`.
-- **IC-7610 parity matrix (issue #139, 2026-03-07): 134 implemented, 0 partial, 0 missing (100%)**; source of truth is `docs/parity/ic7610_command_matrix.json`, and the explicit parity smoke profile is `pytest -m "integration and ic7610_parity" tests/integration`.
-- **M4 parity family counts (from matrix):**
-  - `baseline_core` (pre-M4 baseline, no owner issue): 38 implemented, 0 partial, 0 missing
-  - `#132 vfo_dualwatch_scan`: 10 implemented, 0 partial, 0 missing
-  - `#136 transceiver_status`: 11 implemented, 0 partial, 0 missing
-  - `#137 advanced_scope`: 13 implemented, 0 partial, 0 missing
-  - `#130 dsp_levels`: 21 implemented, 0 partial, 0 missing
-  - `#131 operator_toggles`: 15 implemented, 0 partial, 0 missing
-  - `#133 memory_bandstack`: 6 implemented, 0 partial, 0 missing
-  - `#134 tone_repeater`: 4 implemented, 0 partial, 0 missing
-  - `#135 system_config`: 16 implemented, 0 partial, 0 missing
+
+#### M6.3 Performance Analysis ✅ COMPLETE (2026-03-23)
+- [x] Comprehensive performance baseline (514 unit tests in 1.88s)
+- [x] Full test suite profiling (3384 tests in ~79s, 23ms median)
+- [x] Identified 5 optimization areas with ROI/effort analysis
+- [x] Documentation: `docs/PERFORMANCE.md` with recommendations
+- [x] Confirmed: Current performance already strong; pytest-xdist incompatible with asyncio
+- **Result:** Established performance baseline and optimization roadmap for future releases
 
 ### Reliability Test Expansion (2026-03-05)
 - Added extended integration coverage scaffolding for:
