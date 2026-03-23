@@ -62,8 +62,19 @@
   - `_STATE_QUERIES` built once at init (line 607)
   - `_cmd_map` loaded once at init (line 597)
   - No per-cycle TOML parsing overhead
-- [ ] Add performance regression tests
-- [ ] Profile CI-V command pipeline latency
+- [x] Add performance regression tests ✅ COMPLETE (2026-03-23)
+  - 7 tests with SLO validation in `test_performance_regressions.py`
+- [x] Profile CI-V command pipeline latency ✅ COMPLETE (2026-03-23)
+  - **Profiling results established**:
+    - Frame creation: 0.15–0.94 µs/op (avg 0.33 µs)
+    - BCD encoding: 0.81 µs/op
+    - Frame parsing: 0.02 µs/frame
+    - Command queueing: 0.09 µs/cmd
+    - Full frequency roundtrip: 1.04 µs/op
+  - **Throughput**: 5.1M frames/sec, 1.2M BCD ops/sec
+  - **Latency distribution**: p50=0.17µs, p95=0.25µs, p99=2.42µs
+  - **Finding**: Command pipeline is already highly optimized; no bottlenecks identified
+  - 8 profiling tests in `test_civ_command_profiling.py`
 
 ### Priority 2 (Medium ROI, Medium Effort)
 - [x] Implement delta encoding for web state updates ✅ COMPLETE (2026-03-23)
