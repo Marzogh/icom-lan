@@ -124,6 +124,8 @@ export interface RfFrontEndProps {
   squelch: number;
   att: number;
   pre: number;
+  digiSel: boolean;
+  ipPlus: boolean;
   attValues: number[];
   preValues: number[];
 }
@@ -137,6 +139,8 @@ export function toRfFrontEndProps(
     rfGain: rx?.rfGain ?? 255,
     squelch: rx?.squelch ?? 0,
     att: rx?.att ?? 0,
+    digiSel: rx?.digisel ?? false,
+    ipPlus: rx?.ipplus ?? false,
     pre: rx?.preamp ?? 0,
     attValues: caps?.attValues ?? [0, 6, 12, 18],
     preValues: caps?.preValues ?? [0, 1, 2],

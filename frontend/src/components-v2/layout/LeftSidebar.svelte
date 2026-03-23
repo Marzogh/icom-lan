@@ -77,10 +77,14 @@
       squelch={rfFrontEnd.squelch}
       att={rfFrontEnd.att}
       pre={rfFrontEnd.pre}
+      digiSel={rfFrontEnd.digiSel}
+      ipPlus={rfFrontEnd.ipPlus}
       onRfGainChange={rfHandlers.onRfGainChange}
       onSquelchChange={rfHandlers.onSquelchChange}
       onAttChange={rfHandlers.onAttChange}
       onPreChange={rfHandlers.onPreChange}
+      onDigiSelToggle={rfHandlers.onDigiSelToggle}
+      onIpPlusToggle={rfHandlers.onIpPlusToggle}
     />
   </CollapsiblePanel>
 

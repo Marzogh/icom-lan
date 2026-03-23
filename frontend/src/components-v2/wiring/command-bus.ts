@@ -140,6 +140,16 @@ export function makeRfFrontEndHandlers() {
       patchActiveReceiver({ squelch: level }, true);
       cmd('set_squelch', { level, receiver });
     },
+    onDigiSelToggle: (on: boolean) => {
+      const receiver = activeReceiverParam();
+      patchActiveReceiver({ digisel: on });
+      cmd('set_digi_sel', { on, receiver });
+    },
+    onIpPlusToggle: (on: boolean) => {
+      const receiver = activeReceiverParam();
+      patchActiveReceiver({ ipplus: on });
+      cmd('set_ip_plus', { on, receiver });
+    },
   };
 }
 

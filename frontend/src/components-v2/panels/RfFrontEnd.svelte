@@ -3,6 +3,7 @@
   import DualParamRenderer from '../controls/value-control/DualParamRenderer.svelte';
   import AttenuatorControl from '../controls/AttenuatorControl.svelte';
   import { SegmentedControl } from '$lib/SegmentedControl';
+  import { DotButton } from '$lib/Button';
   import { hasCapability, getAttValues, getPreValues } from '$lib/stores/capabilities.svelte';
   import { buildPreOptions, shouldShowPanel } from './rf-frontend-utils';
   import { getShortcutHint } from '../layout/shortcut-hints';
@@ -12,10 +13,14 @@
     squelch: number;
     att: number;
     pre: number;
+    digiSel: boolean;
+    ipPlus: boolean;
     onRfGainChange: (v: number) => void;
     onSquelchChange: (v: number) => void;
     onAttChange: (v: number) => void;
     onPreChange: (v: number) => void;
+    onDigiSelToggle: (v: boolean) => void;
+    onIpPlusToggle: (v: boolean) => void;
   }
 
   let {
@@ -23,16 +28,22 @@
     squelch,
     att,
     pre,
+    digiSel,
+    ipPlus,
     onRfGainChange,
     onSquelchChange,
     onAttChange,
     onPreChange,
+    onDigiSelToggle,
+    onIpPlusToggle,
   }: Props = $props();
 
   let showRfGain = $derived(hasCapability('rf_gain'));
   let showSquelch = $derived(hasCapability('squelch'));
   let showAtt = $derived(hasCapability('attenuator'));
   let showPre = $derived(hasCapability('preamp'));
+  let showDigiSel = $derived(hasCapability('digi_sel'));
+  let showIpPlus = $derived(hasCapability('ip_plus'));
   let showRfSqlDual = $derived(showRfGain && showSquelch);
   let visible = $derived(shouldShowPanel(showRfGain, showAtt, showPre, showSquelch));
 
@@ -97,6 +108,31 @@
         />
       </div>
     {/if}
+
+    {#if showDigiSel || showIpPlus}
+      <div class="button-row">
+        {#if showDigiSel}
+          <DotButton
+            active={digiSel}
+            color="green"
+            compact
+            onclick={() => onDigiSelToggle(!digiSel)}
+          >
+            DIGI-SEL
+          </DotButton>
+        {/if}
+        {#if showIpPlus}
+          <DotButton
+            active={ipPlus}
+            color="cyan"
+            compact
+            onclick={() => onIpPlusToggle(!ipPlus)}
+          >
+            IP+
+          </DotButton>
+        {/if}
+      </div>
+    {/if}
   </div>
 {/if}
 
@@ -143,6 +179,16 @@
   }
 
   .control-row :global(.segment) {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .button-row {
+    display: flex;
+    gap: 6px;
+  }
+
+  .button-row > :global(button) {
     flex: 1 1 0;
     min-width: 0;
   }
