@@ -16,6 +16,7 @@
     compLevel: number;
     monActive: boolean;
     monLevel: number;
+    driveGain: number;
     onRfPowerChange: (v: number) => void;
     onMicGainChange: (v: number) => void;
     onAtuToggle: () => void;
@@ -25,6 +26,7 @@
     onCompLevelChange: (v: number) => void;
     onMonToggle: () => void;
     onMonLevelChange: (v: number) => void;
+    onDriveGainChange: (v: number) => void;
   }
 
   let {
@@ -38,6 +40,7 @@
     compLevel,
     monActive,
     monLevel,
+    driveGain,
     onRfPowerChange,
     onMicGainChange,
     onAtuToggle,
@@ -47,6 +50,7 @@
     onCompLevelChange,
     onMonToggle,
     onMonLevelChange,
+    onDriveGainChange,
   }: Props = $props();
 
   let tuneButtonColor = $derived(txStatusColor(atuActive, atuTuning));
@@ -143,6 +147,19 @@
       variant="hardware-illuminated"
       />
     {/if}
+
+    <ValueControl
+      label="Drive Gain"
+      value={driveGain}
+      min={0}
+      max={255}
+      step={1}
+      renderer="hbar"
+      displayFn={rawToPercentDisplay}
+      accentColor="var(--v2-accent-orange)"
+      onChange={onDriveGainChange}
+      variant="hardware-illuminated"
+    />
 
   </div>
 {/if}

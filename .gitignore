@@ -52,3 +52,7 @@ docs/issues-dump.md
 references/
 
 .kombai/
+
+# Stale auto-generated backend stubs (Composer 2 artifacts)
+src/icom_lan/backends/ic7300/
+tests/test_ic7300_backend.py

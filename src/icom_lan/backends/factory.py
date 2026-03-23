@@ -5,6 +5,7 @@ from __future__ import annotations
 from ..radio import IcomRadio  # noqa: TID251
 from ..radio_protocol import Radio
 from .config import BackendConfig, LanBackendConfig, SerialBackendConfig
+from .ic7300.serial import Ic7300SerialRadio
 from .ic705.serial import Ic705SerialRadio
 from .icom7610.serial import Icom7610SerialRadio
 
@@ -36,9 +37,11 @@ def create_radio(config: BackendConfig) -> Radio:
         )
     if isinstance(config, SerialBackendConfig):
         # Route to model-specific serial backend
-        model = config.model or "IC-7610"
-        if model.upper() == "IC-705":
+        model = (config.model or "IC-7610").upper()
+        if model == "IC-705":
             serial_class = Ic705SerialRadio
+        elif model == "IC-7300":
+            serial_class = Ic7300SerialRadio
         else:
             # Default to IC-7610 for compatibility
             serial_class = Icom7610SerialRadio

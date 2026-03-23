@@ -372,6 +372,20 @@ export function makeCwPanelHandlers() {
       patchRadioState({ breakIn: next });
       cmd('set_break_in', { mode: next });
     },
+    onApfChange: (mode: number) => {
+      const receiver = activeReceiverParam();
+      patchActiveReceiver({ apfTypeLevel: mode }, true);
+      cmd('set_apf', { mode, receiver });
+    },
+    onTwinPeakToggle: () => {
+      const receiver = activeReceiverParam();
+      const state = getRadioState();
+      const rx = receiver === 0 ? state?.main : state?.sub;
+      const current = rx?.twinPeakFilter ?? false;
+      const next = !current;
+      patchActiveReceiver({ twinPeakFilter: next }, true);
+      cmd('set_twin_peak', { on: next, receiver });
+    },
     /** Same action as TX panel TUNE — starts ATU tuning when supported. */
     onAutoTune: () => {
       cmd('set_tuner_status', { value: 2 });
@@ -421,6 +435,10 @@ export function makeTxHandlers() {
     onMonLevelChange: (level: number) => {
       patchRadioState({ monitorGain: level });
       cmd('set_monitor_gain', { level });
+    },
+    onDriveGainChange: (level: number) => {
+      patchRadioState({ driveGain: level });
+      cmd('set_drive_gain', { level });
     },
   };
 }

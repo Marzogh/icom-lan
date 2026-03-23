@@ -78,6 +78,7 @@
       compLevel={tx.compLevel}
       monActive={tx.monActive}
       monLevel={tx.monLevel}
+      driveGain={tx.driveGain}
       onRfPowerChange={txHandlers.onRfPowerChange}
       onMicGainChange={txHandlers.onMicGainChange}
       onAtuToggle={txHandlers.onAtuToggle}
@@ -87,6 +88,7 @@
       onCompLevelChange={txHandlers.onCompLevelChange}
       onMonToggle={txHandlers.onMonToggle}
       onMonLevelChange={txHandlers.onMonLevelChange}
+      onDriveGainChange={txHandlers.onDriveGainChange}
     />
   </CollapsiblePanel>
 
@@ -96,10 +98,14 @@
         cwPitch={cw.cwPitch}
         keySpeed={cw.keySpeed}
         breakIn={cw.breakIn}
+        apfMode={cw.apfMode}
+        twinPeak={cw.twinPeak}
         currentMode={cw.currentMode}
         onCwPitchChange={cwHandlers.onCwPitchChange}
         onKeySpeedChange={cwHandlers.onKeySpeedChange}
         onBreakInToggle={cwHandlers.onBreakInToggle}
+        onApfChange={cwHandlers.onApfChange}
+        onTwinPeakToggle={cwHandlers.onTwinPeakToggle}
         onAutoTune={cwHandlers.onAutoTune}
       />
     </CollapsiblePanel>

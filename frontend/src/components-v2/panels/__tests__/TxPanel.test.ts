@@ -85,6 +85,7 @@ const baseProps: ComponentProps<typeof TxPanel> = {
   compLevel: 64,
   monActive: false,
   monLevel: 64,
+  driveGain: 128,
   onRfPowerChange: vi.fn(),
   onMicGainChange: vi.fn(),
   onAtuToggle: vi.fn(),
@@ -94,6 +95,7 @@ const baseProps: ComponentProps<typeof TxPanel> = {
   onCompLevelChange: vi.fn(),
   onMonToggle: vi.fn(),
   onMonLevelChange: vi.fn(),
+  onDriveGainChange: vi.fn(),
 };
 
 describe('panel structure', () => {

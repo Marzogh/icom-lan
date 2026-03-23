@@ -294,6 +294,7 @@ export interface TxProps {
   compLevel: number;
   monActive: boolean;
   monLevel: number;
+  driveGain: number;
 }
 
 export function toTxProps(
@@ -311,6 +312,7 @@ export function toTxProps(
     compLevel: state?.compressorLevel ?? 0,
     monActive: state?.monitorOn ?? false,
     monLevel: state?.monitorGain ?? 128,
+    driveGain: state?.driveGain ?? 128,
   };
 }
 
@@ -320,6 +322,8 @@ export interface CwProps {
   cwPitch: number;
   keySpeed: number;
   breakIn: number;
+  apfMode: number;
+  twinPeak: boolean;
   currentMode: string;
 }
 
@@ -332,6 +336,8 @@ export function toCwProps(
     cwPitch: state?.cwPitch ?? 600,
     keySpeed: state?.keySpeed ?? 12,
     breakIn: state?.breakIn ?? 0,
+    apfMode: rx?.apfTypeLevel ?? 0,
+    twinPeak: rx?.twinPeakFilter ?? false,
     currentMode: rx?.mode ?? 'USB',
   };
 }

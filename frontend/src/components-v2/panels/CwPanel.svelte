@@ -8,10 +8,14 @@
     cwPitch: number;
     keySpeed: number;
     breakIn: number;
+    apfMode: number;
+    twinPeak: boolean;
     currentMode: string;
     onCwPitchChange: (v: number) => void;
     onKeySpeedChange: (v: number) => void;
     onBreakInToggle: () => void;
+    onApfChange: (mode: number) => void;
+    onTwinPeakToggle: () => void;
     onAutoTune: () => void;
   }
 
@@ -19,15 +23,22 @@
     cwPitch,
     keySpeed,
     breakIn,
+    apfMode,
+    twinPeak,
     currentMode,
     onCwPitchChange,
     onKeySpeedChange,
     onBreakInToggle,
+    onApfChange,
+    onTwinPeakToggle,
     onAutoTune,
   }: Props = $props();
 
   let showBreakIn = $derived(hasCapability('break_in'));
+  let showApf = $derived(hasCapability('apf'));
+  let showTwinPeak = $derived(hasCapability('twin_peak'));
   let breakInActive = $derived(breakIn > 0);
+  let apfActive = $derived(apfMode > 0);
 </script>
 
 {#if hasCapability('cw')}
@@ -68,6 +79,22 @@
       <div class="toggle-row">
         <FillButton active={breakInActive} color="cyan" onclick={() => onBreakInToggle()}>
           BREAK-IN
+        </FillButton>
+      </div>
+    {/if}
+
+    {#if showApf}
+      <div class="toggle-row">
+        <FillButton active={apfActive} color="cyan" onclick={() => onApfChange(apfActive ? 0 : 2)}>
+          APF
+        </FillButton>
+      </div>
+    {/if}
+
+    {#if showTwinPeak}
+      <div class="toggle-row">
+        <FillButton active={twinPeak} color="cyan" onclick={() => onTwinPeakToggle()}>
+          TWIN PK
         </FillButton>
       </div>
     {/if}
