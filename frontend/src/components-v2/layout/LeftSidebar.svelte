@@ -126,9 +126,7 @@
   <CollapsiblePanel title="AGC" panelId="agc">
     <AgcPanel
       agcMode={agc.agcMode}
-      agcGain={agc.agcGain}
       onAgcModeChange={agcHandlers.onAgcModeChange}
-      onAgcGainChange={agcHandlers.onAgcGainChange}
     />
   </CollapsiblePanel>
 

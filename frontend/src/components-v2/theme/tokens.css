@@ -120,6 +120,27 @@
   --v2-badge-inactive-border: #1A2028;
   --v2-badge-inactive-text: #4D6074;
 
+  /* Badge color overrides (per feature) */
+  --v2-badge-nr-color: amber;
+  --v2-badge-nb-color: amber;
+  --v2-badge-notch-color: amber;
+  --v2-badge-digi-sel-color: green;
+  --v2-badge-ip-plus-color: cyan;
+  --v2-badge-att-color: green;
+  --v2-badge-preamp-color: green;
+  --v2-badge-split-color: amber;
+  --v2-badge-rit-color: amber;
+  --v2-badge-xit-color: amber;
+  --v2-badge-default-color: cyan;
+
+  /* Receiver accent (MAIN/SUB distinction) */
+  --v2-receiver-main-accent: #00D4FF;   /* cyan */
+  --v2-receiver-sub-accent: #FF6A00;    /* orange */
+  --v2-vfo-main-control-border: rgba(0, 212, 255, 0.48);
+  --v2-vfo-main-control-glow: rgba(0, 212, 255, 0.12);
+  --v2-vfo-sub-control-border: rgba(255, 106, 0, 0.48);
+  --v2-vfo-sub-control-glow: rgba(255, 106, 0, 0.12);
+
   /* VFO Indicators */
   --v2-vfo-active-glow: rgba(0, 212, 255, 0.08);
   --v2-vfo-badge-active-bg: rgba(21, 74, 34, 0.68);

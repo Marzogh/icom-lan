@@ -272,10 +272,6 @@ export function makeAgcHandlers() {
       patchActiveReceiver({ agc: mode });
       cmd('set_agc', { mode, receiver: activeReceiverParam() });
     },
-    onAgcGainChange: (value: number) => {
-      const receiver = activeReceiverParam();
-      cmd('set_agc_time_constant', { value, receiver });
-    },
   };
 }
 

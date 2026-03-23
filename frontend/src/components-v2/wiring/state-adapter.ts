@@ -180,7 +180,6 @@ export function toFilterProps(
 
 export interface AgcProps {
   agcMode: number;
-  agcGain: number;
   agcModes: number[];
   agcLabels: Record<string, string>;
 }
@@ -192,7 +191,6 @@ export function toAgcProps(
   const rx = state ? activeRx(state) : null;
   return {
     agcMode: rx?.agc ?? 2,
-    agcGain: rx?.agcTimeConstant ?? 128,
     agcModes: caps?.agcModes ?? [1, 2, 3],
     agcLabels: caps?.agcLabels ?? { '1': 'FAST', '2': 'MID', '3': 'SLOW' },
   };
