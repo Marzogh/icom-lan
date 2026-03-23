@@ -93,24 +93,29 @@
     <div class="control-strip">
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <!-- svelte-ignore a11y_click_events_have_key_events -->
-      <span
-        class="mode-badge"
-        onclick={(e) => { e.stopPropagation(); onModeClick?.(); }}
-      >{mode}</span>
+      <div class="mode-badge-wrapper" onclick={(e) => { e.stopPropagation(); onModeClick?.(); }}>
+        <StatusIndicator
+          label={mode}
+          active={true}
+          color="cyan"
+          size="default"
+        />
+      </div>
 
-      <span class="slot-readout">{slotTag}</span>
+      <StatusIndicator label={slotTag} active={false} color="muted" size="default" />
 
       {#if activeBand}
-        <span class="band-readout">{activeBand}</span>
+        <StatusIndicator label={activeBand} active={true} color="cyan" size="default" />
       {/if}
 
-      <span class="filter-badge">{filter}</span>
+      <StatusIndicator label={filter} active={true} color="cyan" size="default" />
 
       {#each badgeItems as item (item.label)}
         <StatusIndicator
           label={item.label}
           active={item.active}
           color={item.color as 'cyan' | 'green' | 'amber' | 'orange' | 'red' | 'muted'}
+          size="default"
         />
       {/each}
     </div>
@@ -219,47 +224,16 @@
     padding: 0 var(--vfo-panel-meter-pad-x, 6px);
   }
 
-  .mode-badge {
-    font-family: 'Roboto Mono', monospace;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: var(--vfo-control-badge-height, 16px);
-    font-size: var(--vfo-control-badge-font-size, 7px);
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    padding: 0 var(--vfo-control-badge-padding-x, 6px);
-    border-radius: var(--vfo-panel-badge-radius, 3px);
-    border: 1px solid var(--receiver-control-border);
-    color: var(--v2-text-primary);
-    background: var(--v2-vfo-mode-badge-bg);
+  .mode-badge-wrapper {
     cursor: pointer;
-    user-select: none;
-    transition: border-color 150ms ease, color 150ms ease;
-  }
-
-  .mode-badge:hover {
-    filter: brightness(1.2);
-  }
-
-  .filter-badge {
-    font-family: 'Roboto Mono', monospace;
     display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: var(--vfo-control-badge-height, 16px);
-    font-size: var(--vfo-control-badge-font-size, 7px);
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    padding: 0 var(--vfo-control-badge-padding-x, 6px);
-    border-radius: var(--vfo-panel-badge-radius, 3px);
-    border: 1px solid var(--v2-border-soft);
-    color: var(--v2-text-subdued);
-    background: var(--v2-vfo-filter-badge-bg);
-    user-select: none;
   }
+
+  .mode-badge-wrapper:hover :global(.v2-status-indicator) {
+    filter: brightness(1.15);
+  }
+
+
 
   .panel-body {
     display: grid;
@@ -343,18 +317,7 @@
     white-space: nowrap;
   }
 
-  .slot-readout,
-  .band-readout {
-    color: var(--v2-text-muted);
-    font-size: var(--vfo-control-badge-font-size, 7px);
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
 
-  .control-strip :global(.v2-status-indicator) {
-    min-height: var(--vfo-control-badge-min-height, 16px);
-  }
 
   @media (max-width: 1280px) {
     .freq-row :global(.freq) {
