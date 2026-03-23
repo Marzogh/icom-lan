@@ -38,7 +38,6 @@
 
   function handleClick(event: MouseEvent) {
     if (disabled) return;
-    localActive = !localActive;
     onclick?.(event);
   }
 
