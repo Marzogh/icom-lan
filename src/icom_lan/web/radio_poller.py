@@ -241,6 +241,33 @@ class SetBreakIn:
 
 
 @dataclass(frozen=True, slots=True)
+class SetApf:
+    mode: int
+    receiver: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class SetTwinPeak:
+    on: bool
+    receiver: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class SetDriveGain:
+    level: int
+
+
+@dataclass(frozen=True, slots=True)
+class ScanStart:
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class ScanStop:
+    pass
+
+
+@dataclass(frozen=True, slots=True)
 class SetDataMode:
     mode: int
     receiver: int = 0
@@ -453,6 +480,11 @@ Command = (
     | SetCwPitch
     | SetKeySpeed
     | SetBreakIn
+    | SetApf
+    | SetTwinPeak
+    | SetDriveGain
+    | ScanStart
+    | ScanStop
     | SetDataMode
     | SetMicGain
     | SetVox
@@ -1284,6 +1316,35 @@ class RadioPoller:
                 await radio.set_break_in(mode)
                 if self._radio_state:
                     self._radio_state.break_in = mode
+                    self.bump_revision()
+            case SetApf(mode=mode, receiver=rx):
+                self._ensure_receiver_supported(rx, operation="set_apf")
+                await radio.set_audio_peak_filter(mode, receiver=rx)
+                if self._radio_state:
+                    target = self._radio_state.sub if rx != 0 else self._radio_state.main
+                    target.apf_type_level = mode
+                    self.bump_revision()
+            case SetTwinPeak(on=on, receiver=rx):
+                self._ensure_receiver_supported(rx, operation="set_twin_peak")
+                await radio.set_twin_peak_filter(on, receiver=rx)
+                if self._radio_state:
+                    target = self._radio_state.sub if rx != 0 else self._radio_state.main
+                    target.twin_peak_filter = on
+                    self.bump_revision()
+            case SetDriveGain(level=level):
+                await radio.set_drive_gain(level)
+                if self._radio_state:
+                    self._radio_state.drive_gain = level
+                    self.bump_revision()
+            case ScanStart():
+                await radio.scan_start()
+                if self._radio_state:
+                    self._radio_state.scanning = True
+                    self.bump_revision()
+            case ScanStop():
+                await radio.scan_stop()
+                if self._radio_state:
+                    self._radio_state.scanning = False
                     self.bump_revision()
             case SetDataMode(mode=mode, receiver=rx):
                 self._ensure_receiver_supported(rx, operation="set_data_mode")

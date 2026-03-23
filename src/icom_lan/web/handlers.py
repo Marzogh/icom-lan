@@ -169,6 +169,11 @@ class ControlHandler:
             "set_cw_pitch",
             "set_key_speed",
             "set_break_in",
+            "set_apf",
+            "set_twin_peak",
+            "set_drive_gain",
+            "scan_start",
+            "scan_stop",
             "set_data_mode",
             "set_mic_gain",
             "set_vox",
@@ -913,6 +918,33 @@ class ControlHandler:
                 self._ensure_capability("break_in", "set_break_in")
                 q.put(SetBreakIn(mode))
                 return {"mode": mode}
+            case "set_apf":
+                mode = int(params["mode"])
+                rx = int(params.get("receiver", 0))
+                self._ensure_capability("apf", "set_apf")
+                self._ensure_receiver_supported(rx)
+                q.put(SetApf(mode, receiver=rx))
+                return {"mode": mode, "receiver": rx}
+            case "set_twin_peak":
+                on = bool(params.get("on", False))
+                rx = int(params.get("receiver", 0))
+                self._ensure_capability("twin_peak", "set_twin_peak")
+                self._ensure_receiver_supported(rx)
+                q.put(SetTwinPeak(on, receiver=rx))
+                return {"on": on, "receiver": rx}
+            case "set_drive_gain":
+                level = int(params["level"])
+                self._ensure_capability("drive_gain", "set_drive_gain")
+                q.put(SetDriveGain(level))
+                return {"level": level}
+            case "scan_start":
+                self._ensure_capability("scan", "scan_start")
+                q.put(ScanStart())
+                return {}
+            case "scan_stop":
+                self._ensure_capability("scan", "scan_stop")
+                q.put(ScanStop())
+                return {}
             case "set_data_mode":
                 mode = int(params["mode"])
                 rx = int(params.get("receiver", 0))
