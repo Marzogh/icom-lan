@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { SegmentedControl } from '$lib/SegmentedControl';
+  import { HardwareButton } from '$lib/Button';
   import { ValueControl, rawToPercentDisplay } from '../controls/value-control';
   import { hasAudio } from '$lib/stores/capabilities.svelte';
   import { buildMonitorOptions, formatMonitorStatus } from './audio-utils';
@@ -25,13 +25,19 @@
 
 {#if hasAudio()}
     <div class="panel-body">
-      <SegmentedControl
-        {options}
-        selected={monitorMode}
-        accentColor="var(--v2-accent-cyan-alt)"
-        title={monitorShortcut}
-        onchange={(v) => onMonitorModeChange(v as string)}
-      />
+      <div class="button-group">
+        {#each options as option}
+          <HardwareButton
+            active={monitorMode === option.value}
+            indicator="edge-left"
+            color="cyan"
+            title={monitorShortcut}
+            onclick={() => onMonitorModeChange(option.value as string)}
+          >
+            {option.label}
+          </HardwareButton>
+        {/each}
+      </div>
       <ValueControl
         label="AF Level"
         value={afLevel}

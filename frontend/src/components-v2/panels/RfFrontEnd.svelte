@@ -2,7 +2,6 @@
   import { ValueControl, rawToPercentDisplay } from '../controls/value-control';
   import DualParamRenderer from '../controls/value-control/DualParamRenderer.svelte';
   import AttenuatorControl from '../controls/AttenuatorControl.svelte';
-  import { SegmentedControl } from '$lib/SegmentedControl';
   import { HardwareButton } from '$lib/Button';
   import { hasCapability, getAttValues, getPreValues } from '$lib/stores/capabilities.svelte';
   import { buildPreOptions, shouldShowPanel } from './rf-frontend-utils';

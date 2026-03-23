@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { SegmentedControl } from '$lib/SegmentedControl';
   import { ValueControl, rawToPercentDisplay } from '../controls/value-control';
   import { HardwareButton } from '$lib/Button';
   import { hasCapability } from '$lib/stores/capabilities.svelte';
@@ -283,15 +282,17 @@
     style={nrModalStyle}
   >
     <div class="menu-title">Noise reduction</div>
-    <div class="dsp-modal-block">
-      <SegmentedControl
-        options={nrOptions}
-        selected={nrModalMode}
-        onchange={handleNrModalMode}
-        indicatorStyle="fill"
-        surface="hardware"
-        indicatorColor="cyan"
-      />
+    <div class="dsp-modal-block dsp-mode-grid">
+      {#each nrOptions as option}
+        <HardwareButton
+          active={nrModalMode === option.value}
+          indicator="edge-left"
+          color="cyan"
+          onclick={() => handleNrModalMode(option.value)}
+        >
+          {option.label}
+        </HardwareButton>
+      {/each}
     </div>
     <ValueControl
       label="NR Level"
@@ -335,15 +336,17 @@
 {#if openModal === 'notch'}
   <div class="dsp-modal" role="dialog" aria-label="Notch filter settings" style={notchModalStyle}>
     <div class="menu-title">Notch</div>
-    <div class="dsp-modal-block">
-      <SegmentedControl
-        options={notchOptions}
-        selected={notchModalMode}
-        onchange={handleNotchModalMode}
-        indicatorStyle="fill"
-        surface="hardware"
-        indicatorColor="cyan"
-      />
+    <div class="dsp-modal-block dsp-mode-grid">
+      {#each notchOptions as option}
+        <HardwareButton
+          active={notchModalMode === option.value}
+          indicator="edge-left"
+          color="cyan"
+          onclick={() => handleNotchModalMode(option.value)}
+        >
+          {option.label}
+        </HardwareButton>
+      {/each}
     </div>
     {#if notchModalMode === 'manual'}
       <ValueControl
@@ -465,5 +468,15 @@
     font-size: 9px;
     font-weight: 700;
     letter-spacing: 0.08em;
+  }
+
+  .dsp-mode-grid {
+    display: flex;
+    gap: 4px;
+  }
+
+  .dsp-mode-grid > :global(button) {
+    flex: 1 1 0;
+    min-width: 0;
   }
 </style>
