@@ -105,6 +105,10 @@
   --v2-badge-orange-border: #FF6A00;
   --v2-badge-orange-text: #FFF0E4;
   --v2-badge-orange-glow: rgba(255, 106, 0, 0.14);
+  --v2-badge-amber-bg: #3D3000;
+  --v2-badge-amber-border: #F2CF4A;
+  --v2-badge-amber-text: #FFFAE6;
+  --v2-badge-amber-glow: rgba(242, 207, 74, 0.14);
   --v2-badge-red-bg: #3D0A0A;
   --v2-badge-red-border: #FF2020;
   --v2-badge-red-text: #FFF0ED;

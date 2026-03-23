@@ -392,6 +392,13 @@
   box-shadow: 0 0 0 1px var(--v2-badge-green-glow);
 }
 
+.v2-status-indicator[data-active='true'][data-color='amber'] {
+  background: var(--v2-badge-amber-bg);
+  border-color: var(--v2-badge-amber-border);
+  color: var(--v2-badge-amber-text);
+  box-shadow: 0 0 0 1px var(--v2-badge-amber-glow);
+}
+
 .v2-status-indicator[data-active='true'][data-color='muted'] {
   background: var(--v2-badge-muted-bg);
   border-color: var(--v2-badge-muted-border);

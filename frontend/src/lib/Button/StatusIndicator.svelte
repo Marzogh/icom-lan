@@ -1,7 +1,7 @@
 <script lang="ts">
   import '../../components-v2/controls/control-button.css';
 
-  type StatusIndicatorColor = 'cyan' | 'green' | 'orange' | 'red' | 'muted';
+  type StatusIndicatorColor = 'cyan' | 'green' | 'amber' | 'orange' | 'red' | 'muted';
   type StatusIndicatorSize = 'default' | 'xs';
 
   interface Props {
