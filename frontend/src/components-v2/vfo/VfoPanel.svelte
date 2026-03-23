@@ -111,7 +111,6 @@
           label={item.label}
           active={item.active}
           color={item.color as 'cyan' | 'green' | 'amber' | 'orange' | 'red' | 'muted'}
-          size="xs"
         />
       {/each}
     </div>
