@@ -320,7 +320,7 @@
     gap: 6px;
   }
 
-  .filter-select-button,
+  .filter-grid > :global(button),
   .settings-button,
   .modal-close,
   .defaults-button {

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { SegmentedControl } from '$lib/SegmentedControl';
+  import { HardwareButton } from '$lib/Button';
   import { getAgcModes, getAgcLabels } from '$lib/stores/capabilities.svelte';
   import { buildAgcOptions } from './agc-utils';
 
@@ -14,12 +14,19 @@
 </script>
 
 <div class="panel-body">
-    <SegmentedControl
-      options={options}
-      selected={agcMode}
-      onchange={(v) => onAgcModeChange(v as number)}
-    />
+  <div class="button-grid">
+    {#each options as option}
+      <HardwareButton
+        active={agcMode === option.value}
+        indicator="edge-left"
+        color="cyan"
+        onclick={() => onAgcModeChange(option.value)}
+      >
+        {option.label}
+      </HardwareButton>
+    {/each}
   </div>
+</div>
 
 <style>
   .panel-body {

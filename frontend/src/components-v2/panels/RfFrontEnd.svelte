@@ -100,12 +100,20 @@
     {#if showPre}
       <div class="control-row" data-shortcut-hint={preShortcut ?? undefined} title={preShortcut ?? undefined}>
         <span class="control-label">PRE</span>
-        <SegmentedControl
-          options={preOptions}
-          selected={pre}
-          title={preShortcut}
-          onchange={(v) => onPreChange(v as number)}
-        />
+        <div class="button-group">
+          {#each preOptions as option}
+            <HardwareButton
+              active={pre === option.value}
+              indicator="edge-left"
+              color="cyan"
+              title={preShortcut}
+              shortcutHint={preShortcut}
+              onclick={() => onPreChange(option.value)}
+            >
+              {option.label}
+            </HardwareButton>
+          {/each}
+        </div>
       </div>
     {/if}
 
@@ -189,6 +197,18 @@
   }
 
   .button-row > :global(button) {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .button-group {
+    display: flex;
+    gap: 4px;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .button-group > :global(button) {
     flex: 1 1 0;
     min-width: 0;
   }

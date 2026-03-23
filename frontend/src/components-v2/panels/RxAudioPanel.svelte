@@ -59,6 +59,16 @@
     padding: 7px 8px;
   }
 
+  .button-group {
+    display: flex;
+    gap: 4px;
+  }
+
+  .button-group > :global(button) {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
   .output-indicator {
     color: var(--v2-text-muted);
     font-family: 'Roboto Mono', monospace;
