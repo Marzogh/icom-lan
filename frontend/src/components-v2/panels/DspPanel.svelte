@@ -299,7 +299,8 @@
       min={0}
       max={15}
       step={1}
-      renderer="hbar"
+      renderer="discrete"
+      tickStyle="notch"
       accentColor="var(--v2-accent-cyan)"
       onChange={onNrLevelChange}
       variant="hardware-illuminated"

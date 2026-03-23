@@ -66,7 +66,7 @@
     title = null,
     tickLabels = [],
     showAllTicks = true,
-    tickStyle = 'ruler',
+    tickStyle = 'notch',
   }: Props = $props();
 
   let containerEl: HTMLDivElement | null = $state(null);
