@@ -4,6 +4,19 @@ All notable changes to [icom-lan](https://github.com/morozsm/icom-lan) are docum
 
 ## [Unreleased]
 
+### 🎵 Audio Codec Support (M6.1: Productization)
+
+- **`_audio_codecs.py`**: new module — pure-Python ulaw (mu-law) to PCM16 decoder
+  - Standard 256-entry lookup table (no external dependencies)
+  - Decodes 8-bit ulaw audio to 16-bit signed linear PCM (little-endian)
+  - Integrates with `AudioBroadcaster._relay_loop()` for web audio transcoding
+  - Graceful fallback on decode errors (logs warning, sends original data)
+  - Radios returning `AudioCodec.ULAW_1CH` or `ULAW_2CH` now stream correctly to web clients
+- **11 new tests** in `tests/test_audio_codecs.py`:
+  - Full 256-byte value coverage (validation of entire lookup table)
+  - Multi-sample handling, stereo conversion, edge cases, format verification
+  - Input type validation (bytes, bytearray, memoryview)
+
 ### 🔌 USB Audio Topology Resolver (Multi-Radio)
 
 - **`usb_audio_resolve.py`**: new module — resolves the correct USB Audio device for a serial CI-V port when multiple identical "USB Audio CODEC" devices are connected (e.g. IC-7300 + IC-7610 both via USB)
