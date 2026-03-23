@@ -170,6 +170,11 @@ describe('VfoHeader visual regression', () => {
             "label": "SPLIT",
           },
           {
+            "active": null,
+            "color": "green",
+            "label": "DW",
+          },
+          {
             "active": "false",
             "color": "muted",
             "label": "M=S",
@@ -240,6 +245,11 @@ describe('VfoHeader visual regression', () => {
             "active": "true",
             "color": "cyan",
             "label": "SPLIT",
+          },
+          {
+            "active": null,
+            "color": "green",
+            "label": "DW",
           },
           {
             "active": "false",

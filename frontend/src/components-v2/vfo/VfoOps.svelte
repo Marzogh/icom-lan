@@ -5,21 +5,25 @@
 
   interface Props {
     splitActive: boolean;
+    dualWatchActive: boolean;
     txVfo: 'main' | 'sub';
     onSwap: () => void;
     onCopy: () => void;
     onEqual: () => void;
     onSplitToggle: () => void;
+    onDualWatchToggle: () => void;
     onTxVfoChange: (v: string) => void;
   }
 
   let {
     splitActive,
+    dualWatchActive,
     txVfo,
     onSwap,
     onCopy,
     onEqual,
     onSplitToggle,
+    onDualWatchToggle,
     onTxVfoChange,
   }: Props = $props();
 
@@ -41,6 +45,15 @@
     data-color="cyan"
     onclick={onSplitToggle}
   >SPLIT</button>
+  {#if dualRx}
+    <button
+      type="button"
+      class="bridge-button v2-control-button"
+      data-active={dualWatchActive}
+      data-color="green"
+      onclick={onDualWatchToggle}
+    >DW</button>
+  {/if}
   <button type="button" class="bridge-button v2-control-button" data-active="false" data-color="muted" onclick={onEqual}>{equalLabel}</button>
   {#if dualRx}
     <button
@@ -87,6 +100,11 @@
     --control-active-text: var(--v2-text-bright);
   }
 
+  .bridge-button[data-color='green'] {
+    --control-accent: var(--v2-accent-green-bright);
+    --control-active-text: var(--v2-text-bright);
+  }
+
   .bridge-button[data-color='orange'] {
     --control-accent: var(--v2-accent-orange-alt);
     --control-active-text: var(--v2-text-bright);
@@ -96,33 +114,16 @@
     grid-auto-flow: row;
   }
 
-  .vfo-ops.dual .bridge-button:nth-child(1) {
-    grid-column: 1;
-    grid-row: 1;
-  }
-
-  .vfo-ops.dual .bridge-button:nth-child(2) {
-    grid-column: 2;
-    grid-row: 1;
-  }
-
-  .vfo-ops.dual .bridge-button:nth-child(3) {
-    grid-column: 1;
-    grid-row: 2;
-  }
-
-  .vfo-ops.dual .bridge-button:nth-child(4) {
-    grid-column: 2;
-    grid-row: 2;
-  }
-
-  .vfo-ops.dual .bridge-button:nth-child(5) {
-    grid-column: 2;
-    grid-row: 3;
-  }
-
-  .vfo-ops.dual .bridge-button:nth-child(6) {
-    grid-column: 1;
-    grid-row: 3;
-  }
+  /* Dual-rx layout: COPY | SPLIT | DW | = | TX-M | TX-S | SWAP
+     Row 1: COPY, SPLIT
+     Row 2: DW, =
+     Row 3: TX-M, TX-S
+     Row 4: SWAP (span 2) */
+  .vfo-ops.dual .bridge-button:nth-child(1) { grid-column: 1; grid-row: 1; }  /* COPY */
+  .vfo-ops.dual .bridge-button:nth-child(2) { grid-column: 2; grid-row: 1; }  /* SPLIT */
+  .vfo-ops.dual .bridge-button:nth-child(3) { grid-column: 1; grid-row: 2; }  /* DW */
+  .vfo-ops.dual .bridge-button:nth-child(4) { grid-column: 2; grid-row: 2; }  /* = */
+  .vfo-ops.dual .bridge-button:nth-child(5) { grid-column: 1; grid-row: 3; }  /* TX-M */
+  .vfo-ops.dual .bridge-button:nth-child(6) { grid-column: 2; grid-row: 3; }  /* TX-S */
+  .vfo-ops.dual .bridge-button:nth-child(7) { grid-column: 1 / -1; grid-row: 4; }  /* SWAP */
 </style>

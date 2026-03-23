@@ -11,11 +11,13 @@
     subVfo: VfoStateProps;
     layoutProfile?: VfoLayoutProfile;
     splitActive: boolean;
+    dualWatchActive: boolean;
     txVfo: 'main' | 'sub';
     onSwap?: () => void;
     onCopy?: () => void;
     onEqual?: () => void;
     onSplitToggle?: () => void;
+    onDualWatchToggle?: () => void;
     onTxVfoChange?: (v: string) => void;
     onMainVfoClick?: () => void;
     onSubVfoClick?: () => void;
@@ -30,11 +32,13 @@
     subVfo,
     layoutProfile = 'baseline',
     splitActive,
+    dualWatchActive,
     txVfo,
     onSwap = () => {},
     onCopy = () => {},
     onEqual = () => {},
     onSplitToggle = () => {},
+    onDualWatchToggle = () => {},
     onTxVfoChange = () => {},
     onMainVfoClick,
     onSubVfoClick,
@@ -70,11 +74,13 @@
     <div class="vfo-bridge-stack">
       <VfoOps
         {splitActive}
+        {dualWatchActive}
         {txVfo}
         {onSwap}
         {onCopy}
         {onEqual}
         {onSplitToggle}
+        {onDualWatchToggle}
         {onTxVfoChange}
       />
 

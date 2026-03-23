@@ -104,11 +104,13 @@
       {subVfo}
       layoutProfile={vfoLayoutProfile}
       splitActive={vfoOps.splitActive}
+      dualWatchActive={vfoOps.dualWatch}
       txVfo={vfoOps.txVfo}
       onSwap={vfoHandlers.onSwap}
       onCopy={vfoHandlers.onCopy}
       onEqual={vfoHandlers.onEqual}
       onSplitToggle={vfoHandlers.onSplitToggle}
+      onDualWatchToggle={() => vfoHandlers.onDualWatchToggle(!vfoOps.dualWatch)}
       onTxVfoChange={vfoHandlers.onTxVfoChange}
       onMainVfoClick={vfoHandlers.onMainVfoClick}
       onSubVfoClick={vfoHandlers.onSubVfoClick}
