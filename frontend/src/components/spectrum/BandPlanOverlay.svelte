@@ -116,9 +116,21 @@
     const span = endFreq - startFreq;
 
     if (remoteSegments.length > 0) {
-      return remoteSegments
-        .filter((s) => s.end > startFreq && s.start < endFreq)
-        .filter((s) => !hiddenLayers.includes(s.layer))
+      // Filter: don't show broadcast/utility/eibi segments that overlap with ham segments
+      const visibleRemote = remoteSegments.filter((s) => s.end > startFreq && s.start < endFreq && !hiddenLayers.includes(s.layer));
+      const hamSegs = visibleRemote.filter((s) => s.layer === 'ham');
+      const filtered = visibleRemote.filter((s) => {
+        if (s.layer === 'ham') return true;
+        // Hide non-ham segment if it significantly overlaps any ham segment
+        return !hamSegs.some((h) => {
+          const overlapStart = Math.max(s.start, h.start);
+          const overlapEnd = Math.min(s.end, h.end);
+          if (overlapEnd <= overlapStart) return false;
+          const overlapRatio = (overlapEnd - overlapStart) / (s.end - s.start);
+          return overlapRatio > 0.3; // >30% overlap → suppress
+        });
+      });
+      return filtered
         .map((s) => {
           const rawLeft = ((s.start - startFreq) / span) * 100;
           const rawRight = ((s.end - startFreq) / span) * 100;
