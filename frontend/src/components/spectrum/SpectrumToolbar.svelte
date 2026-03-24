@@ -16,6 +16,7 @@
     fullscreen = $bindable(false),
     showBandPlan = $bindable(true),
     hiddenLayers = $bindable([] as string[]),
+    showEiBi = $bindable(false),
   } = $props();
 
   let layerDropdownOpen = $state(false);
@@ -160,6 +161,11 @@
               <span class="layer-name">{layer.name}</span>
             </label>
           {/each}
+          <div class="dropdown-divider"></div>
+          <button
+            class="eibi-browser-btn"
+            onclick={() => { showEiBi = true; layerDropdownOpen = false; }}
+          >📻 EiBi Stations...</button>
         </div>
       {/if}
     {/if}
@@ -380,5 +386,24 @@
     color: #00d4ff;
     border-color: rgba(0, 212, 255, 0.4);
     background: rgba(0, 212, 255, 0.1);
+  }
+
+  .eibi-browser-btn {
+    display: block;
+    width: calc(100% - 16px);
+    margin: 4px 8px;
+    padding: 5px 8px;
+    font-size: 11px;
+    font-family: 'Roboto Mono', monospace;
+    background: rgba(192, 132, 252, 0.1);
+    border: 1px solid rgba(192, 132, 252, 0.3);
+    border-radius: 4px;
+    color: #C084FC;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .eibi-browser-btn:hover {
+    background: rgba(192, 132, 252, 0.2);
   }
 </style>

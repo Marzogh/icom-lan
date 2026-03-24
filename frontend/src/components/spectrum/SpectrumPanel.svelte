@@ -20,6 +20,7 @@
   import { snapToStep } from '../../lib/stores/tuning.svelte';
   import SpectrumToolbar from './SpectrumToolbar.svelte';
   import BandPlanOverlay from './BandPlanOverlay.svelte';
+  import EiBiBrowser from './EiBiBrowser.svelte';
   import { deriveIfShift } from '../../components-v2/panels/filter-controls';
   import { getCapabilities } from '../../lib/stores/capabilities.svelte';
   import { resolveFilterModeConfig } from '../../components-v2/wiring/state-adapter';
@@ -66,6 +67,7 @@
   let endFreq = $state(0);
   let fullscreen = $state(false);
   let showBandPlan = $state(true);
+  let showEiBi = $state(false);
   let hiddenLayers = $state<string[]>(
     typeof localStorage !== 'undefined'
       ? JSON.parse(localStorage.getItem('icom-lan-hidden-layers') || '[]')
@@ -364,7 +366,7 @@
 />
 
 <div class="spectrum-panel" class:fullscreen>
-  <SpectrumToolbar bind:enableAvg bind:enablePeakHold bind:refLevel bind:colorScheme bind:fullscreen bind:showBandPlan bind:hiddenLayers />
+  <SpectrumToolbar bind:enableAvg bind:enablePeakHold bind:refLevel bind:colorScheme bind:fullscreen bind:showBandPlan bind:hiddenLayers bind:showEiBi />
   <div class="spectrum-with-scales">
     <div class="db-scale">
       {#each DB_TICKS as tick}
@@ -420,6 +422,8 @@
     </div>
   </div>
 </div>
+
+<EiBiBrowser bind:visible={showEiBi} />
 
 <style>
   .spectrum-panel {

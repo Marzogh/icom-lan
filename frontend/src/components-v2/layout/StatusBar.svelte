@@ -9,6 +9,7 @@
     getHttpConnected,
     getRadioPowerOn,
   } from '$lib/stores/connection.svelte';
+  import { getFrequency } from '$lib/stores/radio.svelte';
 
   let radioPowerOn = $derived(getRadioPowerOn());
   let isPoweredOff = $derived(radioPowerOn === false);
@@ -69,6 +70,39 @@
     }
   }
 
+  // ── Now Playing (EiBi identification) ──
+  let nowPlaying = $state<any>(null);
+  let nowPlayingExpanded = $state(false);
+  let identifyTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastIdentifiedFreq = 0;
+
+  // Poll frequency and identify station
+  $effect(() => {
+    const freq = getFrequency();
+    if (!freq || Math.abs(freq - lastIdentifiedFreq) < 500) return;
+
+    // Debounce: wait 800ms after freq stops changing
+    if (identifyTimer) clearTimeout(identifyTimer);
+    identifyTimer = setTimeout(async () => {
+      lastIdentifiedFreq = freq;
+      try {
+        const resp = await fetch(`/api/v1/eibi/identify?freq=${freq}`);
+        if (resp.ok) {
+          const data = await resp.json();
+          nowPlaying = data.stations?.length > 0 ? data.stations[0] : null;
+        } else {
+          nowPlaying = null;
+        }
+      } catch {
+        nowPlaying = null;
+      }
+    }, 800);
+
+    return () => {
+      if (identifyTimer) clearTimeout(identifyTimer);
+    };
+  });
+
   async function handlePowerOff() {
     if (!confirm('Turn OFF the radio?')) return;
     try {
@@ -112,7 +146,32 @@
   </div>
 
   <div class="status-info">
-    <!-- server version and client count — future -->
+    {#if nowPlaying}
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div class="now-playing" onclick={() => (nowPlayingExpanded = !nowPlayingExpanded)}>
+        <span class="np-icon">📻</span>
+        <span class="np-station">{nowPlaying.station}</span>
+        <span class="np-lang">{nowPlaying.language_name}</span>
+        {#if nowPlaying.on_air}<span class="np-live">LIVE</span>{/if}
+      </div>
+      {#if nowPlayingExpanded}
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div class="np-detail" onclick={(e) => { if (e.target === e.currentTarget) nowPlayingExpanded = false; }}>
+          <div class="np-detail-grid">
+            <span class="np-label">Station:</span><span>{nowPlaying.station}</span>
+            <span class="np-label">Frequency:</span><span>{nowPlaying.freq_khz} kHz</span>
+            <span class="np-label">Language:</span><span>{nowPlaying.language_name}</span>
+            <span class="np-label">Country:</span><span>{nowPlaying.country}</span>
+            <span class="np-label">Target:</span><span>{nowPlaying.target}</span>
+            <span class="np-label">Schedule:</span><span>{nowPlaying.time_str} UTC {nowPlaying.days || '(daily)'}</span>
+            <span class="np-label">Band:</span><span>{nowPlaying.band}</span>
+            {#if nowPlaying.remarks}
+              <span class="np-label">TX Site:</span><span>{nowPlaying.remarks}</span>
+            {/if}
+          </div>
+        </div>
+      {/if}
+    {/if}
   </div>
 
   <div class="status-controls">
@@ -252,5 +311,89 @@
   .power-off-btn:hover:not(:disabled) {
     border-color: var(--v2-accent-red, #ef4444);
     background: rgba(239, 68, 68, 0.1);
+  }
+
+  /* Now Playing badge */
+  .status-info {
+    position: relative;
+  }
+
+  .now-playing {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 8px;
+    background: rgba(192, 132, 252, 0.08);
+    border: 1px solid rgba(192, 132, 252, 0.2);
+    border-radius: 4px;
+    cursor: pointer;
+    max-width: 350px;
+    overflow: hidden;
+    transition: background 0.15s;
+  }
+
+  .now-playing:hover {
+    background: rgba(192, 132, 252, 0.15);
+    border-color: rgba(192, 132, 252, 0.4);
+  }
+
+  .np-icon {
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+
+  .np-station {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--v2-text-primary, #e0e0e0);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .np-lang {
+    font-size: 9px;
+    color: var(--v2-text-dim, #888);
+    white-space: nowrap;
+  }
+
+  .np-live {
+    font-size: 8px;
+    font-weight: 700;
+    color: #4ade80;
+    background: rgba(74, 222, 128, 0.15);
+    padding: 1px 4px;
+    border-radius: 2px;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+  }
+
+  .np-detail {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 6px;
+    background: var(--v2-bg-primary, #0f0f1a);
+    border: 1px solid rgba(192, 132, 252, 0.3);
+    border-radius: 6px;
+    padding: 10px 14px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    z-index: 100;
+    min-width: 250px;
+    white-space: nowrap;
+  }
+
+  .np-detail-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 3px 10px;
+    font-size: 11px;
+    color: var(--v2-text-primary, #ccc);
+  }
+
+  .np-label {
+    color: var(--v2-text-dim, #666);
+    font-weight: 600;
   }
 </style>

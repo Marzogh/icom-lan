@@ -261,6 +261,10 @@ class WebServer:
         from .band_plan import BandPlanRegistry
 
         self._band_plan = BandPlanRegistry()
+        # EiBi broadcast database
+        from .eibi import EiBiProvider
+
+        self._eibi = EiBiProvider()
         # DX cluster
         self._spot_buffer: SpotBuffer = SpotBuffer()
         self._dx_client: DXClusterClient | None = None
@@ -717,6 +721,18 @@ class WebServer:
         else:
             logger.info("band-plan: no band-plans/ directory found")
 
+        # Load EiBi cache if available (non-blocking)
+        try:
+            result = await self._eibi.load_cache()
+            if result.get("status") == "ok":
+                logger.info(
+                    "eibi: loaded %d stations from cache (season %s)",
+                    self._eibi.station_count,
+                    self._eibi.season,
+                )
+        except Exception:
+            logger.debug("eibi: no cache to load at startup")
+
         self._server = await asyncio.start_server(
             self._accept_client,
             host=self._config.host,
@@ -1064,6 +1080,53 @@ class WebServer:
                 await _send_response(writer, 405, "Method Not Allowed", b"", {})
             return
 
+        # EiBi routes (POST for fetch, GET for queries)
+        if path == "/api/v1/eibi/fetch":
+            if method == "POST":
+                await self._handle_eibi_fetch(writer, headers, reader)
+            else:
+                await _send_response(writer, 405, "Method Not Allowed", b"", {})
+            return
+
+        if path == "/api/v1/eibi/status":
+            body = json.dumps(
+                self._eibi.status(), separators=(",", ":"),
+            ).encode()
+            await _send_response(
+                writer, 200, "OK", body, {"Content-Type": "application/json"},
+            )
+            return
+
+        if path == "/api/v1/eibi/stations":
+            await self._serve_eibi_stations(writer, query or {})
+            return
+
+        if path == "/api/v1/eibi/segments":
+            await self._serve_eibi_segments(writer, query or {})
+            return
+
+        if path == "/api/v1/eibi/identify":
+            freq = int((query or {}).get("freq", ["0"])[0])
+            tol = int((query or {}).get("tolerance", ["5000"])[0])
+            matches = self._eibi.identify(freq, tol)
+            body = json.dumps(
+                {"stations": matches, "freq_hz": freq}, separators=(",", ":"),
+            ).encode()
+            await _send_response(
+                writer, 200, "OK", body, {"Content-Type": "application/json"},
+            )
+            return
+
+        if path == "/api/v1/eibi/bands":
+            bands = self._eibi.get_bands()
+            body = json.dumps(
+                {"bands": bands}, separators=(",", ":"),
+            ).encode()
+            await _send_response(
+                writer, 200, "OK", body, {"Content-Type": "application/json"},
+            )
+            return
+
         if method not in ("GET", "HEAD"):
             await _send_response(writer, 405, "Method Not Allowed", b"", {})
             return
@@ -1279,6 +1342,17 @@ class WebServer:
         layers = layer_str.split(",") if layer_str else None
 
         segments = self._band_plan.get_segments(start, end, layers)
+
+        # EiBi on-air overlay segments (optional)
+        if self._eibi.loaded and (layers is None or "broadcast-eibi" in layers):
+            try:
+                segments.extend(self._eibi.get_segments(start, end, on_air_only=True))
+            except Exception:
+                logger.exception("eibi: failed to generate overlay segments")
+
+        # Sort by start freq (stable for overlay rendering)
+        segments.sort(key=lambda s: s.get("start", 0))
+
         body = json.dumps(
             {"segments": segments}, separators=(",", ":")
         ).encode()
@@ -1291,6 +1365,23 @@ class WebServer:
     ) -> None:
         """GET /api/v1/band-plan/layers"""
         layers = self._band_plan.get_layers()
+
+        # Add pseudo-layer for EiBi overlay (even if not loaded yet)
+        layers.append(
+            {
+                "name": "EiBi (live)",
+                "layer": "broadcast-eibi",
+                "priority": 5,
+                "file": "sked-*.csv",
+                "source": "http://www.eibispace.de/dx/",
+                "region": "",
+                "updated": self._eibi.last_updated or "",
+            }
+        )
+
+        # Sort by priority desc
+        layers = sorted(layers, key=lambda l: -l.get("priority", 0))
+
         body = json.dumps(
             {"layers": layers}, separators=(",", ":")
         ).encode()
@@ -1397,6 +1488,109 @@ class WebServer:
                 writer, 500, "Internal Server Error", err,
                 {"Content-Type": "application/json"},
             )
+
+    async def _handle_eibi_fetch(
+        self,
+        writer: asyncio.StreamWriter,
+        headers: dict[str, str] | None = None,
+        reader: asyncio.StreamReader | None = None,
+    ) -> None:
+        """POST /api/v1/eibi/fetch — download and parse EiBi database."""
+        try:
+            force = False
+            if reader is not None:
+                cl = int((headers or {}).get("content-length", "0"))
+                if cl > 0:
+                    body_bytes = await asyncio.wait_for(
+                        reader.readexactly(cl), timeout=5.0,
+                    )
+                    payload = json.loads(body_bytes)
+                    force = payload.get("force", False)
+
+            result = await self._eibi.fetch(force=force)
+            body = json.dumps(result, separators=(",", ":")).encode()
+            status = 200 if result.get("status") == "ok" else 502
+            await _send_response(
+                writer, status, "OK" if status == 200 else "Bad Gateway",
+                body, {"Content-Type": "application/json"},
+            )
+        except Exception as exc:
+            logger.exception("eibi fetch failed")
+            err = json.dumps(
+                {"error": str(exc)}, separators=(",", ":"),
+            ).encode()
+            await _send_response(
+                writer, 500, "Internal Server Error", err,
+                {"Content-Type": "application/json"},
+            )
+
+    async def _serve_eibi_stations(
+        self,
+        writer: asyncio.StreamWriter,
+        query: dict[str, list[str]],
+    ) -> None:
+        """GET /api/v1/eibi/stations — paginated station list with filters."""
+        if not self._eibi.loaded:
+            err = json.dumps(
+                {"error": "not_loaded", "message": "EiBi data not loaded. POST /api/v1/eibi/fetch first."},
+                separators=(",", ":"),
+            ).encode()
+            await _send_response(
+                writer, 404, "Not Found", err,
+                {"Content-Type": "application/json"},
+            )
+            return
+
+        on_air = query.get("on_air", [""])[0].lower() in ("true", "1", "yes")
+        band = query.get("band", [None])[0]
+        language = query.get("lang", [None])[0] or query.get("language", [None])[0]
+        country = query.get("country", [None])[0]
+        q = query.get("q", [None])[0] or query.get("query", [None])[0]
+        sort = query.get("sort", ["freq"])[0]
+        page = int(query.get("page", ["1"])[0])
+        limit = min(int(query.get("limit", ["100"])[0]), 500)
+
+        result = self._eibi.get_stations(
+            on_air=on_air,
+            band=band,
+            language=language,
+            country=country,
+            query=q,
+            sort=sort,
+            page=page,
+            limit=limit,
+        )
+        body = json.dumps(result, separators=(",", ":")).encode()
+        await _send_response(
+            writer, 200, "OK", body, {"Content-Type": "application/json"},
+        )
+
+    async def _serve_eibi_segments(
+        self,
+        writer: asyncio.StreamWriter,
+        query: dict[str, list[str]],
+    ) -> None:
+        """GET /api/v1/eibi/segments — on-air stations as overlay segments."""
+        if not self._eibi.loaded:
+            body = json.dumps(
+                {"segments": []}, separators=(",", ":"),
+            ).encode()
+            await _send_response(
+                writer, 200, "OK", body, {"Content-Type": "application/json"},
+            )
+            return
+
+        start_hz = int(query.get("start", ["0"])[0])
+        end_hz = int(query.get("end", ["30000000"])[0])
+        on_air = query.get("on_air", ["true"])[0].lower() != "false"
+
+        segments = self._eibi.get_segments(start_hz, end_hz, on_air_only=on_air)
+        body = json.dumps(
+            {"segments": segments}, separators=(",", ":"),
+        ).encode()
+        await _send_response(
+            writer, 200, "OK", body, {"Content-Type": "application/json"},
+        )
 
     async def _handle_radio_control(
         self,
