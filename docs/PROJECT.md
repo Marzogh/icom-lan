@@ -283,6 +283,29 @@ Each UDP packet has a fixed-format header (see `packettypes.h` in wfview):
 
 IC-7610 parity matrix (issue #139, 2026-03-06): 134 implemented, 0 partial, 0 missing
 
+#### M6 Optimization Roadmap (Priority 2: Medium ROI, Medium Effort)
+- [x] **M6.P2.1: Delta Encoding for Web State Updates** ✅ COMPLETE (2026-03-23)
+  - DeltaEncoder module with efficient diff/patch logic
+  - 10-50x payload reduction for state broadcasts (~2KB → ~50-100 bytes per update)
+  - Full state refresh every 100 updates prevents client/server drift
+  - 22 comprehensive unit tests covering all encoding/decoding paths
+  - Integrated into WebSocketServer state broadcasting
+  - **Result:** Reduced network bandwidth and improved web client responsiveness
+
+- [x] **M6.P2.2: Audio Buffer Pooling** ✅ COMPLETE (2026-03-23)
+  - AudioBufferPool: Thread-safe object pool for bytearray buffers
+  - Pre-allocates buffers for common audio frame sizes (16kHz/48kHz mono/stereo at 20ms)
+  - LIFO reuse strategy for cache locality
+  - 15 comprehensive unit tests covering pool mechanics, thread safety, concurrent access
+  - Performance: >50k acquire/release ops/sec, >30k ops/sec under concurrent load
+  - Integrated into AudioBroadcaster with infrastructure for codec optimization
+  - **Result:** Reduced GC pressure in high-frequency audio streaming paths
+
+- [ ] **M6.P2.3: Web Audio Streaming Profiling** (optional)
+  - Profile real-time audio codec performance (ulaw decode, Opus handling)
+  - Measure end-to-end latency from radio → browser
+  - Identify remaining optimization opportunities
+
 ### Reliability Test Expansion (2026-03-05)
 - Added extended integration coverage scaffolding for:
   - transport sequence wrap-around and ACK mixed stress,
