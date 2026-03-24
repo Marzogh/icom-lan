@@ -51,7 +51,10 @@
 <style>
   .bandplan-overlay {
     position: absolute;
-    inset: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 16px;
     pointer-events: none;
     overflow: hidden;
     z-index: 2; /* below DxOverlay (z-index 3) and tune-line (z-index 5) */
@@ -65,16 +68,16 @@
 
   .segment-label {
     position: absolute;
-    bottom: 4px;
+    top: 50%;
     left: 50%;
-    transform: translateX(-50%);
+    transform: translate(-50%, -50%);
     font-family: 'Roboto Mono', monospace;
     font-size: 8px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     white-space: nowrap;
-    opacity: 0.8;
+    opacity: 0.9;
     pointer-events: none;
   }
 </style>
