@@ -1347,6 +1347,16 @@ class WebServer:
                         {"Content-Type": "application/json"},
                     )
                     return
+                if power_state == "on" and not radio.control_connected:
+                    # Radio is off → reconnect transport first, then send power-on CI-V
+                    logger.info("power-on: radio disconnected, reconnecting first")
+                    try:
+                        await radio.connect()
+                        # Give transport a moment to establish
+                        await asyncio.sleep(1.0)
+                    except Exception as conn_err:
+                        logger.warning("power-on: reconnect failed: %s", conn_err)
+                        # Try anyway — some radios accept CI-V on stale transport
                 await cast(PowerControlCapable, radio).set_powerstat(power_state == "on")
                 resp = {"status": "ok", "power": power_state}
             else:
