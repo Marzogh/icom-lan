@@ -397,7 +397,7 @@
       </CollapsiblePanel>
     </section>
 
-    <!-- Audio (AF + monitor mode) -->
+    <!-- Audio (AF + monitor mode + DSP toggles) -->
     <section class="m-section">
       <CollapsiblePanel title="AUDIO" panelId="m-audio" collapsible={true}>
         <div class="m-audio-content">
@@ -425,6 +425,32 @@
             onChange={rxAudioHandlers.onAfLevelChange}
             variant="hardware-illuminated"
           />
+          <div class="m-dsp-toggles">
+            <HardwareButton
+              active={dsp.nbActive}
+              indicator="edge-left"
+              color={dsp.nbActive ? 'green' : 'muted'}
+              onclick={() => dspHandlers.onNbToggle(!dsp.nbActive)}
+            >
+              NB
+            </HardwareButton>
+            <HardwareButton
+              active={dsp.nrActive}
+              indicator="edge-left"
+              color={dsp.nrActive ? 'green' : 'muted'}
+              onclick={() => dspHandlers.onNrToggle(!dsp.nrActive)}
+            >
+              NR
+            </HardwareButton>
+            <HardwareButton
+              active={dsp.notchActive}
+              indicator="edge-left"
+              color={dsp.notchActive ? 'green' : 'muted'}
+              onclick={() => dspHandlers.onNotchToggle(!dsp.notchActive)}
+            >
+              NOTCH
+            </HardwareButton>
+          </div>
         </div>
       </CollapsiblePanel>
     </section>
@@ -985,6 +1011,17 @@
   }
 
   .m-audio-buttons > :global(button) {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 36px;
+  }
+
+  .m-dsp-toggles {
+    display: flex;
+    gap: 4px;
+  }
+
+  .m-dsp-toggles > :global(button) {
     flex: 1 1 0;
     min-width: 0;
     min-height: 36px;
