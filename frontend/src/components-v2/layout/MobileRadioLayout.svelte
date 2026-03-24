@@ -3,12 +3,12 @@
   import { getCapabilities, hasTx, hasDualReceiver } from '$lib/stores/capabilities.svelte';
   import { getConnectionStatus, getRadioPowerOn } from '$lib/stores/connection.svelte';
   import { getAudioState } from '$lib/stores/audio.svelte';
+  import { HardwareButton } from '$lib/Button';
   import SpectrumPanel from '../../components/spectrum/SpectrumPanel.svelte';
   import FrequencyDisplay from '../display/FrequencyDisplay.svelte';
   import LinearSMeter from '../meters/LinearSMeter.svelte';
   import CollapsiblePanel from '../controls/CollapsiblePanel.svelte';
   import BandSelector from '../controls/BandSelector.svelte';
-  import ModePanel from '../panels/ModePanel.svelte';
   import FilterPanel from '../panels/FilterPanel.svelte';
   import RxAudioPanel from '../panels/RxAudioPanel.svelte';
   import TxPanel from '../panels/TxPanel.svelte';
@@ -18,9 +18,12 @@
   import RitXitPanel from '../panels/RitXitPanel.svelte';
   import CwPanel from '../panels/CwPanel.svelte';
   import DockMeterPanel from '../panels/DockMeterPanel.svelte';
-  import StatusBar from './StatusBar.svelte';
   import KeyboardHandler from './KeyboardHandler.svelte';
-  import VfoHeader from './VfoHeader.svelte';
+  import { ValueControl, rawToPercentDisplay } from '../controls/value-control';
+  import {
+    Settings, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Mic, MicOff,
+    Sliders, Radio as RadioIcon,
+  } from 'lucide-svelte';
   import {
     resolveVfoLayoutProfile,
     vfoLayoutStyleVars,
@@ -35,6 +38,7 @@
     makeRfFrontEndHandlers, makeModeHandlers, makeFilterHandlers,
     makeAgcHandlers, makeRitXitHandlers, makeBandHandlers, makePresetHandlers,
     makeRxAudioHandlers, makeDspHandlers, makeTxHandlers, makeCwPanelHandlers,
+    makeSystemHandlers,
   } from '../wiring/command-bus';
   import { getKeyboardConfig } from '$lib/stores/capabilities.svelte';
 
@@ -44,7 +48,6 @@
   let keyboardConfig = $derived(getKeyboardConfig());
   let audioState = $derived(getAudioState());
   let txCapable = $derived(hasTx());
-  let dualReceiver = $derived(hasDualReceiver());
 
   // ── VFO props ──
   let mainVfo = $derived(toVfoProps(radioState, 'main'));
@@ -77,6 +80,7 @@
   const ritXitHandlers = makeRitXitHandlers();
   const dspHandlers = makeDspHandlers();
   const cwHandlers = makeCwPanelHandlers();
+  const systemHandlers = makeSystemHandlers();
 
   // ── VFO layout ──
   let receiverDeckElement = $state<HTMLElement | null>(null);
@@ -87,8 +91,11 @@
     overrides: {},
   }));
 
-  // ── Settings modal ──
+  // ── Modals ──
   let settingsOpen = $state(false);
+  let modeModalOpen = $state(false);
+  let filterModalOpen = $state(false);
+  let txSettingsOpen = $state(false);
 
   // ── Tuning strip ──
   let tuningStep = $state(1000); // Hz
@@ -111,6 +118,71 @@
     if (hz >= 1000) return `${hz / 1000} kHz`;
     return `${hz} Hz`;
   }
+
+  // ── Quick modes (SSB operation essentials) ──
+  const QUICK_MODES = ['LSB', 'USB', 'CW', 'AM'];
+
+  // ── PTT ──
+  let pttActive = $state(false);
+
+  function pttDown() {
+    pttActive = true;
+    systemHandlers.onPttOn();
+  }
+
+  function pttUp() {
+    pttActive = false;
+    systemHandlers.onPttOff();
+  }
+
+  // ── ATU (long-press = tune) ──
+  let atuTimer: ReturnType<typeof setTimeout> | null = null;
+  let atuDidLongPress = false;
+
+  function atuTouchStart() {
+    atuDidLongPress = false;
+    atuTimer = setTimeout(() => {
+      atuDidLongPress = true;
+      txHandlers.onAtuTune(); // Start antenna tune
+    }, 600);
+  }
+
+  function atuTouchEnd() {
+    if (atuTimer) {
+      clearTimeout(atuTimer);
+      atuTimer = null;
+    }
+    if (!atuDidLongPress) {
+      txHandlers.onAtuToggle(); // Short press = toggle on/off
+    }
+  }
+
+  // ── S-meter formatting ──
+  function formatSValue(raw: number): string {
+    if (raw <= 0) return 'S0';
+    if (raw <= 120) {
+      const s = Math.round(raw / 120 * 9);
+      return `S${Math.min(9, Math.max(0, s))}`;
+    }
+    const over = Math.round((raw - 120) / 120 * 60);
+    return `S9+${over}`;
+  }
+
+  function formatDbm(raw: number): string {
+    // S9 = -73 dBm, each S-unit = 6 dB
+    const dbm = -73 + (raw - 120) / 120 * 60;
+    return `${Math.round(dbm)} dBm`;
+  }
+
+  // ── RF Power display ──
+  function formatPower(raw: number): string {
+    // 0-255 → 0-100W (approx for IC-7610)
+    const watts = Math.round(raw / 255 * 100);
+    return `${watts}W`;
+  }
+
+  // ── ATU status ──
+  let atuStatus = $derived(tx.atuActive ? (tx.atuTuning ? 'tuning' : 'on') : 'off');
 </script>
 
 <div class="m-layout">
@@ -118,19 +190,31 @@
 
   <!-- ═══ STICKY VFO HEADER ═══ -->
   <header class="m-vfo-bar" bind:this={receiverDeckElement} style={receiverDeckStyle}>
-    <div class="m-vfo-freq">
-      <FrequencyDisplay freq={mainVfo.freq} compact active />
+    <div class="m-vfo-row">
+      <div class="m-vfo-freq">
+        <FrequencyDisplay freq={mainVfo.freq} compact active />
+      </div>
+      <button class="m-settings-btn" onclick={() => (settingsOpen = true)}>
+        <Settings size={16} />
+        <span>MORE</span>
+      </button>
     </div>
     <div class="m-vfo-meta">
       <span class="m-vfo-mode">{mainVfo.mode}</span>
       <span class="m-vfo-filter">{mainVfo.filter}</span>
-      <span class="m-vfo-smeter-inline">
-        <LinearSMeter value={mainVfo.sValue} compact label="" />
-      </span>
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <span class="m-vfo-settings" onclick={() => (settingsOpen = true)}>⚙️</span>
     </div>
   </header>
+
+  <!-- ═══ S-METER BAR ═══ -->
+  <div class="m-smeter-bar">
+    <div class="m-smeter-track">
+      <LinearSMeter value={mainVfo.sValue} compact label="" />
+    </div>
+    <div class="m-smeter-readout">
+      <span class="m-smeter-s">{formatSValue(mainVfo.sValue)}</span>
+      <span class="m-smeter-dbm">{formatDbm(mainVfo.sValue)}</span>
+    </div>
+  </div>
 
   <!-- ═══ SCROLLABLE CONTENT ═══ -->
   <main class="m-content">
@@ -140,7 +224,7 @@
       <SpectrumPanel />
     </section>
 
-    <!-- Band / Mode / Filter -->
+    <!-- Band -->
     <section class="m-section">
       <CollapsiblePanel title="BAND" panelId="m-band" collapsible={true}>
         <BandSelector
@@ -149,104 +233,137 @@
           onPresetSelect={presetHandlers.onPresetSelect}
         />
       </CollapsiblePanel>
+    </section>
 
+    <!-- Mode (quick: LSB USB CW AM + More) -->
+    <section class="m-section">
       <CollapsiblePanel title="MODE" panelId="m-mode" collapsible={true}>
-        <ModePanel
-          currentMode={mode.currentMode}
-          modes={mode.modes}
-          dataMode={mode.dataMode}
-          hasDataMode={mode.hasDataMode}
-          dataModeCount={mode.dataModeCount}
-          dataModeLabels={mode.dataModeLabels}
-          onModeChange={modeHandlers.onModeChange}
-          onDataModeChange={modeHandlers.onDataModeChange}
-        />
-      </CollapsiblePanel>
-
-      <CollapsiblePanel title="FILTER" panelId="m-filter" collapsible={true}>
-        <FilterPanel
-          currentMode={filter.currentMode}
-          currentFilter={filter.currentFilter}
-          filterShape={filter.filterShape}
-          filterLabels={filter.filterLabels}
-          filterWidth={filter.filterWidth}
-          filterWidthMin={filter.filterWidthMin}
-          filterWidthMax={filter.filterWidthMax}
-          filterConfig={filter.filterConfig}
-          ifShift={filter.ifShift}
-          hasPbt={filter.hasPbt}
-          pbtInner={filter.pbtInner}
-          pbtOuter={filter.pbtOuter}
-          onFilterChange={filterHandlers.onFilterChange}
-          onFilterWidthChange={filterHandlers.onFilterWidthChange}
-          onFilterShapeChange={filterHandlers.onFilterShapeChange}
-          onFilterPresetChange={filterHandlers.onFilterPresetChange}
-          onFilterDefaults={filterHandlers.onFilterDefaults}
-          onIfShiftChange={filterHandlers.onIfShiftChange}
-          onPbtInnerChange={filterHandlers.onPbtInnerChange}
-          onPbtOuterChange={filterHandlers.onPbtOuterChange}
-          onPbtReset={filterHandlers.onPbtReset}
-        />
+        <div class="m-quick-grid">
+          {#each QUICK_MODES as m}
+            <HardwareButton
+              active={mode.currentMode === m}
+              indicator="edge-left"
+              color="cyan"
+              onclick={() => modeHandlers.onModeChange(m)}
+            >
+              {m}
+            </HardwareButton>
+          {/each}
+          <HardwareButton
+            indicator="edge-left"
+            color="muted"
+            onclick={() => (modeModalOpen = true)}
+          >
+            More…
+          </HardwareButton>
+        </div>
       </CollapsiblePanel>
     </section>
 
-    <!-- AF / RF -->
+    <!-- Filter (quick: FIL1 FIL2 FIL3 + More) -->
+    <section class="m-section">
+      <CollapsiblePanel title="FILTER" panelId="m-filter" collapsible={true}>
+        <div class="m-quick-grid">
+          {#each (filter.filterLabels ?? ['FIL1', 'FIL2', 'FIL3']) as label, idx}
+            <HardwareButton
+              active={filter.currentFilter === idx + 1}
+              indicator="edge-left"
+              color="cyan"
+              onclick={() => filterHandlers.onFilterChange?.(idx + 1)}
+            >
+              {label}
+            </HardwareButton>
+          {/each}
+          <HardwareButton
+            indicator="edge-left"
+            color="muted"
+            onclick={() => (filterModalOpen = true)}
+          >
+            More…
+          </HardwareButton>
+        </div>
+      </CollapsiblePanel>
+    </section>
+
+    <!-- Audio (AF only) -->
     <section class="m-section">
       <CollapsiblePanel title="AUDIO" panelId="m-audio" collapsible={true}>
-        <RxAudioPanel
-          monitorMode={rxAudio.monitorMode}
-          afLevel={rxAudio.afLevel}
-          hasLiveAudio={rxAudio.hasLiveAudio}
-          onMonitorModeChange={rxAudioHandlers.onMonitorModeChange}
-          onAfLevelChange={rxAudioHandlers.onAfLevelChange}
-        />
+        <div class="m-audio-row">
+          <ValueControl
+            label="AF Level"
+            value={rxAudio.afLevel}
+            min={0}
+            max={255}
+            step={1}
+            renderer="hbar"
+            displayFn={rawToPercentDisplay}
+            accentColor="var(--v2-accent-cyan-alt)"
+            onChange={rxAudioHandlers.onAfLevelChange}
+            variant="hardware-illuminated"
+          />
+        </div>
       </CollapsiblePanel>
     </section>
 
-    <!-- TX -->
+    <!-- TX (compact: PTT + Power readout + ATU) -->
     {#if txCapable}
       <section class="m-section">
         <CollapsiblePanel title="TX" panelId="m-tx" collapsible={true}>
-          <TxPanel
-            txActive={tx.txActive}
-            rfPower={tx.rfPower}
-            micGain={tx.micGain}
-            atuActive={tx.atuActive}
-            atuTuning={tx.atuTuning}
-            voxActive={tx.voxActive}
-            compActive={tx.compActive}
-            compLevel={tx.compLevel}
-            monActive={tx.monActive}
-            monLevel={tx.monLevel}
-            driveGain={tx.driveGain}
-            onRfPowerChange={txHandlers.onRfPowerChange}
-            onMicGainChange={txHandlers.onMicGainChange}
-            onAtuToggle={txHandlers.onAtuToggle}
-            onAtuTune={txHandlers.onAtuTune}
-            onVoxToggle={txHandlers.onVoxToggle}
-            onCompToggle={txHandlers.onCompToggle}
-            onCompLevelChange={txHandlers.onCompLevelChange}
-            onMonToggle={txHandlers.onMonToggle}
-            onMonLevelChange={txHandlers.onMonLevelChange}
-            onDriveGainChange={txHandlers.onDriveGainChange}
-          />
-        </CollapsiblePanel>
-      </section>
-    {/if}
+          <div class="m-tx-compact">
+            <!-- PTT button -->
+            <button
+              class="m-ptt-btn"
+              class:m-ptt-active={pttActive || tx.txActive}
+              ontouchstart={pttDown}
+              ontouchend={pttUp}
+              ontouchcancel={pttUp}
+              onmousedown={pttDown}
+              onmouseup={pttUp}
+              onmouseleave={() => { if (pttActive) pttUp(); }}
+            >
+              {#if pttActive || tx.txActive}
+                <MicOff size={20} />
+                <span>TX</span>
+              {:else}
+                <Mic size={20} />
+                <span>PTT</span>
+              {/if}
+            </button>
 
-    <!-- Meters (compact) -->
-    {#if txCapable}
-      <section class="m-section">
-        <CollapsiblePanel title="METERS" panelId="m-meters" collapsible={true}>
-          <DockMeterPanel
-            sValue={meter.sValue}
-            rfPower={meter.rfPower}
-            swr={meter.swr}
-            alc={meter.alc}
-            txActive={meter.txActive}
-            meterSource={meter.meterSource as 'S' | 'SWR' | 'POWER'}
-            onMeterSourceChange={meterHandlers.onMeterSourceChange}
-          />
+            <!-- Power readout -->
+            <div class="m-tx-info">
+              <div class="m-tx-power">
+                <span class="m-tx-power-label">PWR</span>
+                <span class="m-tx-power-value">{formatPower(tx.rfPower)}</span>
+              </div>
+              {#if tx.txActive}
+                <div class="m-tx-swr">
+                  <span class="m-tx-power-label">SWR</span>
+                  <span class="m-tx-power-value">{meter.swr > 0 ? (meter.swr / 10).toFixed(1) : '—'}</span>
+                </div>
+              {/if}
+            </div>
+
+            <!-- ATU: short tap = toggle, long press = tune -->
+            <button
+              class="m-atu-btn"
+              class:m-atu-on={atuStatus === 'on'}
+              class:m-atu-tuning={atuStatus === 'tuning'}
+              ontouchstart={atuTouchStart}
+              ontouchend={atuTouchEnd}
+              ontouchcancel={atuTouchEnd}
+              onmousedown={atuTouchStart}
+              onmouseup={atuTouchEnd}
+            >
+              <RadioIcon size={16} />
+              <span>ATU</span>
+            </button>
+
+            <!-- TX settings -->
+            <button class="m-tx-settings-btn" onclick={() => (txSettingsOpen = true)}>
+              <Sliders size={16} />
+            </button>
+          </div>
         </CollapsiblePanel>
       </section>
     {/if}
@@ -257,13 +374,21 @@
 
   <!-- ═══ TUNING STRIP (FIXED BOTTOM) ═══ -->
   <nav class="m-tuning-strip">
-    <button class="m-tune-btn m-tune-fast" onclick={() => tuneBy(-10)}>◀◀</button>
-    <button class="m-tune-btn" onclick={() => tuneBy(-1)}>◀</button>
+    <button class="m-tune-btn m-tune-fast" onclick={() => tuneBy(-10)}>
+      <ChevronsLeft size={18} />
+    </button>
+    <button class="m-tune-btn" onclick={() => tuneBy(-1)}>
+      <ChevronLeft size={22} />
+    </button>
     <button class="m-tune-step" onclick={() => cycleStep(1)} oncontextmenu={(e) => { e.preventDefault(); cycleStep(-1); }}>
       {formatStep(tuningStep)}
     </button>
-    <button class="m-tune-btn" onclick={() => tuneBy(1)}>▶</button>
-    <button class="m-tune-btn m-tune-fast" onclick={() => tuneBy(10)}>▶▶</button>
+    <button class="m-tune-btn" onclick={() => tuneBy(1)}>
+      <ChevronRight size={22} />
+    </button>
+    <button class="m-tune-btn m-tune-fast" onclick={() => tuneBy(10)}>
+      <ChevronsRight size={18} />
+    </button>
   </nav>
 
   <!-- ═══ SETTINGS BOTTOM SHEET ═══ -->
@@ -364,6 +489,121 @@
       </div>
     </div>
   {/if}
+
+  <!-- ═══ MODE MODAL ═══ -->
+  {#if modeModalOpen}
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="m-sheet-backdrop" onclick={() => (modeModalOpen = false)}>
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div class="m-sheet m-sheet--compact" onclick={(e) => e.stopPropagation()}>
+        <div class="m-sheet-handle"></div>
+        <div class="m-sheet-title">ALL MODES</div>
+        <div class="m-sheet-content">
+          <div class="m-mode-grid">
+            {#each mode.modes as m}
+              <HardwareButton
+                active={mode.currentMode === m}
+                indicator="edge-left"
+                color="cyan"
+                onclick={() => { modeHandlers.onModeChange(m); modeModalOpen = false; }}
+              >
+                {m}
+              </HardwareButton>
+            {/each}
+          </div>
+          {#if mode.hasDataMode}
+            <div class="m-sheet-subtitle">DATA MODE</div>
+            <div class="m-mode-grid">
+              {#each Array.from({ length: Math.max(0, (mode.dataModeCount ?? 0)) + 1 }, (_, i) => i) as d}
+                <HardwareButton
+                  active={mode.dataMode === d}
+                  indicator="edge-left"
+                  color="cyan"
+                  onclick={() => { modeHandlers.onDataModeChange(d); }}
+                >
+                  {d === 0 ? 'OFF' : `D${d}`}
+                </HardwareButton>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- ═══ FILTER MODAL ═══ -->
+  {#if filterModalOpen}
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="m-sheet-backdrop" onclick={() => (filterModalOpen = false)}>
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div class="m-sheet" onclick={(e) => e.stopPropagation()}>
+        <div class="m-sheet-handle"></div>
+        <div class="m-sheet-title">FILTER SETTINGS</div>
+        <div class="m-sheet-content">
+          <FilterPanel
+            currentMode={filter.currentMode}
+            currentFilter={filter.currentFilter}
+            filterShape={filter.filterShape}
+            filterLabels={filter.filterLabels}
+            filterWidth={filter.filterWidth}
+            filterWidthMin={filter.filterWidthMin}
+            filterWidthMax={filter.filterWidthMax}
+            filterConfig={filter.filterConfig}
+            ifShift={filter.ifShift}
+            hasPbt={filter.hasPbt}
+            pbtInner={filter.pbtInner}
+            pbtOuter={filter.pbtOuter}
+            onFilterChange={filterHandlers.onFilterChange}
+            onFilterWidthChange={filterHandlers.onFilterWidthChange}
+            onFilterShapeChange={filterHandlers.onFilterShapeChange}
+            onFilterPresetChange={filterHandlers.onFilterPresetChange}
+            onFilterDefaults={filterHandlers.onFilterDefaults}
+            onIfShiftChange={filterHandlers.onIfShiftChange}
+            onPbtInnerChange={filterHandlers.onPbtInnerChange}
+            onPbtOuterChange={filterHandlers.onPbtOuterChange}
+            onPbtReset={filterHandlers.onPbtReset}
+          />
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- ═══ TX SETTINGS MODAL ═══ -->
+  {#if txSettingsOpen}
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="m-sheet-backdrop" onclick={() => (txSettingsOpen = false)}>
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div class="m-sheet" onclick={(e) => e.stopPropagation()}>
+        <div class="m-sheet-handle"></div>
+        <div class="m-sheet-title">TX SETTINGS</div>
+        <div class="m-sheet-content">
+          <TxPanel
+            txActive={tx.txActive}
+            rfPower={tx.rfPower}
+            micGain={tx.micGain}
+            atuActive={tx.atuActive}
+            atuTuning={tx.atuTuning}
+            voxActive={tx.voxActive}
+            compActive={tx.compActive}
+            compLevel={tx.compLevel}
+            monActive={tx.monActive}
+            monLevel={tx.monLevel}
+            driveGain={tx.driveGain}
+            onRfPowerChange={txHandlers.onRfPowerChange}
+            onMicGainChange={txHandlers.onMicGainChange}
+            onAtuToggle={txHandlers.onAtuToggle}
+            onAtuTune={txHandlers.onAtuTune}
+            onVoxToggle={txHandlers.onVoxToggle}
+            onCompToggle={txHandlers.onCompToggle}
+            onCompLevelChange={txHandlers.onCompLevelChange}
+            onMonToggle={txHandlers.onMonToggle}
+            onMonLevelChange={txHandlers.onMonLevelChange}
+            onDriveGainChange={txHandlers.onDriveGainChange}
+          />
+        </div>
+      </div>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -372,7 +612,7 @@
     display: flex;
     flex-direction: column;
     height: 100vh;
-    height: 100dvh; /* dynamic viewport height for mobile */
+    height: 100dvh;
     background: linear-gradient(180deg, var(--v2-bg-gradient-start) 0%, var(--v2-bg-darkest) 100%);
     overflow: hidden;
     padding-top: env(safe-area-inset-top, 0px);
@@ -384,18 +624,50 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-    padding: 6px 10px 4px;
+    padding: 8px 10px 4px;
     background: var(--v2-bg-card, #111);
     border-bottom: 1px solid var(--v2-border-panel, #333);
     z-index: 10;
   }
 
+  .m-vfo-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
   .m-vfo-freq {
     line-height: 1;
+    flex: 1;
   }
 
   .m-vfo-freq :global(.freq) {
     font-size: 28px;
+  }
+
+  .m-settings-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 32px;
+    padding: 0 10px;
+    border-radius: 4px;
+    border: 1px solid var(--v2-border-darker, #333);
+    background: var(--v2-bg-input, #1a1a2e);
+    color: var(--v2-text-secondary, #aaa);
+    font-family: 'Roboto Mono', monospace;
+    font-weight: 700;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    flex-shrink: 0;
+  }
+
+  .m-settings-btn:active {
+    background: var(--v2-bg-card, #222);
   }
 
   .m-vfo-meta {
@@ -412,28 +684,54 @@
 
   .m-vfo-mode {
     color: var(--v2-accent-cyan, #22d3ee);
-    padding: 1px 6px;
+    padding: 2px 8px;
     border: 1px solid var(--v2-accent-cyan, #22d3ee);
     border-radius: 3px;
-    font-size: 10px;
+    font-size: 11px;
   }
 
   .m-vfo-filter {
     color: var(--v2-text-secondary, #aaa);
-    font-size: 10px;
+    font-size: 11px;
   }
 
-  .m-vfo-smeter-inline {
+  /* ── S-meter bar (full width, below VFO) ── */
+  .m-smeter-bar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 10px;
+    background: var(--v2-bg-darker, #0a0a14);
+    border-bottom: 1px solid var(--v2-border-darker, #1a1a2e);
+  }
+
+  .m-smeter-track {
     flex: 1;
-    min-width: 60px;
-    max-width: 140px;
+    min-width: 0;
   }
 
-  .m-vfo-settings {
-    cursor: pointer;
-    font-size: 16px;
-    padding: 4px;
-    -webkit-tap-highlight-color: transparent;
+  .m-smeter-readout {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    flex-shrink: 0;
+    min-width: 52px;
+  }
+
+  .m-smeter-s {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--v2-text-primary, #eee);
+    letter-spacing: 0.04em;
+  }
+
+  .m-smeter-dbm {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 9px;
+    color: var(--v2-text-dim, #555);
+    letter-spacing: 0.02em;
   }
 
   /* ── Scrollable content ── */
@@ -463,12 +761,10 @@
     box-shadow: none;
   }
 
-  /* ── Accordion sections ── */
+  /* ── Sections ── */
   .m-section {
     display: flex;
     flex-direction: column;
-    gap: 0;
-    border-bottom: 1px solid var(--v2-border-darker, #1a1a2e);
   }
 
   .m-section :global(.collapsible-panel) {
@@ -477,7 +773,158 @@
     border-right: none;
   }
 
-  /* ── Bottom spacer (for tuning strip) ── */
+  /* ── Quick grid (mode, filter quick buttons) ── */
+  .m-quick-grid {
+    display: flex;
+    gap: 4px;
+    padding: 7px 8px;
+    flex-wrap: wrap;
+  }
+
+  .m-quick-grid > :global(button) {
+    flex: 1 1 auto;
+    min-width: 52px;
+    min-height: 40px;
+  }
+
+  /* ── Audio row ── */
+  .m-audio-row {
+    padding: 7px 8px;
+  }
+
+  /* ── TX compact section ── */
+  .m-tx-compact {
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .m-ptt-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-width: 64px;
+    min-height: 56px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 2px solid var(--v2-text-dim, #444);
+    background: var(--v2-bg-input, #1a1a2e);
+    color: var(--v2-text-primary, #ddd);
+    font-family: 'Roboto Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .m-ptt-btn:active,
+  .m-ptt-active {
+    background: var(--v2-accent-red, #ef4444);
+    border-color: var(--v2-accent-red, #ef4444);
+    color: #fff;
+    box-shadow: 0 0 16px rgba(239, 68, 68, 0.4);
+  }
+
+  .m-tx-info {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .m-tx-power,
+  .m-tx-swr {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+
+  .m-tx-power-label {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--v2-text-dim, #555);
+    letter-spacing: 0.08em;
+    min-width: 28px;
+  }
+
+  .m-tx-power-value {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--v2-text-primary, #ddd);
+    letter-spacing: 0.02em;
+  }
+
+  .m-atu-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-width: 48px;
+    min-height: 48px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--v2-text-dim, #444);
+    background: var(--v2-bg-input, #1a1a2e);
+    color: var(--v2-text-muted, #888);
+    font-family: 'Roboto Mono', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: all 0.15s;
+  }
+
+  .m-atu-on {
+    border-color: var(--v2-accent-green, #4ade80);
+    color: var(--v2-accent-green, #4ade80);
+    background: rgba(74, 222, 128, 0.1);
+  }
+
+  .m-atu-tuning {
+    border-color: var(--v2-accent-yellow, #facc15);
+    color: var(--v2-accent-yellow, #facc15);
+    background: rgba(250, 204, 21, 0.1);
+    animation: atu-pulse 0.6s ease-in-out infinite;
+  }
+
+  @keyframes atu-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .m-tx-settings-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    min-height: 48px;
+    padding: 4px;
+    border-radius: 6px;
+    border: 1px solid var(--v2-border-darker, #333);
+    background: var(--v2-bg-input, #1a1a2e);
+    color: var(--v2-text-muted, #888);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .m-tx-settings-btn:active {
+    background: var(--v2-bg-card, #222);
+  }
+
+  /* ── Bottom spacer ── */
   .m-bottom-spacer {
     height: calc(52px + env(safe-area-inset-bottom, 0px));
     flex-shrink: 0;
@@ -507,11 +954,10 @@
     background: var(--v2-bg-input, #1a1a2e);
     border: none;
     color: var(--v2-text-primary, #ddd);
-    font-size: 18px;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
     transition: background 0.1s;
-    min-height: 44px; /* touch target */
+    min-height: 44px;
   }
 
   .m-tune-btn:active {
@@ -521,7 +967,6 @@
 
   .m-tune-fast {
     flex: 0.7;
-    font-size: 14px;
     color: var(--v2-text-muted, #888);
   }
 
@@ -553,7 +998,7 @@
     background: var(--v2-bg-input, #1a1a2e);
   }
 
-  /* ── Settings bottom sheet ── */
+  /* ── Bottom sheets ── */
   .m-sheet-backdrop {
     position: fixed;
     inset: 0;
@@ -567,7 +1012,7 @@
     bottom: 0;
     left: 0;
     right: 0;
-    max-height: 75vh;
+    max-height: 80vh;
     background: var(--v2-bg-primary, #0f0f1a);
     border-top: 1px solid var(--v2-border-panel, #333);
     border-radius: 16px 16px 0 0;
@@ -575,6 +1020,10 @@
     -webkit-overflow-scrolling: touch;
     z-index: 201;
     padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .m-sheet--compact {
+    max-height: 50vh;
   }
 
   .m-sheet-handle {
@@ -596,6 +1045,16 @@
     border-bottom: 1px solid var(--v2-border-darker, #222);
   }
 
+  .m-sheet-subtitle {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--v2-text-dim, #555);
+    padding: 10px 10px 4px;
+    text-transform: uppercase;
+  }
+
   .m-sheet-content {
     display: flex;
     flex-direction: column;
@@ -607,5 +1066,17 @@
     border-radius: 0;
     border-left: none;
     border-right: none;
+  }
+
+  /* ── Mode grid (in modal) ── */
+  .m-mode-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    padding: 8px 10px;
+  }
+
+  .m-mode-grid > :global(button) {
+    min-height: 44px;
   }
 </style>
