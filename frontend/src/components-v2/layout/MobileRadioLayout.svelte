@@ -96,6 +96,7 @@
   let modeModalOpen = $state(false);
   let filterModalOpen = $state(false);
   let txSettingsOpen = $state(false);
+  let powerModalOpen = $state(false);
 
   // ── Tuning strip ──
   // Mode-aware step presets
@@ -414,8 +415,9 @@
       <section class="m-section">
         <CollapsiblePanel title="TX" panelId="m-tx" collapsible={true}>
           <div class="m-tx-compact">
-            <!-- Power readout -->
-            <div class="m-tx-info">
+            <!-- Power readout (tap → power modal) -->
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div class="m-tx-info" onclick={() => (powerModalOpen = true)}>
               <span class="m-tx-power-value">{formatPower(tx.rfPower)}</span>
               {#if tx.txActive || pttActive}
                 <span class="m-tx-swr-value">SWR {meter.swr > 0 ? (meter.swr / 10).toFixed(1) : '—'}</span>
@@ -679,6 +681,32 @@
             onPbtInnerChange={filterHandlers.onPbtInnerChange}
             onPbtOuterChange={filterHandlers.onPbtOuterChange}
             onPbtReset={filterHandlers.onPbtReset}
+          />
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- ═══ POWER MODAL ═══ -->
+  {#if powerModalOpen}
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="m-sheet-backdrop" onclick={() => (powerModalOpen = false)}>
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div class="m-sheet m-sheet--compact" onclick={(e) => e.stopPropagation()}>
+        <div class="m-sheet-handle"></div>
+        <div class="m-sheet-title">RF POWER</div>
+        <div class="m-sheet-content" style="padding: 12px;">
+          <ValueControl
+            label="RF Power"
+            value={tx.rfPower}
+            min={0}
+            max={255}
+            step={1}
+            renderer="hbar"
+            displayFn={rawToPercentDisplay}
+            accentColor="var(--v2-accent-red)"
+            onChange={txHandlers.onRfPowerChange}
+            variant="hardware-illuminated"
           />
         </div>
       </div>
@@ -984,7 +1012,17 @@
     align-items: center;
     justify-content: center;
     min-width: 44px;
-    padding: 0 4px;
+    min-height: 44px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--v2-border-darker, #333);
+    background: var(--v2-bg-input, #1a1a2e);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .m-tx-info:active {
+    background: var(--v2-bg-card, #222);
   }
 
   .m-tx-power-value {
