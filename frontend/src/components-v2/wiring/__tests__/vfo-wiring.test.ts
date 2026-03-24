@@ -197,10 +197,10 @@ describe('makeBandHandlers', () => {
     expect(sendCommand).toHaveBeenCalledWith('set_band', { band: 5 });
   });
 
-  it('does not emit a band command when bsrCode is missing', () => {
-    makeBandHandlers().onBandSelect('20m', 14_225_000);
+  it('falls back to set_freq when bsrCode is missing (e.g. 60m band)', () => {
+    makeBandHandlers().onBandSelect('60m', 5_357_000);
 
-    expect(sendCommand).not.toHaveBeenCalled();
+    expect(sendCommand).toHaveBeenCalledWith('set_freq', { freq: 5_357_000, receiver: 0 });
   });
 });
 

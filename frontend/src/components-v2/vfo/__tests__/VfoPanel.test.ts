@@ -171,12 +171,13 @@ describe('panel structure', () => {
 
   it('renders mode badge with correct mode text', () => {
     const t = mountPanel(baseProps);
-    expect(t.querySelector('.mode-badge')?.textContent?.trim()).toBe('USB');
+    expect(t.querySelector('.mode-badge-wrapper .v2-status-indicator')?.textContent?.trim()).toBe('USB');
   });
 
   it('renders filter badge with correct filter text', () => {
     const t = mountPanel(baseProps);
-    expect(t.querySelector('.filter-badge')?.textContent?.trim()).toBe('2.4k');
+    const indicators = Array.from(t.querySelectorAll('.control-strip .v2-status-indicator'));
+    expect(indicators.some((el) => el.textContent?.trim() === '2.4k')).toBe(true);
   });
 
   it('renders a .freq element (FrequencyDisplay)', () => {
@@ -191,7 +192,8 @@ describe('panel structure', () => {
 
   it('renders the active band label from capabilities', () => {
     const t = mountPanel(baseProps);
-    expect(t.querySelector('.band-readout')?.textContent?.trim()).toBe('20m');
+    const indicators = Array.from(t.querySelectorAll('.control-strip .v2-status-indicator'));
+    expect(indicators.some((el) => el.textContent?.trim() === '20m')).toBe(true);
   });
 
   it('renders BAR and slot tags in the header', () => {
@@ -208,7 +210,9 @@ describe('panel structure', () => {
 
   it('renders slot tag inside the control strip', () => {
     const t = mountPanel(baseProps);
-    expect(t.querySelector('.slot-readout')?.textContent?.trim()).toBe('MAIN');
+    const indicators = Array.from(t.querySelectorAll('.control-strip .v2-status-indicator'));
+    const slotIndicator = indicators.find((el) => el.getAttribute('data-color') === 'muted');
+    expect(slotIndicator?.textContent?.trim()).toBe('MAIN');
   });
 });
 
@@ -276,9 +280,13 @@ describe('RIT display', () => {
 });
 
 describe('badge rendering', () => {
-  it('does not render badge-row when badges is empty', () => {
+  it('does not render extra badge indicators when badges is empty', () => {
     const t = mountPanel(baseProps);
-    expect(t.querySelectorAll('.v2-status-indicator')).toHaveLength(0);
+    // With empty badges, the control strip only has fixed indicators: mode, slot, band, filter
+    // The badge items loop ({#each badgeItems}) renders nothing when badges prop is {}
+    const indicators = t.querySelectorAll('.v2-status-indicator');
+    // mode (USB) + slot (MAIN, muted) + activeBand (20m) + filter (2.4k) = 4
+    expect(indicators.length).toBe(4);
   });
 
   it('renders badge-row when badges has entries', () => {
@@ -317,7 +325,7 @@ describe('callbacks', () => {
   it('calls onModeClick when mode badge is clicked', () => {
     const onModeClick = vi.fn();
     const t = mountPanel({ ...baseProps, onModeClick });
-    t.querySelector<HTMLElement>('.mode-badge')?.click();
+    t.querySelector<HTMLElement>('.mode-badge-wrapper')?.click();
     expect(onModeClick).toHaveBeenCalledOnce();
   });
 });

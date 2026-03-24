@@ -236,7 +236,7 @@ describe('modal NR mode change', () => {
     t.querySelector<HTMLButtonElement>('[aria-label="NR settings"]')?.click();
     flushSync();
     const segments = t.querySelectorAll<HTMLButtonElement>(
-      '[aria-label="Noise reduction settings"] .segment',
+      '[aria-label="Noise reduction settings"] .v2-control-button',
     );
     const seg2 = Array.from(segments).find((b) => b.textContent?.trim() === '2');
     seg2?.click();

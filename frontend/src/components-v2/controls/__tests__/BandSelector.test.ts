@@ -186,6 +186,14 @@ describe('findActiveBand', () => {
 });
 
 describe('BandSelector component', () => {
+  function findButtonByText(container: HTMLElement, text: string): HTMLButtonElement | null {
+    const buttons = container.querySelectorAll<HTMLButtonElement>('button');
+    for (const btn of buttons) {
+      if (btn.textContent?.trim() === text) return btn;
+    }
+    return null;
+  }
+
   it('forwards bsrCode when a band is selected', () => {
     const onBandSelect = vi.fn();
     const target = mountSelector({
@@ -193,7 +201,7 @@ describe('BandSelector component', () => {
       onBandSelect,
     });
 
-    const button = target.querySelector<HTMLButtonElement>('[data-band="20m"]');
+    const button = findButtonByText(target, '20m');
     button?.click();
     flushSync();
 

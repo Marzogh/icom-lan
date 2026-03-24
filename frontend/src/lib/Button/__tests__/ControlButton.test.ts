@@ -62,11 +62,11 @@ describe('ControlButton', () => {
     expect(el.dataset.active).toBe('true');
   });
 
-  it('self-toggles on click (uncontrolled)', () => {
+  it('does not self-toggle on click without onclick handler (controlled-only)', () => {
     const { el } = mountButton(ControlButton, { active: false });
     el.click();
     flushSync();
-    expect(el.dataset.active).toBe('true');
+    expect(el.dataset.active).toBe('false');
   });
 
   it('calls onclick handler on click', () => {

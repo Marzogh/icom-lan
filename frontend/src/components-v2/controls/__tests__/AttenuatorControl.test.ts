@@ -32,9 +32,10 @@ describe('AttenuatorControl', () => {
       onchange: vi.fn(),
     });
 
-    const segments = Array.from(target.querySelectorAll('.segment')).map((button) => button.textContent?.trim());
+    const segments = Array.from(target.querySelectorAll('.button-grid .v2-control-button')).map((button) => button.textContent?.trim());
     expect(segments).toEqual(['OFF', '20dB']);
-    expect(target.querySelector('.more-button')).toBeNull();
+    // No overflow wrapper div should exist
+    expect(target.querySelector('.att-control > div:not(.button-grid)')).toBeNull();
   });
 
   it('renders quick OFF/6/12/18 picks for dense attenuator ladders', () => {
@@ -44,9 +45,10 @@ describe('AttenuatorControl', () => {
       onchange: vi.fn(),
     });
 
-    const segments = Array.from(target.querySelectorAll('.segment')).map((button) => button.textContent?.trim());
+    const segments = Array.from(target.querySelectorAll('.button-grid .v2-control-button')).map((button) => button.textContent?.trim());
     expect(segments).toEqual(['OFF', '6dB', '12dB', '18dB']);
-    expect(target.querySelector('.more-button')?.textContent?.trim()).toBe('MORE');
+    const moreButton = target.querySelector<HTMLButtonElement>('.att-control > div:not(.button-grid) .v2-control-button');
+    expect(moreButton?.textContent?.trim()).toBe('MORE');
   });
 
   it('shows the selected overflow value on the more button when ATT is on a non-quick step', () => {
@@ -56,9 +58,9 @@ describe('AttenuatorControl', () => {
       onchange: vi.fn(),
     });
 
-    const moreButton = target.querySelector('.more-button');
+    const moreButton = target.querySelector<HTMLButtonElement>('.att-control > div:not(.button-grid) .v2-control-button');
     expect(moreButton?.textContent?.trim()).toBe('15dB');
-    expect(moreButton?.classList.contains('active')).toBe(true);
+    expect(moreButton?.dataset.active).toBe('true');
   });
 
   it('opens the overflow menu and selects a non-quick value', () => {
@@ -69,10 +71,10 @@ describe('AttenuatorControl', () => {
       onchange,
     });
 
-    (target.querySelector('.more-button') as HTMLButtonElement).click();
+    (target.querySelector('.att-control > div:not(.button-grid) .v2-control-button') as HTMLButtonElement).click();
     flushSync();
 
-    const menuItems = Array.from(document.querySelectorAll('.menu-item'));
+    const menuItems = Array.from(document.querySelectorAll('.menu-grid .v2-control-button'));
     expect(menuItems.map((item) => item.textContent?.trim())).toEqual(['3dB', '9dB', '15dB']);
 
     (menuItems[2] as HTMLButtonElement).click();

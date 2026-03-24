@@ -9,6 +9,7 @@ import logging
 import struct
 import time
 from collections import OrderedDict
+from collections.abc import Callable
 from enum import StrEnum
 
 from .exceptions import TimeoutError as _TimeoutError
@@ -109,6 +110,9 @@ class IcomTransport:
         self.rx_packet_count: int = 0  # total packets received (incl. pings)
         self._last_tracked_send: float = 0.0  # monotonic time of last tracked send
         self._udp_error_count: int = 0  # consecutive UDP errors (Broken pipe etc.)
+        # Optional fast-path callback for scope data — bypasses packet queue
+        self._scope_fast_path: Callable[[bytes], None] | None = None
+        self._scope_dropped: int = 0  # scope packets dropped under queue pressure
 
     def _default_raw_send(self, data: bytes) -> None:
         """Send raw bytes via UDP transport."""
@@ -491,9 +495,40 @@ class IcomTransport:
         if self.remote_id == 0 and sender_id != 0:
             self.remote_id = sender_id
 
-        # Queue for consumer with bounded capacity. On overflow, drop the oldest
-        # packet and log a warning with basic diagnostics.
+        # Detect scope-data packets: CI-V frame cmd=0x27, sub=0x00.
+        # Layout after UDP header (0x10): FE FE DST SRC CMD SUB ...
+        is_scope = (
+            len(data) > HEADER_SIZE + 5
+            and data[HEADER_SIZE] == 0xFE
+            and data[HEADER_SIZE + 1] == 0xFE
+            and data[HEADER_SIZE + 4] == 0x27
+            and data[HEADER_SIZE + 5] == 0x00
+        )
+
+        # Fast-path: route scope data directly to callback, bypassing the queue.
+        # Scope frames are high-volume (~225 pkt/sec) and would otherwise fill
+        # the queue, starving CI-V control commands.
+        if is_scope and self._scope_fast_path is not None:
+            self._scope_fast_path(data)
+            return
+
+        # Queue for consumer with bounded capacity.
+        # On overflow: drop scope packets first (visual only), never CI-V control.
         if self._packet_queue.full():
+            if is_scope:
+                # Drop this scope packet — spectrum glitch is acceptable
+                self._scope_dropped += 1
+                if self._scope_dropped % 100 == 1:
+                    logger.warning(
+                        "Packet-queue full: dropping scope packet "
+                        "(total_dropped=%d, queue_size=%d)",
+                        self._scope_dropped,
+                        self._packet_queue.qsize(),
+                    )
+                return
+
+            # Non-scope packet (CI-V control) and queue is full:
+            # evict oldest packet to make room — control must get through.
             dropped: bytes | None = None
             try:
                 dropped = self._packet_queue.get_nowait()
@@ -506,7 +541,7 @@ class IcomTransport:
 
             logger.warning(
                 (
-                    "Packet-queue overflow: dropping oldest packet "
+                    "Packet-queue overflow: evicting for CI-V control "
                     "(dropped_seq=%s, new_seq=0x%04X, ptype=0x%04X, "
                     "sender_id=0x%08X, queue_size=%d, maxsize=%d, rx_count=%d)"
                 ),
@@ -522,9 +557,11 @@ class IcomTransport:
         try:
             self._packet_queue.put_nowait(data)
         except asyncio.QueueFull:
-            # In a rare race, the queue might become full again between full()
-            # and put_nowait(). Drop the newest packet and log a secondary
-            # warning instead of blocking the UDP handler.
+            # Race: queue became full between check and put.
+            # Drop the incoming packet only if it's scope.
+            if is_scope:
+                self._scope_dropped += 1
+                return
             logger.warning(
                 (
                     "Packet-queue overflow (second-chance): dropping newest packet "
