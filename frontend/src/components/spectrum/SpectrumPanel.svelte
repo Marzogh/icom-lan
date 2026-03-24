@@ -202,19 +202,20 @@
 
   // --- Drag-to-pan (grab and slide the spectrum window) ---
   //
-  // Visual feedback: CSS translateX moves spectrum/waterfall instantly.
-  // CI-V commands: adaptive rate limit based on drag speed.
-  //   - Slow drag (< 200 px/sec): send every 300ms — feels real-time
-  //   - Medium drag (200–600 px/sec): send every 500ms — smooth updates
-  //   - Fast swipe (> 600 px/sec): no intermediate sends — only on release
-  // Final frequency always sent on mouse release.
+  // All visual feedback comes from the radio: set_freq → radio retunes →
+  // scope sends new data → spectrum/waterfall redraws naturally.
+  //
+  // Adaptive rate limit based on drag speed:
+  //   - Slow (<200 px/s): every 200ms — precise tuning feel
+  //   - Medium (200–600 px/s): every 400ms — smooth panning
+  //   - Fast (>600 px/s): every 700ms — coarse jumps, no flooding
+  // Final freq always sent on release.
   //
   let dragging = $state(false);
   let dragStartX = $state(0);
   let dragStartFreq = $state(0);
   let dragPointerId = $state<number | null>(null);
-  let dragFreq = $state(0);
-  let dragOffsetPx = $state(0);
+  let dragFreq = 0;
   let lastDragSendTime = 0;
   let lastDragSendFreq = 0;
   let lastMoveTime = 0;
@@ -254,8 +255,8 @@
     const now = performance.now();
     const dt = now - lastMoveTime;
     if (dt > 0) {
-      const instantSpeed = (Math.abs(event.clientX - lastMoveX) / dt) * 1000; // px/sec
-      dragSpeed = dragSpeed * 0.7 + instantSpeed * 0.3; // smooth
+      const instantSpeed = (Math.abs(event.clientX - lastMoveX) / dt) * 1000;
+      dragSpeed = dragSpeed * 0.7 + instantSpeed * 0.3;
     }
     lastMoveTime = now;
     lastMoveX = event.clientX;
@@ -267,16 +268,15 @@
 
     if (newFreq <= 0) return;
     dragFreq = newFreq;
-    dragOffsetPx = dx;
 
-    // Adaptive rate limit: slow drag → more updates, fast swipe → skip
+    // Adaptive interval: slow = responsive, fast = coarse
     let intervalMs: number;
     if (dragSpeed > 600) {
-      return; // fast swipe — visual only, send on release
+      intervalMs = 700;
     } else if (dragSpeed > 200) {
-      intervalMs = 500;
+      intervalMs = 400;
     } else {
-      intervalMs = 300;
+      intervalMs = 200;
     }
 
     if (now - lastDragSendTime < intervalMs) return;
@@ -300,7 +300,6 @@
     dragging = false;
     dragPointerId = null;
     dragFreq = 0;
-    dragOffsetPx = 0;
     dragSpeed = 0;
   }
 
@@ -361,7 +360,7 @@
         <div class="tick" style="top: {tick.position}%">{tick.label}</div>
       {/each}
     </div>
-    <div class="spectrum-area" class:panning={dragging} bind:this={spectrumArea} onpointerdown={handleDragStart} style:transform={dragOffsetPx ? `translateX(${dragOffsetPx}px)` : undefined}>
+    <div class="spectrum-area" class:panning={dragging} bind:this={spectrumArea} onpointerdown={handleDragStart}>
       <BandPlanOverlay {startFreq} {endFreq} visible={showBandPlan} />
       <SpectrumCanvas data={scopePixels} options={spectrumOptions} {spanHz} {enableAvg} {enablePeakHold} onRegisterPush={(fn) => spectrumPush = fn} />
       {#if spanHz > 0 && pbWidthPct > 0 && canResizePassband}
@@ -378,7 +377,7 @@
     </div>
   </div>
   {#if freqTicks.length > 0}
-    <div class="freq-axis" style:transform={dragOffsetPx ? `translateX(${dragOffsetPx}px)` : undefined}>
+    <div class="freq-axis">
       {#each freqTicks as tick}
         <div class="tick" style="left: {tick.position}%">{tick.label}</div>
       {/each}
@@ -386,7 +385,7 @@
   {/if}
   <div class="waterfall-area">
     <div class="waterfall-scale"></div>
-    <div class="waterfall-content" class:panning={dragging} bind:this={waterfallContent} onpointerdown={handleDragStart} style:transform={dragOffsetPx ? `translateX(${dragOffsetPx}px)` : undefined}>
+    <div class="waterfall-content" class:panning={dragging} bind:this={waterfallContent} onpointerdown={handleDragStart}>
       <WaterfallCanvas options={waterfallOptions} onFreqClick={handleTune} onRegisterPush={(fn) => waterfallPush = fn} />
       <DxOverlay spots={dxSpots} {startFreq} {endFreq} onTune={handleTune} />
       <!-- Tuning + passband indicator overlays the waterfall -->
