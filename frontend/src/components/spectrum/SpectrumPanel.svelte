@@ -206,6 +206,7 @@
   let dragStartFreq = $state(0);
   let dragPointerId = $state<number | null>(null);
   let dragFreq = $state(0); // computed freq during drag (sent only on release)
+  let dragOffsetPx = $state(0); // visual CSS offset during drag
 
   function handleDragStart(event: PointerEvent): void {
     // Only left button, skip if resizing passband
@@ -243,6 +244,7 @@
 
     if (newFreq <= 0) return;
     dragFreq = newFreq;
+    dragOffsetPx = dx;
   }
 
   function handleDragEnd(event: PointerEvent): void {
@@ -257,6 +259,7 @@
     dragging = false;
     dragPointerId = null;
     dragFreq = 0;
+    dragOffsetPx = 0;
   }
 
   // --- Lifecycle: connect scope WS + subscribe to DX spots ---
@@ -316,7 +319,7 @@
         <div class="tick" style="top: {tick.position}%">{tick.label}</div>
       {/each}
     </div>
-    <div class="spectrum-area" class:panning={dragging} bind:this={spectrumArea} onpointerdown={handleDragStart}>
+    <div class="spectrum-area" class:panning={dragging} bind:this={spectrumArea} onpointerdown={handleDragStart} style:transform={dragOffsetPx ? `translateX(${dragOffsetPx}px)` : undefined}>
       <BandPlanOverlay {startFreq} {endFreq} visible={showBandPlan} />
       <SpectrumCanvas data={scopePixels} options={spectrumOptions} {spanHz} {enableAvg} {enablePeakHold} onRegisterPush={(fn) => spectrumPush = fn} />
       {#if spanHz > 0 && pbWidthPct > 0 && canResizePassband}
@@ -333,7 +336,7 @@
     </div>
   </div>
   {#if freqTicks.length > 0}
-    <div class="freq-axis">
+    <div class="freq-axis" style:transform={dragOffsetPx ? `translateX(${dragOffsetPx}px)` : undefined}>
       {#each freqTicks as tick}
         <div class="tick" style="left: {tick.position}%">{tick.label}</div>
       {/each}
@@ -341,7 +344,7 @@
   {/if}
   <div class="waterfall-area">
     <div class="waterfall-scale"></div>
-    <div class="waterfall-content" class:panning={dragging} bind:this={waterfallContent} onpointerdown={handleDragStart}>
+    <div class="waterfall-content" class:panning={dragging} bind:this={waterfallContent} onpointerdown={handleDragStart} style:transform={dragOffsetPx ? `translateX(${dragOffsetPx}px)` : undefined}>
       <WaterfallCanvas options={waterfallOptions} onFreqClick={handleTune} onRegisterPush={(fn) => waterfallPush = fn} />
       <DxOverlay spots={dxSpots} {startFreq} {endFreq} onTune={handleTune} />
       <!-- Tuning + passband indicator overlays the waterfall -->
@@ -392,6 +395,7 @@
     min-height: 0;
     display: flex;
     border-bottom: 1px solid var(--panel-border);
+    overflow: hidden;
   }
 
   .db-scale {
@@ -453,6 +457,7 @@
     min-height: 0;
     position: relative;
     display: flex;
+    overflow: hidden;
   }
 
   .waterfall-scale {
