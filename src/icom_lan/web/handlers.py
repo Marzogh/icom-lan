@@ -14,6 +14,7 @@ import time
 from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
+from .._audio_buffer_pool import AudioBufferPool
 from .._audio_codecs import decode_ulaw_to_pcm16
 from .._audio_transcoder import PcmOpusTranscoder, create_pcm_opus_transcoder
 from ..profiles import RadioProfile
@@ -1245,6 +1246,9 @@ class AudioBroadcaster:
         self._sample_rate: int = 48000
         self._channels: int = 1
         self._lock = asyncio.Lock()
+        # Buffer pool for audio encoding/decoding operations
+        # Pre-allocates buffers for common audio frame sizes (20ms @ 16kHz stereo = 1280 bytes)
+        self._buffer_pool = AudioBufferPool(buffer_size=1280, max_buffers=5, name="audio-broadcaster")
 
     async def subscribe(
         self, ws: WebSocketConnection | None = None
