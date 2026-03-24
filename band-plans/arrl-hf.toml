@@ -1,5 +1,7 @@
 # ARRL HF Band Plan (ITU Region 2 — Americas)
 # Source: http://www.arrl.org/band-plan
+# License classes: Extra (E), General (G), Technician (T)
+# Extra has full access; General/Technician have sub-band restrictions.
 
 [meta]
 name = "ARRL HF Band Plan"
@@ -7,7 +9,9 @@ region = "US"
 source = "http://www.arrl.org/band-plan"
 layer = "ham"
 priority = 10
-version = "2024.1"
+version = "2025.1"
+
+# ── 160m ──────────────────────────────────────────────
 
 [[band]]
 name = "160m"
@@ -19,18 +23,23 @@ end = 2_000_000
   end = 1_840_000
   mode = "cw"
   label = "CW"
+  license = "General"
 
   [[band.segment]]
   start = 1_840_000
   end = 1_850_000
   mode = "digital"
   label = "DIGI"
+  license = "General"
 
   [[band.segment]]
   start = 1_850_000
   end = 2_000_000
   mode = "phone"
   label = "PHONE"
+  license = "General"
+
+# ── 80m ───────────────────────────────────────────────
 
 [[band]]
 name = "80m"
@@ -39,32 +48,63 @@ end = 4_000_000
 
   [[band.segment]]
   start = 3_500_000
+  end = 3_525_000
+  mode = "cw"
+  label = "CW"
+  license = "Extra"
+
+  [[band.segment]]
+  start = 3_525_000
   end = 3_570_000
   mode = "cw"
   label = "CW"
+  license = "General"
 
   [[band.segment]]
   start = 3_570_000
   end = 3_600_000
   mode = "digital"
   label = "DIGI"
+  license = "General"
 
   [[band.segment]]
   start = 3_600_000
+  end = 3_700_000
+  mode = "phone"
+  label = "PHONE"
+  license = "Extra"
+
+  [[band.segment]]
+  start = 3_700_000
+  end = 3_800_000
+  mode = "phone"
+  label = "PHONE"
+  license = "General"
+  notes = "Advanced also has access"
+
+  [[band.segment]]
+  start = 3_800_000
   end = 4_000_000
   mode = "phone"
   label = "PHONE"
+  license = "General"
+
+# ── 60m (channelized) ────────────────────────────────
 
 [[band]]
 name = "60m"
-start = 5_330_000
-end = 5_410_000
+start = 5_330_500
+end = 5_406_500
 
   [[band.segment]]
-  start = 5_330_000
-  end = 5_410_000
+  start = 5_330_500
+  end = 5_406_500
   mode = "phone"
-  label = "PHONE"
+  label = "60m"
+  license = "General"
+  notes = "Channelized: 5 channels, 100W ERP, USB only"
+
+# ── 40m ───────────────────────────────────────────────
 
 [[band]]
 name = "40m"
@@ -73,21 +113,40 @@ end = 7_300_000
 
   [[band.segment]]
   start = 7_000_000
+  end = 7_025_000
+  mode = "cw"
+  label = "CW"
+  license = "Extra"
+
+  [[band.segment]]
+  start = 7_025_000
   end = 7_070_000
   mode = "cw"
   label = "CW"
+  license = "General"
 
   [[band.segment]]
   start = 7_070_000
   end = 7_125_000
   mode = "digital"
   label = "DIGI"
+  license = "General"
 
   [[band.segment]]
   start = 7_125_000
+  end = 7_175_000
+  mode = "phone"
+  label = "PHONE"
+  license = "Extra"
+
+  [[band.segment]]
+  start = 7_175_000
   end = 7_300_000
   mode = "phone"
   label = "PHONE"
+  license = "General"
+
+# ── 30m (CW/Digital only, shared with gov't) ─────────
 
 [[band]]
 name = "30m"
@@ -99,12 +158,18 @@ end = 10_150_000
   end = 10_130_000
   mode = "cw"
   label = "CW"
+  license = "General"
+  notes = "200W PEP max, shared with government"
 
   [[band.segment]]
   start = 10_130_000
   end = 10_150_000
   mode = "digital"
   label = "DIGI"
+  license = "General"
+  notes = "200W PEP max, shared with government"
+
+# ── 20m ───────────────────────────────────────────────
 
 [[band]]
 name = "20m"
@@ -113,21 +178,48 @@ end = 14_350_000
 
   [[band.segment]]
   start = 14_000_000
+  end = 14_025_000
+  mode = "cw"
+  label = "CW"
+  license = "Extra"
+
+  [[band.segment]]
+  start = 14_025_000
   end = 14_070_000
   mode = "cw"
   label = "CW"
+  license = "General"
 
   [[band.segment]]
   start = 14_070_000
   end = 14_150_000
   mode = "digital"
   label = "DIGI"
+  license = "General"
 
   [[band.segment]]
   start = 14_150_000
+  end = 14_175_000
+  mode = "phone"
+  label = "PHONE"
+  license = "Extra"
+
+  [[band.segment]]
+  start = 14_175_000
+  end = 14_225_000
+  mode = "phone"
+  label = "PHONE"
+  license = "General"
+  notes = "Advanced also has access starting at 14.175"
+
+  [[band.segment]]
+  start = 14_225_000
   end = 14_350_000
   mode = "phone"
   label = "PHONE"
+  license = "General"
+
+# ── 17m (WARC — no contests) ─────────────────────────
 
 [[band]]
 name = "17m"
@@ -139,18 +231,23 @@ end = 18_168_000
   end = 18_100_000
   mode = "cw"
   label = "CW"
+  license = "General"
 
   [[band.segment]]
   start = 18_100_000
   end = 18_110_000
   mode = "digital"
   label = "DIGI"
+  license = "General"
 
   [[band.segment]]
   start = 18_110_000
   end = 18_168_000
   mode = "phone"
   label = "PHONE"
+  license = "General"
+
+# ── 15m ───────────────────────────────────────────────
 
 [[band]]
 name = "15m"
@@ -159,27 +256,55 @@ end = 21_450_000
 
   [[band.segment]]
   start = 21_000_000
+  end = 21_025_000
+  mode = "cw"
+  label = "CW"
+  license = "Extra"
+
+  [[band.segment]]
+  start = 21_025_000
   end = 21_070_000
   mode = "cw"
   label = "CW"
+  license = "General"
 
   [[band.segment]]
   start = 21_070_000
   end = 21_150_000
   mode = "digital"
   label = "DIGI"
+  license = "General"
 
   [[band.segment]]
   start = 21_150_000
   end = 21_200_000
   mode = "beacon"
   label = "BCN"
+  license = "General"
 
   [[band.segment]]
   start = 21_200_000
+  end = 21_225_000
+  mode = "phone"
+  label = "PHONE"
+  license = "Extra"
+
+  [[band.segment]]
+  start = 21_225_000
+  end = 21_275_000
+  mode = "phone"
+  label = "PHONE"
+  license = "General"
+  notes = "Advanced also has access starting at 21.225"
+
+  [[band.segment]]
+  start = 21_275_000
   end = 21_450_000
   mode = "phone"
   label = "PHONE"
+  license = "General"
+
+# ── 12m (WARC — no contests) ─────────────────────────
 
 [[band]]
 name = "12m"
@@ -191,18 +316,23 @@ end = 24_990_000
   end = 24_920_000
   mode = "cw"
   label = "CW"
+  license = "General"
 
   [[band.segment]]
   start = 24_920_000
   end = 24_930_000
   mode = "digital"
   label = "DIGI"
+  license = "General"
 
   [[band.segment]]
   start = 24_930_000
   end = 24_990_000
   mode = "phone"
   label = "PHONE"
+  license = "General"
+
+# ── 10m ───────────────────────────────────────────────
 
 [[band]]
 name = "10m"
@@ -214,21 +344,34 @@ end = 29_700_000
   end = 28_070_000
   mode = "cw"
   label = "CW"
+  license = "Technician"
+  notes = "Technician: CW only 28.0-28.5"
 
   [[band.segment]]
   start = 28_070_000
   end = 28_150_000
   mode = "beacon"
   label = "BCN"
+  license = "General"
 
   [[band.segment]]
   start = 28_150_000
   end = 28_300_000
   mode = "digital"
   label = "DIGI"
+  license = "General"
 
   [[band.segment]]
   start = 28_300_000
+  end = 28_500_000
+  mode = "phone"
+  label = "PHONE"
+  license = "Technician"
+  notes = "Technician: 200W PEP, 28.3-28.5 only"
+
+  [[band.segment]]
+  start = 28_500_000
   end = 29_700_000
   mode = "phone"
   label = "PHONE"
+  license = "General"

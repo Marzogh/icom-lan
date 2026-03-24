@@ -1,0 +1,386 @@
+# IARU Region 1 HF Band Plan (Europe, Africa, Middle East, Northern Asia)
+# Source: https://www.iaru-r1.org/on-the-air/band-plans/
+
+[meta]
+name = "IARU Region 1 HF"
+region = "IARU-R1"
+source = "https://www.iaru-r1.org/on-the-air/band-plans/"
+layer = "ham"
+priority = 10
+version = "2025.1"
+
+# ── 160m ──────────────────────────────────────────────
+
+[[band]]
+name = "160m"
+start = 1_810_000
+end = 2_000_000
+
+  [[band.segment]]
+  start = 1_810_000
+  end = 1_838_000
+  mode = "cw"
+  label = "CW"
+
+  [[band.segment]]
+  start = 1_838_000
+  end = 1_840_000
+  mode = "digital"
+  label = "DIGI"
+  notes = "Narrow-band modes"
+
+  [[band.segment]]
+  start = 1_840_000
+  end = 2_000_000
+  mode = "phone"
+  label = "ALL"
+  notes = "All modes"
+
+# ── 80m ───────────────────────────────────────────────
+
+[[band]]
+name = "80m"
+start = 3_500_000
+end = 3_800_000
+
+  [[band.segment]]
+  start = 3_500_000
+  end = 3_570_000
+  mode = "cw"
+  label = "CW"
+
+  [[band.segment]]
+  start = 3_570_000
+  end = 3_600_000
+  mode = "digital"
+  label = "DIGI"
+  notes = "Narrow-band, digimodes"
+
+  [[band.segment]]
+  start = 3_600_000
+  end = 3_620_000
+  mode = "phone"
+  label = "ALL"
+  notes = "All modes, digimodes"
+
+  [[band.segment]]
+  start = 3_620_000
+  end = 3_800_000
+  mode = "phone"
+  label = "PHONE"
+  notes = "All modes"
+
+# ── 40m ───────────────────────────────────────────────
+
+[[band]]
+name = "40m"
+start = 7_000_000
+end = 7_200_000
+
+  [[band.segment]]
+  start = 7_000_000
+  end = 7_040_000
+  mode = "cw"
+  label = "CW"
+
+  [[band.segment]]
+  start = 7_040_000
+  end = 7_047_000
+  mode = "digital"
+  label = "DIGI"
+  notes = "Narrow-band modes"
+
+  [[band.segment]]
+  start = 7_047_000
+  end = 7_100_000
+  mode = "phone"
+  label = "ALL"
+  notes = "All modes, digimodes"
+
+  [[band.segment]]
+  start = 7_100_000
+  end = 7_200_000
+  mode = "phone"
+  label = "PHONE"
+  notes = "All modes, SSB contest preferred 7.060+"
+
+# ── 30m ───────────────────────────────────────────────
+
+[[band]]
+name = "30m"
+start = 10_100_000
+end = 10_150_000
+
+  [[band.segment]]
+  start = 10_100_000
+  end = 10_130_000
+  mode = "cw"
+  label = "CW"
+
+  [[band.segment]]
+  start = 10_130_000
+  end = 10_150_000
+  mode = "digital"
+  label = "DIGI"
+  notes = "Narrow-band modes"
+
+# ── 20m ───────────────────────────────────────────────
+
+[[band]]
+name = "20m"
+start = 14_000_000
+end = 14_350_000
+
+  [[band.segment]]
+  start = 14_000_000
+  end = 14_070_000
+  mode = "cw"
+  label = "CW"
+
+  [[band.segment]]
+  start = 14_070_000
+  end = 14_099_000
+  mode = "digital"
+  label = "DIGI"
+  notes = "Narrow-band modes"
+
+  [[band.segment]]
+  start = 14_099_000
+  end = 14_101_000
+  mode = "beacon"
+  label = "BCN"
+  notes = "IBP/NCDXF beacons"
+
+  [[band.segment]]
+  start = 14_101_000
+  end = 14_112_000
+  mode = "digital"
+  label = "ALL"
+  notes = "All narrow-band modes"
+
+  [[band.segment]]
+  start = 14_112_000
+  end = 14_350_000
+  mode = "phone"
+  label = "PHONE"
+  notes = "All modes"
+
+# ── 17m ───────────────────────────────────────────────
+
+[[band]]
+name = "17m"
+start = 18_068_000
+end = 18_168_000
+
+  [[band.segment]]
+  start = 18_068_000
+  end = 18_095_000
+  mode = "cw"
+  label = "CW"
+
+  [[band.segment]]
+  start = 18_095_000
+  end = 18_109_000
+  mode = "digital"
+  label = "DIGI"
+  notes = "Narrow-band modes"
+
+  [[band.segment]]
+  start = 18_109_000
+  end = 18_111_000
+  mode = "beacon"
+  label = "BCN"
+  notes = "IBP/NCDXF beacons"
+
+  [[band.segment]]
+  start = 18_111_000
+  end = 18_168_000
+  mode = "phone"
+  label = "PHONE"
+  notes = "All modes"
+
+# ── 15m ───────────────────────────────────────────────
+
+[[band]]
+name = "15m"
+start = 21_000_000
+end = 21_450_000
+
+  [[band.segment]]
+  start = 21_000_000
+  end = 21_070_000
+  mode = "cw"
+  label = "CW"
+
+  [[band.segment]]
+  start = 21_070_000
+  end = 21_110_000
+  mode = "digital"
+  label = "DIGI"
+  notes = "Narrow-band modes"
+
+  [[band.segment]]
+  start = 21_110_000
+  end = 21_120_000
+  mode = "phone"
+  label = "ALL"
+  notes = "All modes, no SSB"
+
+  [[band.segment]]
+  start = 21_120_000
+  end = 21_149_000
+  mode = "digital"
+  label = "DIGI"
+  notes = "Narrow-band modes"
+
+  [[band.segment]]
+  start = 21_149_000
+  end = 21_151_000
+  mode = "beacon"
+  label = "BCN"
+  notes = "IBP/NCDXF beacons"
+
+  [[band.segment]]
+  start = 21_151_000
+  end = 21_450_000
+  mode = "phone"
+  label = "PHONE"
+  notes = "All modes"
+
+# ── 12m ───────────────────────────────────────────────
+
+[[band]]
+name = "12m"
+start = 24_890_000
+end = 24_990_000
+
+  [[band.segment]]
+  start = 24_890_000
+  end = 24_915_000
+  mode = "cw"
+  label = "CW"
+
+  [[band.segment]]
+  start = 24_915_000
+  end = 24_929_000
+  mode = "digital"
+  label = "DIGI"
+  notes = "Narrow-band modes"
+
+  [[band.segment]]
+  start = 24_929_000
+  end = 24_931_000
+  mode = "beacon"
+  label = "BCN"
+  notes = "IBP/NCDXF beacons"
+
+  [[band.segment]]
+  start = 24_931_000
+  end = 24_990_000
+  mode = "phone"
+  label = "PHONE"
+  notes = "All modes"
+
+# ── 10m ───────────────────────────────────────────────
+
+[[band]]
+name = "10m"
+start = 28_000_000
+end = 29_700_000
+
+  [[band.segment]]
+  start = 28_000_000
+  end = 28_070_000
+  mode = "cw"
+  label = "CW"
+
+  [[band.segment]]
+  start = 28_070_000
+  end = 28_120_000
+  mode = "digital"
+  label = "DIGI"
+  notes = "Narrow-band modes"
+
+  [[band.segment]]
+  start = 28_120_000
+  end = 28_150_000
+  mode = "digital"
+  label = "DIGI"
+  notes = "Narrow-band auto stations"
+
+  [[band.segment]]
+  start = 28_150_000
+  end = 28_190_000
+  mode = "digital"
+  label = "DIGI"
+  notes = "Narrow-band modes"
+
+  [[band.segment]]
+  start = 28_190_000
+  end = 28_199_000
+  mode = "beacon"
+  label = "BCN"
+  notes = "Regional time-shared beacons"
+
+  [[band.segment]]
+  start = 28_199_000
+  end = 28_201_000
+  mode = "beacon"
+  label = "BCN"
+  notes = "IBP/NCDXF beacons"
+
+  [[band.segment]]
+  start = 28_201_000
+  end = 28_225_000
+  mode = "beacon"
+  label = "BCN"
+  notes = "Continuous-duty beacons"
+
+  [[band.segment]]
+  start = 28_225_000
+  end = 28_300_000
+  mode = "digital"
+  label = "ALL"
+  notes = "All modes, beacons"
+
+  [[band.segment]]
+  start = 28_300_000
+  end = 28_320_000
+  mode = "digital"
+  label = "DIGI"
+  notes = "Digimodes, auto stations"
+
+  [[band.segment]]
+  start = 28_320_000
+  end = 29_100_000
+  mode = "phone"
+  label = "PHONE"
+  notes = "All modes"
+
+  [[band.segment]]
+  start = 29_100_000
+  end = 29_200_000
+  mode = "digital"
+  label = "FM-DIGI"
+  notes = "FM narrow-band digimodes"
+
+  [[band.segment]]
+  start = 29_200_000
+  end = 29_300_000
+  mode = "phone"
+  label = "ALL"
+  notes = "All modes, FM simplex/data"
+
+  [[band.segment]]
+  start = 29_300_000
+  end = 29_510_000
+  mode = "phone"
+  label = "FM-SAT"
+  notes = "Satellite downlinks"
+
+  [[band.segment]]
+  start = 29_510_000
+  end = 29_700_000
+  mode = "phone"
+  label = "FM-RPT"
+  notes = "FM repeaters"

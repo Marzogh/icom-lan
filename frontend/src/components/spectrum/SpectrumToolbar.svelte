@@ -20,14 +20,39 @@
 
   let layerDropdownOpen = $state(false);
   let availableLayers = $state<LayerInfo[]>([]);
+  let currentRegion = $state('US');
+  let availableRegions = $state<string[]>([]);
 
-  // Fetch available layers from REST API
+  // Fetch available layers and config from REST API
   async function fetchLayers() {
     try {
-      const resp = await fetch('/api/v1/band-plan/layers');
-      if (resp.ok) {
-        const data = await resp.json();
+      const [layerResp, configResp] = await Promise.all([
+        fetch('/api/v1/band-plan/layers'),
+        fetch('/api/v1/band-plan/config'),
+      ]);
+      if (layerResp.ok) {
+        const data = await layerResp.json();
         availableLayers = data.layers ?? [];
+      }
+      if (configResp.ok) {
+        const config = await configResp.json();
+        currentRegion = config.region ?? 'US';
+        availableRegions = config.availableRegions ?? [];
+      }
+    } catch { /* ignore */ }
+  }
+
+  async function setRegion(region: string) {
+    try {
+      const resp = await fetch('/api/v1/band-plan/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ region }),
+      });
+      if (resp.ok) {
+        currentRegion = region;
+        // Refetch layers (they may change with region)
+        await fetchLayers();
       }
     } catch { /* ignore */ }
   }
@@ -111,6 +136,20 @@
       {#if layerDropdownOpen}
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div class="layer-dropdown" onmouseleave={() => (layerDropdownOpen = false)}>
+          {#if availableRegions.length > 1}
+            <div class="dropdown-section-label">Region</div>
+            <div class="region-selector">
+              {#each availableRegions as region}
+                <button
+                  class="region-btn"
+                  class:active={region === currentRegion}
+                  onclick={() => setRegion(region)}
+                >{region}</button>
+              {/each}
+            </div>
+            <div class="dropdown-divider"></div>
+          {/if}
+          <div class="dropdown-section-label">Layers</div>
           {#each availableLayers as layer}
             <label class="layer-option">
               <input
@@ -296,5 +335,50 @@
 
   .layer-name {
     font-family: 'Roboto Mono', monospace;
+  }
+
+  .dropdown-section-label {
+    padding: 4px 10px 2px;
+    color: var(--v2-text-dim, #666);
+    font-size: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 600;
+  }
+
+  .dropdown-divider {
+    height: 1px;
+    background: var(--v2-border, #2a2a3e);
+    margin: 4px 0;
+  }
+
+  .region-selector {
+    display: flex;
+    gap: 2px;
+    padding: 2px 8px 4px;
+    flex-wrap: wrap;
+  }
+
+  .region-btn {
+    padding: 2px 6px;
+    font-size: 9px;
+    font-family: 'Roboto Mono', monospace;
+    background: transparent;
+    border: 1px solid var(--v2-border, #2a2a3e);
+    border-radius: 3px;
+    color: var(--v2-text-dim, #888);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .region-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--v2-text-primary, #e0e0e0);
+  }
+
+  .region-btn.active {
+    color: #00d4ff;
+    border-color: rgba(0, 212, 255, 0.4);
+    background: rgba(0, 212, 255, 0.1);
   }
 </style>

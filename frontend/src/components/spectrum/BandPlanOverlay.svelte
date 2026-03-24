@@ -180,6 +180,46 @@
     });
   });
 
+  // License class colors for dashed boundary lines
+  const LICENSE_COLORS: Record<string, string> = {
+    'Extra': '#EF4444',
+    'General': '#60A5FA',
+    'Technician': '#4ADE80',
+  };
+
+  // Derive license boundaries — where license class changes between adjacent segments
+  let licenseBoundaries = $derived(() => {
+    if (!visible || endFreq <= startFreq) return [];
+    const segs = segments();
+    const span = endFreq - startFreq;
+    const boundaries: { freq: number; leftPct: number; fromLicense: string; toLicense: string; color: string }[] = [];
+
+    for (let i = 1; i < segs.length; i++) {
+      const prev = segs[i - 1];
+      const curr = segs[i];
+      // Only show boundary when license changes and segments are adjacent (same band)
+      if (
+        prev.license && curr.license &&
+        prev.license !== curr.license &&
+        prev.end === curr.start &&
+        prev.layer === curr.layer
+      ) {
+        const rawLeft = ((curr.start - startFreq) / span) * 100;
+        const leftPct = Math.max(0, Math.min(100, rawLeft));
+        // Color = the more restrictive license (the one that starts)
+        const color = LICENSE_COLORS[curr.license] ?? LICENSE_COLORS[prev.license] ?? '#9CA3AF';
+        boundaries.push({
+          freq: curr.start,
+          leftPct,
+          fromLicense: prev.license,
+          toLicense: curr.license,
+          color,
+        });
+      }
+    }
+    return boundaries;
+  });
+
   function hexToRgb(hex: string): string {
     const h = hex.replace('#', '');
     const r = parseInt(h.substring(0, 2), 16);
@@ -216,15 +256,22 @@
     <div
       class="band-segment"
       style="left:{seg.leftPct}%;width:{seg.widthPct}%;background:{seg.color};border-left:1px solid {seg.borderColor}"
-      title={seg.notes ?? seg.label}
+      title={seg.license ? `${seg.label} (${seg.license}+)` : (seg.notes ?? seg.label)}
       onclick={(e) => handleSegmentClick(seg, e)}
     >
       {#if seg.widthPx > 40}
         <span class="segment-label" style="color:{seg.labelColor}">
-          {seg.label}
+          {seg.label}{#if seg.license && seg.widthPx > 80}<span class="license-tag"> {seg.license[0]}</span>{/if}
         </span>
       {/if}
     </div>
+  {/each}
+  {#each licenseBoundaries() as boundary (boundary.freq)}
+    <div
+      class="license-boundary"
+      style="left:{boundary.leftPct}%;border-color:{boundary.color}"
+      title="{boundary.fromLicense} → {boundary.toLicense} at {formatFreq(boundary.freq)}"
+    ></div>
   {/each}
 </div>
 {/if}
@@ -331,6 +378,23 @@
     white-space: nowrap;
     opacity: 0.9;
     pointer-events: none;
+  }
+
+  .license-tag {
+    opacity: 0.6;
+    font-size: 7px;
+    margin-left: 2px;
+  }
+
+  .license-boundary {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    border-left: 1px dashed;
+    opacity: 0.6;
+    pointer-events: none;
+    z-index: 3;
   }
 
   /* Popup */

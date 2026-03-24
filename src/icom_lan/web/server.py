@@ -1055,6 +1055,15 @@ class WebServer:
             await self._handle_radio_control(path, writer, headers, reader)
             return
 
+        if path == "/api/v1/band-plan/config":
+            if method == "GET":
+                await self._serve_band_plan_config(writer)
+            elif method == "POST":
+                await self._handle_band_plan_config(writer, headers, reader)
+            else:
+                await _send_response(writer, 405, "Method Not Allowed", b"", {})
+            return
+
         if method not in ("GET", "HEAD"):
             await _send_response(writer, 405, "Method Not Allowed", b"", {})
             return
@@ -1288,6 +1297,106 @@ class WebServer:
         await _send_response(
             writer, 200, "OK", body, {"Content-Type": "application/json"}
         )
+
+    async def _serve_band_plan_config(
+        self, writer: asyncio.StreamWriter
+    ) -> None:
+        """GET /api/v1/band-plan/config"""
+        body = json.dumps(
+            {
+                "region": self._band_plan.region,
+                "availableRegions": ["US", "IARU-R1", "IARU-R2", "IARU-R3"],
+            },
+            separators=(",", ":"),
+        ).encode()
+        await _send_response(
+            writer, 200, "OK", body, {"Content-Type": "application/json"}
+        )
+
+    async def _handle_band_plan_config(
+        self,
+        writer: asyncio.StreamWriter,
+        headers: dict[str, str] | None = None,
+        reader: asyncio.StreamReader | None = None,
+    ) -> None:
+        """POST /api/v1/band-plan/config — update region, reload band plans."""
+        try:
+            body_bytes = b""
+            if reader is not None:
+                cl = int((headers or {}).get("content-length", "0"))
+                if cl > 0:
+                    body_bytes = await asyncio.wait_for(
+                        reader.readexactly(cl), timeout=5.0,
+                    )
+            if not body_bytes:
+                err = json.dumps(
+                    {"error": "missing_body"}, separators=(",", ":"),
+                ).encode()
+                await _send_response(
+                    writer, 400, "Bad Request", err,
+                    {"Content-Type": "application/json"},
+                )
+                return
+
+            payload = json.loads(body_bytes)
+            new_region = payload.get("region", "")
+            valid_regions = {"US", "IARU-R1", "IARU-R2", "IARU-R3"}
+            if new_region not in valid_regions:
+                err = json.dumps(
+                    {"error": "invalid_region", "valid": sorted(valid_regions)},
+                    separators=(",", ":"),
+                ).encode()
+                await _send_response(
+                    writer, 400, "Bad Request", err,
+                    {"Content-Type": "application/json"},
+                )
+                return
+
+            # Write config and reload
+            import tomllib
+            from pathlib import Path as _Path
+
+            project_bp = _Path(__file__).resolve().parents[3] / "band-plans"
+            config_path = project_bp / "_config.toml"
+            existing: dict[str, Any] = {}
+            if config_path.is_file():
+                with open(config_path, "rb") as f:
+                    existing = tomllib.load(f)
+
+            # Write back (simple format — tomli-w not required)
+            with open(config_path, "w") as f:
+                f.write("# Band plan configuration\n\n")
+                f.write("[settings]\n")
+                f.write(f'region = "{new_region}"\n')
+                if "layers" in existing:
+                    f.write("\n[layers]\n")
+                    for k, v in existing["layers"].items():
+                        f.write(f"{k} = {'true' if v else 'false'}\n")
+
+            # Reload band plans
+            self._band_plan.load(project_bp)
+            logger.info("band-plan: region changed to %s, reloaded", new_region)
+
+            body = json.dumps(
+                {
+                    "status": "ok",
+                    "region": self._band_plan.region,
+                    "segments": self._band_plan.segment_count,
+                },
+                separators=(",", ":"),
+            ).encode()
+            await _send_response(
+                writer, 200, "OK", body, {"Content-Type": "application/json"},
+            )
+        except Exception as exc:
+            logger.exception("band-plan config update failed")
+            err = json.dumps(
+                {"error": str(exc)}, separators=(",", ":"),
+            ).encode()
+            await _send_response(
+                writer, 500, "Internal Server Error", err,
+                {"Content-Type": "application/json"},
+            )
 
     async def _handle_radio_control(
         self,

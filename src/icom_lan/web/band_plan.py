@@ -75,6 +75,15 @@ MODE_COLORS: dict[str, str] = {
 DEFAULT_OPACITY = 0.20
 
 
+# Region → ham band plan file mapping
+_REGION_HAM_FILE: dict[str, str] = {
+    "US": "arrl-hf.toml",
+    "IARU-R1": "iaru-r1.toml",
+    "IARU-R2": "arrl-hf.toml",  # Region 2 = Americas, ARRL is primary
+    "IARU-R3": "arrl-hf.toml",  # Fallback until R3 file is created
+}
+
+
 class BandPlanRegistry:
     """Load and query band plan data from TOML files."""
 
@@ -82,9 +91,15 @@ class BandPlanRegistry:
         self._dir = Path(band_plans_dir) if band_plans_dir else None
         self._layers: dict[str, dict[str, Any]] = {}  # layer_name -> meta
         self._segments: list[dict[str, Any]] = []  # flat list, sorted by start
+        self._region: str = "US"
+
+    @property
+    def region(self) -> str:
+        """Current active region."""
+        return self._region
 
     def load(self, band_plans_dir: str | Path | None = None) -> None:
-        """Load all .toml files from the directory."""
+        """Load TOML files from the directory, respecting region config."""
         search_dir = Path(band_plans_dir) if band_plans_dir else self._dir
         if search_dir is None:
             logger.warning("band-plan: no directory configured")
@@ -97,6 +112,20 @@ class BandPlanRegistry:
         self._layers.clear()
         self._segments.clear()
 
+        # Read config for region setting
+        config_path = search_dir / "_config.toml"
+        if config_path.is_file():
+            try:
+                with open(config_path, "rb") as f:
+                    config = tomllib.load(f)
+                self._region = config.get("settings", {}).get("region", "US")
+            except Exception:
+                logger.warning("band-plan: failed to load _config.toml, using US")
+                self._region = "US"
+
+        # Determine which ham file to load based on region
+        ham_file = _REGION_HAM_FILE.get(self._region, "arrl-hf.toml")
+
         toml_files = sorted(search_dir.glob("*.toml"))
         if not toml_files:
             logger.info("band-plan: no TOML files in %s", search_dir)
@@ -105,6 +134,10 @@ class BandPlanRegistry:
         for path in toml_files:
             if path.name.startswith("_"):
                 continue  # skip config files
+            # For ham layer files, only load the one matching the region
+            if path.name in _REGION_HAM_FILE.values() and path.name != ham_file:
+                logger.debug("band-plan: skipping %s (region=%s)", path.name, self._region)
+                continue
             try:
                 self._load_file(path)
             except Exception:
@@ -113,10 +146,11 @@ class BandPlanRegistry:
         # Sort all segments by start frequency
         self._segments.sort(key=lambda s: s["start"])
         logger.info(
-            "band-plan: loaded %d segments from %d files (%d layers)",
+            "band-plan: loaded %d segments from %d files (%d layers), region=%s",
             len(self._segments),
-            len(toml_files),
             len(self._layers),
+            len(self._layers),
+            self._region,
         )
 
     def _load_file(self, path: Path) -> None:
