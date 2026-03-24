@@ -1,0 +1,234 @@
+# ARRL HF Band Plan (ITU Region 2 — Americas)
+# Source: http://www.arrl.org/band-plan
+
+[meta]
+name = "ARRL HF Band Plan"
+region = "US"
+source = "http://www.arrl.org/band-plan"
+layer = "ham"
+priority = 10
+version = "2024.1"
+
+[[band]]
+name = "160m"
+start = 1_800_000
+end = 2_000_000
+
+  [[band.segment]]
+  start = 1_800_000
+  end = 1_840_000
+  mode = "cw"
+  label = "CW"
+
+  [[band.segment]]
+  start = 1_840_000
+  end = 1_850_000
+  mode = "digital"
+  label = "DIGI"
+
+  [[band.segment]]
+  start = 1_850_000
+  end = 2_000_000
+  mode = "phone"
+  label = "PHONE"
+
+[[band]]
+name = "80m"
+start = 3_500_000
+end = 4_000_000
+
+  [[band.segment]]
+  start = 3_500_000
+  end = 3_570_000
+  mode = "cw"
+  label = "CW"
+
+  [[band.segment]]
+  start = 3_570_000
+  end = 3_600_000
+  mode = "digital"
+  label = "DIGI"
+
+  [[band.segment]]
+  start = 3_600_000
+  end = 4_000_000
+  mode = "phone"
+  label = "PHONE"
+
+[[band]]
+name = "60m"
+start = 5_330_000
+end = 5_410_000
+
+  [[band.segment]]
+  start = 5_330_000
+  end = 5_410_000
+  mode = "phone"
+  label = "PHONE"
+
+[[band]]
+name = "40m"
+start = 7_000_000
+end = 7_300_000
+
+  [[band.segment]]
+  start = 7_000_000
+  end = 7_070_000
+  mode = "cw"
+  label = "CW"
+
+  [[band.segment]]
+  start = 7_070_000
+  end = 7_125_000
+  mode = "digital"
+  label = "DIGI"
+
+  [[band.segment]]
+  start = 7_125_000
+  end = 7_300_000
+  mode = "phone"
+  label = "PHONE"
+
+[[band]]
+name = "30m"
+start = 10_100_000
+end = 10_150_000
+
+  [[band.segment]]
+  start = 10_100_000
+  end = 10_130_000
+  mode = "cw"
+  label = "CW"
+
+  [[band.segment]]
+  start = 10_130_000
+  end = 10_150_000
+  mode = "digital"
+  label = "DIGI"
+
+[[band]]
+name = "20m"
+start = 14_000_000
+end = 14_350_000
+
+  [[band.segment]]
+  start = 14_000_000
+  end = 14_070_000
+  mode = "cw"
+  label = "CW"
+
+  [[band.segment]]
+  start = 14_070_000
+  end = 14_150_000
+  mode = "digital"
+  label = "DIGI"
+
+  [[band.segment]]
+  start = 14_150_000
+  end = 14_350_000
+  mode = "phone"
+  label = "PHONE"
+
+[[band]]
+name = "17m"
+start = 18_068_000
+end = 18_168_000
+
+  [[band.segment]]
+  start = 18_068_000
+  end = 18_100_000
+  mode = "cw"
+  label = "CW"
+
+  [[band.segment]]
+  start = 18_100_000
+  end = 18_110_000
+  mode = "digital"
+  label = "DIGI"
+
+  [[band.segment]]
+  start = 18_110_000
+  end = 18_168_000
+  mode = "phone"
+  label = "PHONE"
+
+[[band]]
+name = "15m"
+start = 21_000_000
+end = 21_450_000
+
+  [[band.segment]]
+  start = 21_000_000
+  end = 21_070_000
+  mode = "cw"
+  label = "CW"
+
+  [[band.segment]]
+  start = 21_070_000
+  end = 21_150_000
+  mode = "digital"
+  label = "DIGI"
+
+  [[band.segment]]
+  start = 21_150_000
+  end = 21_200_000
+  mode = "beacon"
+  label = "BCN"
+
+  [[band.segment]]
+  start = 21_200_000
+  end = 21_450_000
+  mode = "phone"
+  label = "PHONE"
+
+[[band]]
+name = "12m"
+start = 24_890_000
+end = 24_990_000
+
+  [[band.segment]]
+  start = 24_890_000
+  end = 24_920_000
+  mode = "cw"
+  label = "CW"
+
+  [[band.segment]]
+  start = 24_920_000
+  end = 24_930_000
+  mode = "digital"
+  label = "DIGI"
+
+  [[band.segment]]
+  start = 24_930_000
+  end = 24_990_000
+  mode = "phone"
+  label = "PHONE"
+
+[[band]]
+name = "10m"
+start = 28_000_000
+end = 29_700_000
+
+  [[band.segment]]
+  start = 28_000_000
+  end = 28_070_000
+  mode = "cw"
+  label = "CW"
+
+  [[band.segment]]
+  start = 28_070_000
+  end = 28_150_000
+  mode = "beacon"
+  label = "BCN"
+
+  [[band.segment]]
+  start = 28_150_000
+  end = 28_300_000
+  mode = "digital"
+  label = "DIGI"
+
+  [[band.segment]]
+  start = 28_300_000
+  end = 29_700_000
+  mode = "phone"
+  label = "PHONE"
