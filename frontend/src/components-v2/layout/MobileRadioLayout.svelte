@@ -149,28 +149,79 @@
 
   // ── Screen Wake Lock ──
   let wakeLock: WakeLockSentinel | null = null;
+  let wakeLockRequested = false;
 
   async function requestWakeLock() {
+    if (wakeLock) return; // already held
     try {
       if ('wakeLock' in navigator) {
         wakeLock = await navigator.wakeLock.request('screen');
         wakeLock.addEventListener('release', () => { wakeLock = null; });
+        console.log('[WakeLock] acquired');
       }
-    } catch { /* user denied or not supported */ }
+    } catch (e) {
+      console.warn('[WakeLock] failed:', e);
+    }
+  }
+
+  // iOS Safari needs user gesture for Wake Lock — request on first touch
+  function ensureWakeLock() {
+    if (!wakeLockRequested) {
+      wakeLockRequested = true;
+      requestWakeLock();
+    }
   }
 
   onMount(() => {
+    // Try immediately (works on Chrome/Android)
     requestWakeLock();
-    // Re-acquire on visibility change (iOS releases on tab switch)
+    // Re-acquire on visibility change
     const handleVisibility = () => {
-      if (document.visibilityState === 'visible' && !wakeLock) {
+      if (document.visibilityState === 'visible') {
         requestWakeLock();
       }
     };
     document.addEventListener('visibilitychange', handleVisibility);
+    // Fallback: acquire on first user interaction (iOS)
+    const handleInteraction = () => {
+      ensureWakeLock();
+    };
+    document.addEventListener('touchstart', handleInteraction, { once: true });
+    document.addEventListener('click', handleInteraction, { once: true });
+
+    // Ultimate fallback: invisible video loop keeps screen on (iOS ≤16.3 or any browser w/o Wake Lock)
+    let noSleepVideo: HTMLVideoElement | null = null;
+    if (!('wakeLock' in navigator)) {
+      noSleepVideo = document.createElement('video');
+      noSleepVideo.setAttribute('playsinline', '');
+      noSleepVideo.setAttribute('muted', '');
+      noSleepVideo.muted = true;
+      noSleepVideo.loop = true;
+      noSleepVideo.style.position = 'fixed';
+      noSleepVideo.style.top = '-1px';
+      noSleepVideo.style.left = '-1px';
+      noSleepVideo.style.width = '1px';
+      noSleepVideo.style.height = '1px';
+      noSleepVideo.style.opacity = '0.01';
+      // Minimal silent mp4 (1s, 1x1px)
+      noSleepVideo.src = 'data:video/mp4;base64,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';
+      document.body.appendChild(noSleepVideo);
+      const playOnTouch = () => {
+        noSleepVideo?.play().catch(() => {});
+        document.removeEventListener('touchstart', playOnTouch);
+      };
+      document.addEventListener('touchstart', playOnTouch, { once: true });
+    }
+
     return () => {
       document.removeEventListener('visibilitychange', handleVisibility);
+      document.removeEventListener('touchstart', handleInteraction);
+      document.removeEventListener('click', handleInteraction);
       wakeLock?.release();
+      if (noSleepVideo) {
+        noSleepVideo.pause();
+        noSleepVideo.remove();
+      }
     };
   });
 
