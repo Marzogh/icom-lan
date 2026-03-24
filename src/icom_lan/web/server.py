@@ -1253,19 +1253,19 @@ class WebServer:
         )
 
     async def _serve_band_plan_segments(
-        self, writer: asyncio.StreamWriter, query: str
+        self,
+        writer: asyncio.StreamWriter,
+        query: dict[str, list[str]],
     ) -> None:
         """GET /api/v1/band-plan/segments?start=<hz>&end=<hz>[&layers=ham,broadcast]"""
-        from urllib.parse import parse_qs
-
-        params = parse_qs(query)
         try:
-            start = int(params.get("start", ["0"])[0])
-            end = int(params.get("end", ["60000000"])[0])
+            start = int(query.get("start", ["0"])[0])
+            end = int(query.get("end", ["60000000"])[0])
         except (ValueError, IndexError):
             start, end = 0, 60_000_000
 
-        layer_str = params.get("layers", [None])[0]
+        layer_list = query.get("layers", [])
+        layer_str = layer_list[0] if layer_list else None
         layers = layer_str.split(",") if layer_str else None
 
         segments = self._band_plan.get_segments(start, end, layers)
