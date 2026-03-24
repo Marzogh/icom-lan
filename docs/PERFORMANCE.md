@@ -82,7 +82,13 @@
   - 10-50x payload reduction for state broadcasts (~2KB → ~50-100 bytes)
   - Full state refresh every 100 updates prevents drift
   - 22 unit tests covering all paths (roundtrip, edge cases)
-- [ ] Add audio buffer pooling
+- [x] Add audio buffer pooling ✅ COMPLETE (2026-03-23)
+  - AudioBufferPool: Pre-allocates buffers, thread-safe acquire/release via object id
+  - Supports common audio frame sizes: 16kHz/48kHz mono/stereo at 20ms frames
+  - LIFO reuse strategy for cache locality
+  - 15 unit tests covering pool mechanics, reuse, thread safety, concurrent access
+  - Performance: >50k acquire/release ops/sec, >30k ops/sec under concurrent load
+  - Integrated into AudioBroadcaster for future codec optimization
 - [ ] Profile web audio streaming performance
 
 ### Priority 3 (Low ROI, High Effort)
@@ -105,5 +111,6 @@
 ---
 
 **Generated**: 2026-03-23
-**Status**: Analysis complete, optimization roadmap established
-**Next**: Implement Priority 1 items (pytest-xdist, poller caching)
+**Last Updated**: 2026-03-23 (M6.2.2 audio buffer pooling complete)
+**Status**: M6 Priority 2 (2/3 items complete: delta encoding, buffer pooling)
+**Next**: Profile web audio streaming performance (M6.2.3, optional)
