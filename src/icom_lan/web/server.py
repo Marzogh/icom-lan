@@ -257,6 +257,10 @@ class WebServer:
         self._scope_reenable_poll_interval: float = 0.5
         self._scope_reenable_timeout: float = 30.0
         self._scope_health_max_retries: int = 3  # give up after N failed re-enables
+        # Band plan registry
+        from .band_plan import BandPlanRegistry
+
+        self._band_plan = BandPlanRegistry()
         # DX cluster
         self._spot_buffer: SpotBuffer = SpotBuffer()
         self._dx_client: DXClusterClient | None = None
@@ -703,6 +707,16 @@ class WebServer:
 
     async def start(self) -> None:
         """Start the HTTP/WS listener and RadioPoller (if radio is connected)."""
+        # Load band plan TOML files
+        import importlib.resources
+        # Try project-level band-plans/ directory first, then package fallback
+        from pathlib import Path
+        project_bp = Path(__file__).resolve().parents[3] / "band-plans"
+        if project_bp.is_dir():
+            self._band_plan.load(project_bp)
+        else:
+            logger.info("band-plan: no band-plans/ directory found")
+
         self._server = await asyncio.start_server(
             self._accept_client,
             host=self._config.host,
@@ -1234,6 +1248,42 @@ class WebServer:
     async def _serve_dx_spots(self, writer: asyncio.StreamWriter) -> None:
         spots = self._spot_buffer.get_spots()
         body = json.dumps({"spots": spots}, separators=(",", ":")).encode()
+        await _send_response(
+            writer, 200, "OK", body, {"Content-Type": "application/json"}
+        )
+
+    async def _serve_band_plan_segments(
+        self, writer: asyncio.StreamWriter, query: str
+    ) -> None:
+        """GET /api/v1/band-plan/segments?start=<hz>&end=<hz>[&layers=ham,broadcast]"""
+        from urllib.parse import parse_qs
+
+        params = parse_qs(query)
+        try:
+            start = int(params.get("start", ["0"])[0])
+            end = int(params.get("end", ["60000000"])[0])
+        except (ValueError, IndexError):
+            start, end = 0, 60_000_000
+
+        layer_str = params.get("layers", [None])[0]
+        layers = layer_str.split(",") if layer_str else None
+
+        segments = self._band_plan.get_segments(start, end, layers)
+        body = json.dumps(
+            {"segments": segments}, separators=(",", ":")
+        ).encode()
+        await _send_response(
+            writer, 200, "OK", body, {"Content-Type": "application/json"}
+        )
+
+    async def _serve_band_plan_layers(
+        self, writer: asyncio.StreamWriter
+    ) -> None:
+        """GET /api/v1/band-plan/layers"""
+        layers = self._band_plan.get_layers()
+        body = json.dumps(
+            {"layers": layers}, separators=(",", ":")
+        ).encode()
         await _send_response(
             writer, 200, "OK", body, {"Content-Type": "application/json"}
         )
