@@ -145,16 +145,66 @@
   const QUICK_MODES = ['LSB', 'USB', 'CW', 'AM'];
 
   // ── PTT ──
-  let pttActive = $state(false);
+  // Modes: 'idle' | 'held' (touch held down) | 'latched' (double-tap locked)
+  let pttMode = $state<'idle' | 'held' | 'latched'>('idle');
+  let pttActive = $derived(pttMode !== 'idle');
+  let lastPttDown = 0;
+  const DOUBLE_TAP_MS = 350;
+  const PTT_SAFETY_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
+  let pttSafetyTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function clearPttSafety() {
+    if (pttSafetyTimer) {
+      clearTimeout(pttSafetyTimer);
+      pttSafetyTimer = null;
+    }
+  }
+
+  function startPttSafety() {
+    clearPttSafety();
+    pttSafetyTimer = setTimeout(() => {
+      // Safety: force PTT off after timeout
+      pttMode = 'idle';
+      systemHandlers.onPttOff();
+    }, PTT_SAFETY_TIMEOUT_MS);
+  }
 
   function pttDown() {
-    pttActive = true;
+    const now = Date.now();
+    if (pttMode === 'latched') {
+      // Tap while latched → unlock, go idle
+      pttMode = 'idle';
+      systemHandlers.onPttOff();
+      clearPttSafety();
+      return;
+    }
+    if (now - lastPttDown < DOUBLE_TAP_MS && pttMode === 'held') {
+      // Double-tap → latch
+      pttMode = 'latched';
+      startPttSafety();
+      lastPttDown = 0;
+      return;
+    }
+    // Normal press → held
+    lastPttDown = now;
+    pttMode = 'held';
     systemHandlers.onPttOn();
+    startPttSafety();
   }
 
   function pttUp() {
-    pttActive = false;
-    systemHandlers.onPttOff();
+    if (pttMode === 'held') {
+      // Release after single tap → off
+      // But give a moment for double-tap detection
+      setTimeout(() => {
+        if (pttMode === 'held') {
+          pttMode = 'idle';
+          systemHandlers.onPttOff();
+          clearPttSafety();
+        }
+      }, DOUBLE_TAP_MS);
+    }
+    // If latched, don't turn off on release
   }
 
   // ── ATU (long-press = tune) ──
@@ -307,10 +357,22 @@
       </CollapsiblePanel>
     </section>
 
-    <!-- Audio (AF only) -->
+    <!-- Audio (AF + monitor mode) -->
     <section class="m-section">
       <CollapsiblePanel title="AUDIO" panelId="m-audio" collapsible={true}>
-        <div class="m-audio-row">
+        <div class="m-audio-content">
+          <div class="m-audio-buttons">
+            {#each ['local', 'live', 'mute'] as opt}
+              <HardwareButton
+                active={rxAudio.monitorMode === opt}
+                indicator="edge-left"
+                color={opt === 'mute' ? 'red' : 'cyan'}
+                onclick={() => rxAudioHandlers.onMonitorModeChange(opt)}
+              >
+                {opt === 'local' ? 'LOCAL' : opt === 'live' ? 'LIVE' : 'MUTE'}
+              </HardwareButton>
+            {/each}
+          </div>
           <ValueControl
             label="AF Level"
             value={rxAudio.afLevel}
@@ -352,58 +414,68 @@
       <section class="m-section">
         <CollapsiblePanel title="TX" panelId="m-tx" collapsible={true}>
           <div class="m-tx-compact">
-            <!-- PTT button -->
-            <button
-              class="m-ptt-btn"
-              class:m-ptt-active={pttActive || tx.txActive}
-              ontouchstart={pttDown}
-              ontouchend={pttUp}
-              ontouchcancel={pttUp}
-              onmousedown={pttDown}
-              onmouseup={pttUp}
-              onmouseleave={() => { if (pttActive) pttUp(); }}
-            >
-              {#if pttActive || tx.txActive}
-                <MicOff size={20} />
-                <span>TX</span>
-              {:else}
-                <Mic size={20} />
-                <span>PTT</span>
-              {/if}
-            </button>
-
-            <!-- Power readout -->
-            <div class="m-tx-info">
-              <div class="m-tx-power">
-                <span class="m-tx-power-label">PWR</span>
-                <span class="m-tx-power-value">{formatPower(tx.rfPower)}</span>
-              </div>
-              {#if tx.txActive}
-                <div class="m-tx-swr">
-                  <span class="m-tx-power-label">SWR</span>
-                  <span class="m-tx-power-value">{meter.swr > 0 ? (meter.swr / 10).toFixed(1) : '—'}</span>
+            <!-- Left: info + controls -->
+            <div class="m-tx-left">
+              <!-- Power readout -->
+              <div class="m-tx-info">
+                <div class="m-tx-power">
+                  <span class="m-tx-power-label">PWR</span>
+                  <span class="m-tx-power-value">{formatPower(tx.rfPower)}</span>
                 </div>
-              {/if}
+                {#if tx.txActive || pttActive}
+                  <div class="m-tx-swr">
+                    <span class="m-tx-power-label">SWR</span>
+                    <span class="m-tx-power-value">{meter.swr > 0 ? (meter.swr / 10).toFixed(1) : '—'}</span>
+                  </div>
+                {/if}
+              </div>
+
+              <div class="m-tx-buttons">
+                <!-- ATU: short tap = toggle, long press = tune -->
+                <button
+                  class="m-atu-btn"
+                  class:m-atu-on={atuStatus === 'on'}
+                  class:m-atu-tuning={atuStatus === 'tuning'}
+                  ontouchstart={atuTouchStart}
+                  ontouchend={atuTouchEnd}
+                  ontouchcancel={atuTouchEnd}
+                  onmousedown={atuTouchStart}
+                  onmouseup={atuTouchEnd}
+                >
+                  <RadioIcon size={14} />
+                  <span>ATU</span>
+                </button>
+
+                <!-- TX settings -->
+                <button class="m-tx-settings-btn" onclick={() => (txSettingsOpen = true)}>
+                  <Sliders size={14} />
+                  <span>SET</span>
+                </button>
+              </div>
             </div>
 
-            <!-- ATU: short tap = toggle, long press = tune -->
+            <!-- Right: big PTT button -->
             <button
-              class="m-atu-btn"
-              class:m-atu-on={atuStatus === 'on'}
-              class:m-atu-tuning={atuStatus === 'tuning'}
-              ontouchstart={atuTouchStart}
-              ontouchend={atuTouchEnd}
-              ontouchcancel={atuTouchEnd}
-              onmousedown={atuTouchStart}
-              onmouseup={atuTouchEnd}
+              class="m-ptt-btn"
+              class:m-ptt-held={pttMode === 'held'}
+              class:m-ptt-latched={pttMode === 'latched'}
+              ontouchstart={(e) => { e.preventDefault(); pttDown(); }}
+              ontouchend={(e) => { e.preventDefault(); pttUp(); }}
+              ontouchcancel={() => pttUp()}
+              onmousedown={pttDown}
+              onmouseup={pttUp}
+              onmouseleave={() => { if (pttMode === 'held') pttUp(); }}
             >
-              <RadioIcon size={16} />
-              <span>ATU</span>
-            </button>
-
-            <!-- TX settings -->
-            <button class="m-tx-settings-btn" onclick={() => (txSettingsOpen = true)}>
-              <Sliders size={16} />
+              {#if pttMode === 'latched'}
+                <MicOff size={24} />
+                <span>TX LOCK</span>
+              {:else if pttMode === 'held'}
+                <Mic size={24} />
+                <span>TX</span>
+              {:else}
+                <Mic size={24} />
+                <span>PTT</span>
+              {/if}
             </button>
           </div>
         </CollapsiblePanel>
@@ -846,17 +918,44 @@
     min-height: 40px;
   }
 
-  /* ── Audio row ── */
-  .m-audio-row {
+  /* ── Audio content ── */
+  .m-audio-content {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
     padding: 7px 8px;
+  }
+
+  .m-audio-buttons {
+    display: flex;
+    gap: 4px;
+  }
+
+  .m-audio-buttons > :global(button) {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 36px;
   }
 
   /* ── TX compact section ── */
   .m-tx-compact {
     display: flex;
     align-items: stretch;
-    gap: 6px;
+    gap: 8px;
     padding: 8px;
+  }
+
+  .m-tx-left {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .m-tx-buttons {
+    display: flex;
+    gap: 4px;
   }
 
   .m-ptt-btn {
@@ -864,39 +963,51 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
-    min-width: 64px;
-    min-height: 56px;
-    padding: 6px 12px;
-    border-radius: 6px;
-    border: 2px solid var(--v2-text-dim, #444);
-    background: var(--v2-bg-input, #1a1a2e);
-    color: var(--v2-text-primary, #ddd);
+    gap: 4px;
+    min-width: 90px;
+    width: 90px;
+    min-height: 72px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 2px solid var(--v2-accent-red, #ef4444);
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--v2-accent-red, #ef4444);
     font-family: 'Roboto Mono', monospace;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
     letter-spacing: 0.08em;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
-    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
     user-select: none;
     -webkit-user-select: none;
+    flex-shrink: 0;
   }
 
-  .m-ptt-btn:active,
-  .m-ptt-active {
+  .m-ptt-held {
     background: var(--v2-accent-red, #ef4444);
     border-color: var(--v2-accent-red, #ef4444);
     color: #fff;
-    box-shadow: 0 0 16px rgba(239, 68, 68, 0.4);
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
+  }
+
+  .m-ptt-latched {
+    background: #dc2626;
+    border-color: #dc2626;
+    color: #fff;
+    box-shadow: 0 0 24px rgba(220, 38, 38, 0.6);
+    animation: ptt-latch-pulse 1s ease-in-out infinite;
+  }
+
+  @keyframes ptt-latch-pulse {
+    0%, 100% { box-shadow: 0 0 24px rgba(220, 38, 38, 0.6); }
+    50% { box-shadow: 0 0 32px rgba(220, 38, 38, 0.8); }
   }
 
   .m-tx-info {
     display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 4px;
-    flex: 1;
+    align-items: baseline;
+    gap: 12px;
     min-width: 0;
   }
 
@@ -926,21 +1037,20 @@
 
   .m-atu-btn {
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
-    min-width: 48px;
-    min-height: 48px;
+    gap: 4px;
+    flex: 1;
+    min-height: 36px;
     padding: 4px 8px;
-    border-radius: 6px;
+    border-radius: 4px;
     border: 1px solid var(--v2-text-dim, #444);
     background: var(--v2-bg-input, #1a1a2e);
     color: var(--v2-text-muted, #888);
     font-family: 'Roboto Mono', monospace;
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 700;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
     transition: all 0.15s;
@@ -968,13 +1078,18 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 40px;
-    min-height: 48px;
-    padding: 4px;
-    border-radius: 6px;
+    gap: 4px;
+    flex: 1;
+    min-height: 36px;
+    padding: 4px 8px;
+    border-radius: 4px;
     border: 1px solid var(--v2-border-darker, #333);
     background: var(--v2-bg-input, #1a1a2e);
     color: var(--v2-text-muted, #888);
+    font-family: 'Roboto Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
   }
