@@ -254,6 +254,7 @@
       {/each}
     </div>
     <div class="spectrum-area" bind:this={spectrumArea}>
+      <BandPlanOverlay {startFreq} {endFreq} visible={showBandPlan} />
       <SpectrumCanvas data={scopePixels} options={spectrumOptions} {spanHz} {enableAvg} {enablePeakHold} onRegisterPush={(fn) => spectrumPush = fn} />
       {#if spanHz > 0 && pbWidthPct > 0 && canResizePassband}
         <button
@@ -279,7 +280,6 @@
     <div class="waterfall-scale"></div>
     <div class="waterfall-content" bind:this={waterfallContent}>
       <WaterfallCanvas options={waterfallOptions} onFreqClick={handleTune} onRegisterPush={(fn) => waterfallPush = fn} />
-      <BandPlanOverlay {startFreq} {endFreq} visible={showBandPlan} />
       <DxOverlay spots={dxSpots} {startFreq} {endFreq} onTune={handleTune} />
       <!-- Tuning + passband indicator overlays the waterfall -->
       {#if spanHz > 0}
