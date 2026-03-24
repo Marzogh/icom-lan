@@ -206,7 +206,8 @@
   let dragStartFreq = $state(0);
   let dragPointerId = $state<number | null>(null);
   let lastDragSendTime = 0;
-  const DRAG_THROTTLE_MS = 50; // limit set_freq rate during drag
+  let lastDragFreq = 0; // track last computed freq for dragEnd
+  const DRAG_THROTTLE_MS = 150; // limit set_freq rate during drag
 
   function handleDragStart(event: PointerEvent): void {
     // Only left button, skip if resizing passband
@@ -242,7 +243,9 @@
     const deltaHz = -dx * hzPerPx;
     const newFreq = snapToStep(Math.round(dragStartFreq + deltaHz));
 
-    if (newFreq <= 0 || newFreq === tuneHz) return;
+    if (newFreq <= 0) return;
+
+    lastDragFreq = newFreq;
 
     const now = performance.now();
     if (now - lastDragSendTime < DRAG_THROTTLE_MS) return;
@@ -254,8 +257,16 @@
 
   function handleDragEnd(event: PointerEvent): void {
     if (dragPointerId !== null && event.pointerId !== dragPointerId) return;
+
+    // Always send the final frequency on drag end
+    if (dragging && lastDragFreq > 0 && lastDragFreq !== tuneHz) {
+      const receiver = radio.current?.active === 'SUB' ? 1 : 0;
+      sendCommand('set_freq', { freq: lastDragFreq, receiver });
+    }
+
     dragging = false;
     dragPointerId = null;
+    lastDragFreq = 0;
   }
 
   // --- Lifecycle: connect scope WS + subscribe to DX spots ---
