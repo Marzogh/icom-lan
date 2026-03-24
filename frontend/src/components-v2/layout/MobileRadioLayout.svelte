@@ -41,6 +41,8 @@
     makeSystemHandlers,
   } from '../wiring/command-bus';
   import { getKeyboardConfig } from '$lib/stores/capabilities.svelte';
+  import { audioManager } from '$lib/audio/audio-manager';
+  import { onMount, onDestroy } from 'svelte';
 
   // ── State ──
   let radioState = $derived(radio.current);
@@ -145,6 +147,33 @@
   // ── Quick modes (SSB operation essentials) ──
   const QUICK_MODES = ['LSB', 'USB', 'CW', 'AM'];
 
+  // ── Screen Wake Lock ──
+  let wakeLock: WakeLockSentinel | null = null;
+
+  async function requestWakeLock() {
+    try {
+      if ('wakeLock' in navigator) {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; });
+      }
+    } catch { /* user denied or not supported */ }
+  }
+
+  onMount(() => {
+    requestWakeLock();
+    // Re-acquire on visibility change (iOS releases on tab switch)
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && !wakeLock) {
+        requestWakeLock();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      wakeLock?.release();
+    };
+  });
+
   // ── PTT ──
   // Modes: 'idle' | 'held' (touch held down) | 'latched' (double-tap locked)
   let pttMode = $state<'idle' | 'held' | 'latched'>('idle');
@@ -166,8 +195,18 @@
     pttSafetyTimer = setTimeout(() => {
       // Safety: force PTT off after timeout
       pttMode = 'idle';
-      systemHandlers.onPttOff();
+      disengageTx();
     }, PTT_SAFETY_TIMEOUT_MS);
+  }
+
+  async function engageTx() {
+    systemHandlers.onPttOn();
+    await audioManager.startTx();
+  }
+
+  function disengageTx() {
+    systemHandlers.onPttOff();
+    audioManager.stopTx();
   }
 
   function pttDown() {
@@ -175,7 +214,7 @@
     if (pttMode === 'latched') {
       // Tap while latched → unlock, go idle
       pttMode = 'idle';
-      systemHandlers.onPttOff();
+      disengageTx();
       clearPttSafety();
       return;
     }
@@ -189,7 +228,7 @@
     // Normal press → held
     lastPttDown = now;
     pttMode = 'held';
-    systemHandlers.onPttOn();
+    engageTx();
     startPttSafety();
   }
 
@@ -200,7 +239,7 @@
       setTimeout(() => {
         if (pttMode === 'held') {
           pttMode = 'idle';
-          systemHandlers.onPttOff();
+          disengageTx();
           clearPttSafety();
         }
       }, DOUBLE_TAP_MS);
