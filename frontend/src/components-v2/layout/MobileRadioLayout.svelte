@@ -150,7 +150,34 @@
   // ── Landscape detection ──
   let isLandscape = $state(false);
   function checkOrientation() {
+    const wasLandscape = isLandscape;
     isLandscape = window.innerWidth > window.innerHeight && window.innerHeight < 500;
+    // Try to enter fullscreen on landscape (hides Safari chrome)
+    if (isLandscape && !wasLandscape) {
+      requestFullscreen();
+      // iOS Safari: scroll trick to minimize chrome
+      setTimeout(() => window.scrollTo(0, 1), 50);
+    } else if (!isLandscape && wasLandscape) {
+      exitFullscreen();
+    }
+  }
+
+  function requestFullscreen() {
+    const el = document.documentElement;
+    // Standard Fullscreen API (not supported in iOS Safari, but works on Android Chrome)
+    if (el.requestFullscreen) {
+      el.requestFullscreen().catch(() => {});
+    } else if ((el as any).webkitRequestFullscreen) {
+      (el as any).webkitRequestFullscreen();
+    }
+  }
+
+  function exitFullscreen() {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else if ((document as any).webkitFullscreenElement) {
+      (document as any).webkitExitFullscreen();
+    }
   }
 
   // ── Screen Wake Lock ──
@@ -940,7 +967,10 @@
   /* ── Landscape layout ── */
   .m-landscape {
     position: fixed;
-    inset: 0;
+    top: 0;
+    left: 0;
+    width: 100dvw;
+    height: 100dvh;
     background: #000;
     z-index: 50;
     display: flex;
