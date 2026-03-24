@@ -47,19 +47,34 @@
     }
   }
 
-  async function handlePowerToggle() {
-    const newState = radioState === 'connected' ? 'off' : 'on';
-    const action = newState === 'on' ? 'Turn ON' : 'Turn OFF';
-    if (!confirm(`${action} the radio?`)) return;
+  async function handlePowerOn() {
+    if (!confirm('Turn ON the radio?')) return;
     try {
       const response = await fetch('/api/v1/radio/power', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ state: newState }),
+        body: JSON.stringify({ state: 'on' }),
       });
       if (!response.ok) {
         const error = await response.text();
-        alert(`Failed to ${action.toLowerCase()}: ${error}`);
+        alert(`Failed to turn on radio: ${error}`);
+      }
+    } catch (err) {
+      alert(`Error: ${err}`);
+    }
+  }
+
+  async function handlePowerOff() {
+    if (!confirm('Turn OFF the radio?')) return;
+    try {
+      const response = await fetch('/api/v1/radio/power', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: 'off' }),
+      });
+      if (!response.ok) {
+        const error = await response.text();
+        alert(`Failed to turn off radio: ${error}`);
       }
     } catch (err) {
       alert(`Error: ${err}`);
@@ -108,12 +123,22 @@
     </button>
     <button
       type="button"
-      class="control-btn"
-      onclick={handlePowerToggle}
-      title={radioState === 'connected' ? 'Power OFF radio' : 'Power ON radio'}
+      class="control-btn power-on-btn"
+      onclick={handlePowerOn}
+      title="Power ON radio"
     >
       <Power size={14} strokeWidth={2} />
-      <span class="btn-label">{radioState === 'connected' ? 'OFF' : 'ON'}</span>
+      <span class="btn-label">ON</span>
+    </button>
+    <button
+      type="button"
+      class="control-btn power-off-btn"
+      onclick={handlePowerOff}
+      title="Power OFF radio"
+      disabled={radioState !== 'connected'}
+    >
+      <Power size={14} strokeWidth={2} />
+      <span class="btn-label">OFF</span>
     </button>
   </div>
 </div>
@@ -205,5 +230,21 @@
 
   .control-btn:active {
     transform: scale(0.95);
+  }
+
+  .control-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  .power-on-btn:hover {
+    border-color: var(--v2-accent-green, #4ade80);
+    background: rgba(74, 222, 128, 0.1);
+  }
+
+  .power-off-btn:hover:not(:disabled) {
+    border-color: var(--v2-accent-red, #ef4444);
+    background: rgba(239, 68, 68, 0.1);
   }
 </style>

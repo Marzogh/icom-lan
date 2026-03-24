@@ -325,6 +325,89 @@ IC-7610 parity matrix (issue #139, 2026-03-06): 134 implemented, 0 partial, 0 mi
   - USB audio driver unit tests (selection/lifecycle/error paths),
   - web/rigctld smoke tests on serial mock backend to guard against LAN-only assumptions.
 - Added production `SerialCivLink` driver for IC-7610 USB CI-V with robust FE FE ... FD framing
+
+---
+
+## Phase 12 — M7: Post-Productization (Future)
+
+**Goal:** Expand platform support, enhance ecosystem, and plan long-term direction.
+
+### M7 Planning (2026-03-24)
+
+**Scope Options (TBD based on priorities):**
+
+#### Option A: Hardware Expansion (Medium ROI, High Effort)
+- **M7.1**: Complete IC-705 hardware validation (requires transceiver procurement ~$1k)
+  - Serial backend testing on real IC-705
+  - LAN backend testing on real IC-705
+  - Command parity verification (CI-V 0xA4)
+- **M7.2**: Complete IC-7300 hardware validation (requires transceiver ~$2k)
+  - Serial-only backend (CI-V 0x94)
+  - Command coverage analysis
+- **M7.3**: Complete IC-9700 hardware validation (requires transceiver ~$4k)
+  - LAN + serial backend (CI-V 0xA2)
+  - Dual-receiver support testing
+
+**Blocker:** Hardware procurement required; currently all multi-model backends are code-complete but untested
+
+#### Option B: Feature Expansion (High ROI, Medium Effort)
+- **M7.F1**: TX audio streaming support
+  - Microphone capture integration
+  - Audio encoding (PCM16 → Opus/ulaw)
+  - Round-trip latency optimization
+- **M7.F2**: Extended CI-V command support
+  - Voice recorder control
+  - Memory channel management
+  - Band stacking
+- **M7.F3**: Transceiver discovery & auto-connect
+  - mDNS/Bonjour discovery
+  - Auto-detect credentials from network
+  - Connection profiling
+
+#### Option C: Quality & Ecosystem (High ROI, Low Effort)
+- **M7.Q1**: PyPI release preparation
+  - Package versioning strategy
+  - Changelog generation
+  - Release notes automation
+- **M7.Q2**: Documentation expansion
+  - User guide (how to connect, basic operations)
+  - API reference (auto-generated from docstrings)
+  - Troubleshooting guide
+- **M7.Q3**: Community engagement
+  - Example applications (CLI, web UI, integrations)
+  - Contribution guidelines
+  - Issue templates & CI/CD setup
+
+#### Option D: Infrastructure (Low ROI, High Effort)
+- **M7.I1**: Performance optimization tier 2
+  - Async codec operations (thread pool)
+  - Connection pooling for multi-radio scenarios
+  - Advanced caching strategies
+- **M7.I2**: Cross-platform support
+  - Windows USB audio driver integration
+  - Linux serial device handling
+  - CI/CD matrix for all platforms
+- **M7.I3**: GUI application
+  - Desktop app with PyQt/Tkinter
+  - Real-time frequency/mode display
+  - Meter visualization
+  - Audio monitoring
+
+### M7 Recommendation
+
+**Start with Option C (Ecosystem/Quality)** before hardware expansion:
+1. Release v0.12.0 to PyPI (v0.11.0 currently released)
+2. Expand documentation for current hardware (IC-7610 LAN + serial)
+3. Create example integrations
+4. Gather community feedback
+5. Then use feedback to prioritize Option A/B for next iteration
+
+**Timeline**: Plan Option C for 2-3 weeks, then reassess based on user demand and hardware availability.
+
+**Decision Point**: After M7 planning → decide on hardware procurement (Option A) vs. feature expansion (Option B) based on:
+- Community interest in multi-radio support
+- Budget constraints for hardware
+- Team capacity for feature development
   recovery, collision/abort handling, timeout/overflow guardrails, writer backpressure handling,
   and optional dependency guard (`pip install icom-lan[serial]`).
 - Added production `UsbAudioDriver` for IC-7610 serial backend with deterministic device probe/
