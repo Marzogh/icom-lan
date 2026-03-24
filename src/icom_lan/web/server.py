@@ -999,7 +999,7 @@ class WebServer:
             ):
                 await self._handle_websocket(reader, writer, path, headers, query)
             else:
-                await self._handle_http(writer, method, path, headers, reader)
+                await self._handle_http(writer, method, path, headers, reader, query)
         except asyncio.CancelledError:
             raise
         except Exception as exc:
@@ -1022,6 +1022,7 @@ class WebServer:
         path: str,
         headers: dict[str, str] | None = None,
         reader: asyncio.StreamReader | None = None,
+        query: dict[str, list[str]] | None = None,
     ) -> None:
         # Auth check for API endpoints
         if self._config.auth_token and path.startswith("/api/"):
@@ -1081,7 +1082,7 @@ class WebServer:
         elif path == "/api/v1/dx/spots":
             await self._serve_dx_spots(writer)
         elif path == "/api/v1/band-plan/segments":
-            await self._serve_band_plan_segments(writer, query)
+            await self._serve_band_plan_segments(writer, query or {})
         elif path == "/api/v1/band-plan/layers":
             await self._serve_band_plan_layers(writer)
         elif path == "/" or path == "/index.html":
