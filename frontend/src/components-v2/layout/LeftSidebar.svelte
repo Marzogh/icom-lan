@@ -25,6 +25,7 @@
     makeAgcHandlers,
     makeRitXitHandlers,
     makeBandHandlers,
+    makePresetHandlers,
   } from '../wiring/command-bus';
 
   // Reactive state + capabilities
@@ -53,6 +54,7 @@
   const agcHandlers = makeAgcHandlers();
   const ritXitHandlers = makeRitXitHandlers();
   const bandHandlers = makeBandHandlers();
+  const presetHandlers = makePresetHandlers();
 </script>
 
 <aside class="left-sidebar">
@@ -154,6 +156,7 @@
     <BandSelector
       currentFreq={band.currentFreq}
       onBandSelect={bandHandlers.onBandSelect}
+      onPresetSelect={presetHandlers.onPresetSelect}
     />
   </CollapsiblePanel>
 </aside>

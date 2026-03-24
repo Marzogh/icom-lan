@@ -504,6 +504,15 @@ export function makeRxAudioHandlers() {
 
 /* ── Band Selector Handlers ──────────────────────────────────── */
 
+export function makePresetHandlers() {
+  return {
+    onPresetSelect: (freq: number, mode: string) => {
+      cmd('set_freq', { freq, receiver: 0 });
+      cmd('set_mode', { mode, receiver: 0 });
+    },
+  };
+}
+
 export function makeBandHandlers() {
   return {
     onBandSelect: (_name: string, _freq: number, bsrCode?: number) => {
