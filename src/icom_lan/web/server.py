@@ -328,8 +328,15 @@ class WebServer:
                         "scope: active radio does not expose runtime scope support"
                     )
                     return
+                # Always ensure callback is wired for new handlers
+                self._set_scope_data_callback(self._broadcast_scope)
+                if self._scope_enabled:
+                    logger.debug(
+                        "scope: already enabled, skipping re-enable (%d handlers)",
+                        len(self._scope_handlers),
+                    )
+                    return
                 if self._radio_ready():
-                    self._set_scope_data_callback(self._broadcast_scope)
                     self._command_queue.put(EnableScope())
                     self._scope_enabled = True
                     logger.info("scope: enable queued")
