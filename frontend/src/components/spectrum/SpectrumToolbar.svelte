@@ -307,7 +307,7 @@
   .layer-dropdown {
     position: absolute;
     top: 100%;
-    left: 0;
+    right: 0;
     z-index: 100;
     min-width: 160px;
     background: var(--v2-bg-darkest, #0a0a0f);
