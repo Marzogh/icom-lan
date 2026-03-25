@@ -208,18 +208,15 @@ class YaesuCatTransport:
         """
         if not self._reader:
             return 0
-        discarded = 0
-        # Non-blocking drain: read whatever is buffered right now.
-        while True:
-            buf = self._reader._buffer  # type: ignore[attr-defined]
-            if not buf:
-                break
-            chunk = bytes(buf)
-            buf.clear()
-            discarded += len(chunk)
-            if self._debug_logging:
-                logger.debug("CAT: flushed %d stale bytes: %r", len(chunk), chunk)
+        # Access internal buffer (asyncio.StreamReader implementation detail).
+        buf = getattr(self._reader, "_buffer", None)
+        if not buf:
+            return 0
+        discarded = len(buf)
         if discarded:
+            if self._debug_logging:
+                logger.debug("CAT: flushing %d stale bytes: %r", discarded, bytes(buf))
+            buf.clear()
             logger.info("CAT: flushed %d stale bytes from RX buffer", discarded)
         return discarded
 
