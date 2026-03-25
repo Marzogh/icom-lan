@@ -217,8 +217,7 @@ class YaesuCatPoller:
 
         Commands come from the web UI CommandQueue.  The dispatcher handles
         all command types; unsupported commands for this radio are silently
-        dropped.  For commands that have a profile entry, ``generic_set``
-        is used as fallback.
+        dropped.
         """
         from ...web.radio_poller import (
             PttOff,
@@ -284,12 +283,10 @@ class YaesuCatPoller:
                     yaesu_band = self._CIV_TO_YAESU_BAND.get(band, band)
                     await radio.set_band(yaesu_band)
                 case SelectVfo(vfo=vfo):
-                    if radio.has_command("set_vfo_select"):
-                        code = "0" if vfo.upper() in ("A", "MAIN") else "1"
-                        await radio.generic_set("set_vfo_select", vfo=code)
+                    code = 0 if vfo.upper() in ("A", "MAIN") else 1
+                    await radio.set_vfo_select(code)
                 case VfoSwap():
-                    if radio.has_command("vfo_a_to_b"):
-                        await radio.generic_set("vfo_a_to_b")
+                    await radio.vfo_a_to_b()
 
                 # ── PTT ──
                 case PttOn():
@@ -309,8 +306,7 @@ class YaesuCatPoller:
                 case SetPower(level=level):
                     await radio.set_power(level)
                 case SetDriveGain(level=level):
-                    if radio.has_command("set_drive_gain"):
-                        await radio.generic_set("set_drive_gain", level=level)
+                    await radio.set_drive_gain(level)
 
                 # ── RF Front End ──
                 case SetAttenuator(state=state):
@@ -322,11 +318,9 @@ class YaesuCatPoller:
                 case SetAgc(mode=mode):
                     await radio.set_agc(mode)
                 case SetNB(on=on):
-                    if radio.has_command("set_nb"):
-                        await radio.generic_set("set_nb", state="1" if on else "0")
+                    await radio.set_nb(on)
                 case SetNR(on=on):
-                    if radio.has_command("set_nr"):
-                        await radio.generic_set("set_nr", state="1" if on else "0")
+                    await radio.set_nr(on)
                 case SetNBLevel(level=level):
                     await radio.set_nb_level(level)
                 case SetNRLevel(level=level):
@@ -334,18 +328,15 @@ class YaesuCatPoller:
                 case SetAutoNotch(on=on):
                     await radio.set_auto_notch(on)
                 case SetManualNotch(on=on):
-                    if radio.has_command("set_manual_notch"):
-                        await radio.generic_set("set_manual_notch", state=int(on))
+                    await radio.set_manual_notch(on)
                 case SetNotchFilter(level=level):
-                    if radio.has_command("set_manual_notch_freq"):
-                        await radio.generic_set("set_manual_notch_freq", freq=level)
+                    await radio.set_manual_notch_freq(level)
 
                 # ── Filters ──
                 case SetFilter(filter_num=num):
                     pass  # FTX-1 uses filter_width, not discrete filter numbers
                 case SetFilterWidth(width=width):
-                    if radio.has_command("set_filter_width"):
-                        await radio.generic_set("set_filter_width", level=width)
+                    await radio.set_filter_width(width)
                 case SetFilterShape(shape=shape):
                     pass  # Not available on FTX-1
                 case SetPbtInner() | SetPbtOuter():
@@ -353,76 +344,47 @@ class YaesuCatPoller:
 
                 # ── CW ──
                 case SetKeySpeed(speed=speed):
-                    if radio.has_command("set_keyer_speed"):
-                        await radio.generic_set("set_keyer_speed", wpm=speed)
+                    await radio.set_keyer_speed(speed)
                 case SetCwPitch(value=value):
-                    if radio.has_command("set_key_pitch"):
-                        await radio.generic_set("set_key_pitch", idx=value)
+                    await radio.set_key_pitch(value)
                 case SetBreakIn(break_in_mode=mode):
-                    if radio.has_command("set_break_in"):
-                        await radio.generic_set("set_break_in", state=str(mode))
+                    await radio.set_break_in(bool(mode))
 
                 # ── TX Controls ──
                 case SetCompressor(on=on):
-                    if radio.has_command("set_processor"):
-                        await radio.generic_set("set_processor", state="1" if on else "0")
+                    await radio.set_processor(on)
                 case SetCompressorLevel(level=level):
-                    if radio.has_command("set_processor_level"):
-                        await radio.generic_set("set_processor_level", level=level)
+                    await radio.set_processor_level(level)
                 case SetVox(on=on):
-                    if radio.has_command("set_vox"):
-                        await radio.generic_set("set_vox", state="1" if on else "0")
+                    await radio.set_vox(on)
                 case SetMonitor(on=on):
-                    if radio.has_command("set_monitor_on"):
-                        await radio.generic_set("set_monitor_on", level=1 if on else 0)
+                    await radio.set_monitor_on(on)
                 case SetMonitorGain(level=level):
-                    if radio.has_command("set_monitor_level"):
-                        await radio.generic_set("set_monitor_level", level=level)
+                    await radio.set_monitor_level(level)
                 case SetSplit(on=on):
-                    if radio.has_command("set_split"):
-                        await radio.generic_set("set_split", state="1" if on else "0")
+                    await radio.set_split(on)
 
                 # ── RIT / Clarifier ──
                 case SetRitStatus(on=on):
-                    if radio.has_command("set_clarifier"):
-                        # Clarifier: CF000{rx}{tx}{pad:03d}
-                        await radio.generic_set(
-                            "set_clarifier",
-                            rx="1" if on else "0",
-                            tx="0",
-                            pad=0,
-                        )
+                    # RX clarifier only; TX clarifier left unchanged
+                    await radio.set_clarifier(rx_clar=on, tx_clar=False)
                 case SetRitTxStatus(on=on):
-                    if radio.has_command("set_clarifier"):
-                        await radio.generic_set(
-                            "set_clarifier",
-                            rx="0",
-                            tx="1" if on else "0",
-                            pad=0,
-                        )
+                    # TX clarifier only; RX clarifier left unchanged
+                    await radio.set_clarifier(rx_clar=False, tx_clar=on)
                 case SetRitFrequency(freq=freq):
-                    if radio.has_command("set_clarifier_freq"):
-                        sign = "+" if freq >= 0 else "-"
-                        await radio.generic_set(
-                            "set_clarifier_freq",
-                            sign=sign,
-                            offset=abs(freq),
-                        )
+                    await radio.set_clarifier_freq(freq)
 
                 # ── Data Mode ──
                 case SetDataMode(mode=mode):
-                    if radio.has_command("set_data_mode"):
-                        await radio.generic_set("set_data_mode", mode=mode)
+                    await radio.set_data_mode(mode)
 
                 # ── Dial Lock ──
                 case SetDialLock(on=on):
-                    if radio.has_command("set_lock"):
-                        await radio.generic_set("set_lock", state="1" if on else "0")
+                    await radio.set_lock(on)
 
                 # ── Dual Watch ──
                 case SetDualWatch(on=on):
-                    if radio.has_command("set_dual_watch"):
-                        await radio.generic_set("set_dual_watch", state="1" if on else "0")
+                    await radio.set_dual_watch(on)
 
                 # ── IC-7610-specific (not applicable) ──
                 case SetIpPlus() | SetApf() | SetTwinPeak() | SetDigiSel():
@@ -480,86 +442,76 @@ class YaesuCatPoller:
         radio = self._radio
 
         # -- Levels --
-        for attr, getter, field in (
-            ("agc", "get_agc", "mode"),
-            ("af_level", "get_af_level", "level"),
-            ("rf_gain", "get_rf_gain", "level"),
-            ("squelch", "get_squelch", "level"),
-        ):
-            try:
-                if radio.has_command(getter):
-                    result = await radio.generic_get(getter)
-                    val = result.get(field, 0)
-                    if isinstance(val, str):
-                        val = int(val)
-                    setattr(state.main, attr, val)
-            except Exception:
-                logger.debug("YaesuCatPoller: %s failed", getter, exc_info=True)
+        try:
+            state.main.agc = await radio.get_agc(0)
+        except Exception:
+            logger.debug("YaesuCatPoller: get_agc failed", exc_info=True)
+
+        try:
+            state.main.af_level = await radio.get_af_level(0)
+        except Exception:
+            logger.debug("YaesuCatPoller: get_af_level failed", exc_info=True)
+
+        try:
+            state.main.rf_gain = await radio.get_rf_gain(0)
+        except Exception:
+            logger.debug("YaesuCatPoller: get_rf_gain failed", exc_info=True)
+
+        try:
+            state.main.squelch = await radio.get_squelch(0)
+        except Exception:
+            logger.debug("YaesuCatPoller: get_squelch failed", exc_info=True)
 
         # -- DSP: NB/NR levels, auto notch --
-        for attr, getter, field in (
-            ("nb_level", "get_nb_level", "level"),
-            ("nr_level", "get_nr_level", "level"),
-            ("auto_notch", "get_auto_notch", "state"),
-        ):
-            try:
-                if radio.has_command(getter):
-                    result = await radio.generic_get(getter)
-                    val = result.get(field, 0)
-                    if isinstance(val, str):
-                        val = int(val)
-                    setattr(state.main, attr, val)
-            except Exception:
-                logger.debug("YaesuCatPoller: %s failed", getter, exc_info=True)
+        try:
+            state.main.nb_level = await radio.get_nb_level(0)
+        except Exception:
+            logger.debug("YaesuCatPoller: get_nb_level failed", exc_info=True)
+
+        try:
+            state.main.nr_level = await radio.get_nr_level(0)
+        except Exception:
+            logger.debug("YaesuCatPoller: get_nr_level failed", exc_info=True)
+
+        try:
+            state.main.auto_notch = await radio.get_auto_notch(0)
+        except Exception:
+            logger.debug("YaesuCatPoller: get_auto_notch failed", exc_info=True)
 
         # -- Filter width --
         try:
-            if radio.has_command("get_filter_width"):
-                result = await radio.generic_get("get_filter_width")
-                state.main.filter_width = result.get("level", 0)
+            state.main.filter_width = await radio.get_filter_width(0)
         except Exception:
             logger.debug("YaesuCatPoller: get_filter_width failed", exc_info=True)
 
         # -- TX power --
         try:
-            if radio.has_command("get_power"):
-                result = await radio.generic_get("get_power")
-                state.power_level = result.get("watts", 0)
+            _, watts = await radio.get_power()
+            state.power_level = watts
         except Exception:
             logger.debug("YaesuCatPoller: get_power failed", exc_info=True)
 
         # -- Mic gain --
         try:
-            if radio.has_command("get_mic_gain"):
-                result = await radio.generic_get("get_mic_gain")
-                state.mic_gain = result.get("level", 0)
+            state.mic_gain = await radio.get_mic_gain()
         except Exception:
             logger.debug("YaesuCatPoller: get_mic_gain failed", exc_info=True)
 
         # -- Split --
         try:
-            if radio.has_command("get_split"):
-                result = await radio.generic_get("get_split")
-                val = result.get("state", "0")
-                state.split = val in (1, "1", True)
+            state.split = await radio.get_split()
         except Exception:
             logger.debug("YaesuCatPoller: get_split failed", exc_info=True)
 
         # -- VOX --
         try:
-            if radio.has_command("get_vox"):
-                result = await radio.generic_get("get_vox")
-                val = result.get("state", "0")
-                state.vox = val in (1, "1", True)
+            state.vox = await radio.get_vox()
         except Exception:
             logger.debug("YaesuCatPoller: get_vox failed", exc_info=True)
 
         # -- Dial lock --
         try:
-            if radio.has_command("get_lock"):
-                result = await radio.generic_get("get_lock")
-                val = result.get("state", "0")
-                state.dial_lock = val in (1, "1", True)
+            state.dial_lock = await radio.get_lock()
         except Exception:
             logger.debug("YaesuCatPoller: get_lock failed", exc_info=True)
 

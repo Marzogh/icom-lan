@@ -88,6 +88,7 @@ class YaesuCatRadio:
         self._audio_seq = 0
         self._opus_rx_user_callback: Callable[[AudioPacket | None], None] | None = None
         self._pcm_rx_user_callback: Callable[[bytes | None], None] | None = None
+        self._audio_sample_rate = audio_sample_rate
         self._audio_driver: UsbAudioDriver = audio_driver or UsbAudioDriver(
             serial_port=device,
             rx_device=rx_device,
@@ -282,7 +283,7 @@ class YaesuCatRadio:
         self._require_connected()
         await self._audio_driver.push_tx_pcm(frame)
 
-    # -- AudioCapable protocol stubs (for isinstance compliance) ------------
+    # -- AudioCapable TX methods --------------------------------------------
 
     async def push_audio_tx_opus(self, data: bytes) -> None:
         """Forward Opus TX data as PCM (USB audio is always PCM)."""
@@ -305,12 +306,12 @@ class YaesuCatRadio:
     async def get_audio_stats(self) -> dict[str, Any]:
         """Return basic audio stats."""
         return {
-            "rx_active": self._audio_driver._rx_active if hasattr(self._audio_driver, '_rx_active') else False,
-            "tx_active": self._audio_driver._tx_active if hasattr(self._audio_driver, '_tx_active') else False,
+            "rx_active": self._audio_driver._rx_active,
+            "tx_active": self._audio_driver._tx_active,
             "sample_rate": self._audio_sample_rate,
         }
 
-    # -- LevelsCapable stubs (for isinstance compliance) --------------------
+    # -- LevelsCapable: unsupported TX controls -----------------------------
 
     async def get_drive_gain(self) -> int:
         """Drive gain not available via CAT on FTX-1."""
@@ -328,7 +329,33 @@ class YaesuCatRadio:
         """Compressor level not available via CAT on FTX-1."""
         logger.debug("set_compressor_level: not supported on this radio")
 
-    # -- Generic command interface -----------------------------------------
+    # -- Optional commands (profile-dependent) ------------------------------
+
+    async def set_nb(self, on: bool) -> None:
+        """Enable or disable the noise blanker.
+
+        No-op if the rig profile does not define a ``set_nb`` command.
+        """
+        if self.has_write_command("set_nb"):
+            await self._write("set_nb", state="1" if on else "0")
+
+    async def set_nr(self, on: bool) -> None:
+        """Enable or disable noise reduction.
+
+        No-op if the rig profile does not define a ``set_nr`` command.
+        """
+        if self.has_write_command("set_nr"):
+            await self._write("set_nr", state="1" if on else "0")
+
+    async def set_dual_watch(self, on: bool) -> None:
+        """Enable or disable dual watch.
+
+        No-op if the rig profile does not define a ``set_dual_watch`` command.
+        """
+        if self.has_write_command("set_dual_watch"):
+            await self._write("set_dual_watch", state="1" if on else "0")
+
+    # -- Runtime profile introspection -------------------------------------
 
     def has_command(self, name: str) -> bool:
         """Check if a command is defined in the rig profile."""
@@ -343,22 +370,6 @@ class YaesuCatRadio:
             and isinstance(spec, CatCommandSpec)
             and spec.write is not None
         )
-
-    async def generic_get(self, cmd_name: str) -> dict[str, Any]:
-        """Execute any read command from the profile and return parsed fields.
-
-        This is the public generic interface for commands that don't have
-        a dedicated method.  Returns the raw parsed dict from the parser.
-        """
-        return await self._query(cmd_name)
-
-    async def generic_set(self, cmd_name: str, **kwargs: Any) -> None:
-        """Execute any write command from the profile.
-
-        This is the public generic interface for fire-and-forget SET commands.
-        Parameters are passed directly to the template formatter.
-        """
-        await self._write(cmd_name, **kwargs)
 
     # -- Internal helpers ---------------------------------------------------
 
