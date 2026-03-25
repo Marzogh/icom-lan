@@ -264,13 +264,23 @@ class TestYaesuCatTransportEdgeCases:
 
     async def test_connect_without_serial_asyncio_raises(self) -> None:
         """connect() raises helpful error if pyserial-asyncio not installed."""
-        # Temporarily remove serial_asyncio from sys.modules
+        import builtins
+
+        real_import = builtins.__import__
+
+        def _mock_import(name: str, *args: Any, **kwargs: Any) -> Any:
+            if name == "serial_asyncio":
+                raise ImportError("mocked: no serial_asyncio")
+            return real_import(name, *args, **kwargs)
+
         old_module = sys.modules.pop("serial_asyncio", None)
         try:
+            builtins.__import__ = _mock_import  # type: ignore[assignment]
             transport = YaesuCatTransport(device="/dev/test")
             with pytest.raises(CatTransportError, match="pyserial"):
                 await transport.connect()
         finally:
+            builtins.__import__ = real_import  # type: ignore[assignment]
             if old_module:
                 sys.modules["serial_asyncio"] = old_module
 
