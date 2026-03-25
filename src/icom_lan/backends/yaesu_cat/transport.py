@@ -55,6 +55,7 @@ class YaesuCatTransport:
     - Optional echo suppression (radio echoes request before response)
     - Configurable timeouts
     - Debug logging (TX/RX lines for hardware troubleshooting)
+    - Serialized query() via asyncio.Lock prevents response interleaving
     """
 
     def __init__(
@@ -84,6 +85,7 @@ class YaesuCatTransport:
         self._reader: asyncio.StreamReader | None = None
         self._writer: asyncio.StreamWriter | None = None
         self._connected = False
+        self._lock: asyncio.Lock = asyncio.Lock()
 
     @property
     def connected(self) -> bool:
@@ -198,9 +200,36 @@ class YaesuCatTransport:
         except Exception as exc:
             raise CatTransportError(f"Read failed: {exc}") from exc
 
+    async def flush_rx(self) -> int:
+        """Drain any stale data from the receive buffer.
+
+        Returns the number of bytes discarded.  Safe to call when buffer
+        may contain leftover responses from a previous timed-out request.
+        """
+        if not self._reader:
+            return 0
+        discarded = 0
+        # Non-blocking drain: read whatever is buffered right now.
+        while True:
+            buf = self._reader._buffer  # type: ignore[attr-defined]
+            if not buf:
+                break
+            chunk = bytes(buf)
+            buf.clear()
+            discarded += len(chunk)
+            if self._debug_logging:
+                logger.debug("CAT: flushed %d stale bytes: %r", len(chunk), chunk)
+        if discarded:
+            logger.info("CAT: flushed %d stale bytes from RX buffer", discarded)
+        return discarded
+
     async def query(self, command: str, *, timeout: float | None = None) -> str:
-        """Send command and read response.
+        """Send command and read response (serialized via lock).
         
+        The transport lock guarantees that only one query is in flight at a
+        time.  If a previous query timed out, any stale bytes left in the
+        receive buffer are flushed before the new request is sent.
+
         Args:
             command: CAT command string (e.g., "FA;")
             timeout: Read timeout in seconds (default: instance timeout)
@@ -212,18 +241,39 @@ class YaesuCatTransport:
             CatTimeoutError: If read times out
             CatTransportError: If not connected or operation fails
         """
-        await self.write(command)
-        
-        # Read first line
-        response = await self.readline(timeout=timeout)
-        
-        # If echo suppression enabled and response matches request, read again
-        if self._echo_suppression and response == command.rstrip(";"):
-            if self._debug_logging:
-                logger.debug(f"CAT: echo detected, reading actual response")
-            response = await self.readline(timeout=timeout)
-        
-        return response
+        async with self._lock:
+            # Flush any stale data from a previous timed-out request
+            await self.flush_rx()
+
+            await self.write(command)
+            
+            # Derive expected prefix from command (e.g. "FA;" → "FA")
+            expected_prefix = command.rstrip(";").rstrip("0123456789")
+            # For commands like "SM0;" the prefix is "SM" but response is "SM0xxx"
+            # Use the full command minus trailing ';' as prefix when it's a pure read
+            cmd_body = command.rstrip(";")
+            
+            if timeout is None:
+                timeout = self._timeout
+            
+            # Read response(s), skipping echoes and mismatched stale lines
+            max_attempts = 4  # safety valve
+            for attempt in range(max_attempts):
+                response = await self.readline(timeout=timeout)
+                
+                # Echo suppression: if response matches the sent command, read next
+                if self._echo_suppression and response == cmd_body:
+                    if self._debug_logging:
+                        logger.debug("CAT: echo detected, reading actual response")
+                    continue
+                
+                # Accept this response (it's not an echo)
+                return response
+            
+            # Exhausted attempts — all were echoes (shouldn't happen)
+            raise CatTransportError(
+                f"Query {command!r}: got {max_attempts} echoes, no real response"
+            )
 
     async def __aenter__(self) -> "YaesuCatTransport":
         await self.connect()

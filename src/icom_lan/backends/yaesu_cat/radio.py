@@ -282,6 +282,84 @@ class YaesuCatRadio:
         self._require_connected()
         await self._audio_driver.push_tx_pcm(frame)
 
+    # -- AudioCapable protocol stubs (for isinstance compliance) ------------
+
+    async def push_audio_tx_opus(self, data: bytes) -> None:
+        """Forward Opus TX data as PCM (USB audio is always PCM)."""
+        # Browser sends Opus; AudioBroadcaster transcodes to PCM before calling.
+        # If raw Opus arrives here, just push as-is (driver handles it).
+        await self.push_pcm_tx(data)
+
+    async def push_audio_tx_pcm(self, data: bytes) -> None:
+        """Push raw PCM TX data."""
+        await self.push_pcm_tx(data)
+
+    async def start_audio_tx_opus(self) -> None:
+        """No-op: USB audio TX is started via start_audio_tx_pcm."""
+        pass
+
+    async def stop_audio_tx(self) -> None:
+        """Stop TX audio."""
+        await self.stop_audio_tx_pcm()
+
+    async def get_audio_stats(self) -> dict[str, Any]:
+        """Return basic audio stats."""
+        return {
+            "rx_active": self._audio_driver._rx_active if hasattr(self._audio_driver, '_rx_active') else False,
+            "tx_active": self._audio_driver._tx_active if hasattr(self._audio_driver, '_tx_active') else False,
+            "sample_rate": self._audio_sample_rate,
+        }
+
+    # -- LevelsCapable stubs (for isinstance compliance) --------------------
+
+    async def get_drive_gain(self) -> int:
+        """Drive gain not available via CAT on FTX-1."""
+        return 0
+
+    async def set_drive_gain(self, level: int) -> None:
+        """Drive gain not available via CAT on FTX-1."""
+        logger.debug("set_drive_gain: not supported on this radio")
+
+    async def get_compressor_level(self) -> int:
+        """Compressor level not available via CAT on FTX-1."""
+        return 0
+
+    async def set_compressor_level(self, level: int) -> None:
+        """Compressor level not available via CAT on FTX-1."""
+        logger.debug("set_compressor_level: not supported on this radio")
+
+    # -- Generic command interface -----------------------------------------
+
+    def has_command(self, name: str) -> bool:
+        """Check if a command is defined in the rig profile."""
+        spec = self._config.commands.get(name)
+        return spec is not None and isinstance(spec, CatCommandSpec)
+
+    def has_write_command(self, name: str) -> bool:
+        """Check if a write command is defined in the rig profile."""
+        spec = self._config.commands.get(name)
+        return (
+            spec is not None
+            and isinstance(spec, CatCommandSpec)
+            and spec.write is not None
+        )
+
+    async def generic_get(self, cmd_name: str) -> dict[str, Any]:
+        """Execute any read command from the profile and return parsed fields.
+
+        This is the public generic interface for commands that don't have
+        a dedicated method.  Returns the raw parsed dict from the parser.
+        """
+        return await self._query(cmd_name)
+
+    async def generic_set(self, cmd_name: str, **kwargs: Any) -> None:
+        """Execute any write command from the profile.
+
+        This is the public generic interface for fire-and-forget SET commands.
+        Parameters are passed directly to the template formatter.
+        """
+        await self._write(cmd_name, **kwargs)
+
     # -- Internal helpers ---------------------------------------------------
 
     def _get_spec(self, name: str) -> CatCommandSpec:

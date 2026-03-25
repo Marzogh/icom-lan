@@ -253,6 +253,7 @@ class WebServer:
             logger.info("Audio FFT scope enabled (no hardware scope, audio available)")
         self._command_queue: CommandQueue = CommandQueue()
         self._radio_poller: RadioPoller | None = None
+        self._yaesu_poller: Any | None = None  # YaesuCatPoller (lazy)
         # Control handler event queues
         self._control_event_queues: set[asyncio.Queue[dict[str, Any]]] = set()
         # State broadcast throttle
@@ -779,18 +780,44 @@ class WebServer:
         if self._radio is not None:
             from ..radio_protocol import StateNotifyCapable
 
-            if isinstance(self._radio, StateNotifyCapable):
-                # Register callback so CI-V RX stream can notify us of state changes.
-                self._radio.set_state_change_callback(self._on_radio_state_change)
-                # Re-enable scope after soft_reconnect (CI-V stream reset loses scope state)
-                self._radio.set_reconnect_callback(self._on_radio_reconnect)
-            self._radio_poller = RadioPoller(
-                self._radio,
-                self._command_queue,
-                on_state_event=self._on_poller_state_event,
-                radio_state=self._radio_state,
-            )
-            self._radio_poller.start()
+            # --- Yaesu CAT backend: use YaesuCatPoller (request-response) ---
+            _is_yaesu = False
+            try:
+                from ..backends.yaesu_cat.radio import YaesuCatRadio
+                _is_yaesu = isinstance(self._radio, YaesuCatRadio)
+            except ImportError:
+                pass
+
+            if _is_yaesu:
+                from ..backends.yaesu_cat.poller import YaesuCatPoller
+
+                def _yaesu_state_cb(state: "RadioState") -> None:
+                    self._radio_state = state
+                    self._broadcast_state_update()
+
+                self._yaesu_poller = YaesuCatPoller(
+                    self._radio,  # type: ignore[arg-type]
+                    callback=_yaesu_state_cb,
+                    command_queue=self._command_queue,
+                )
+                asyncio.get_running_loop().create_task(
+                    self._yaesu_poller.start(), name="yaesu-poller"
+                )
+                logger.info("Yaesu CAT poller started")
+            else:
+                # --- Icom CI-V backend: fire-and-forget RadioPoller ---
+                if isinstance(self._radio, StateNotifyCapable):
+                    # Register callback so CI-V RX stream can notify us of state changes.
+                    self._radio.set_state_change_callback(self._on_radio_state_change)
+                    # Re-enable scope after soft_reconnect (CI-V stream reset loses scope state)
+                    self._radio.set_reconnect_callback(self._on_radio_reconnect)
+                self._radio_poller = RadioPoller(
+                    self._radio,
+                    self._command_queue,
+                    on_state_event=self._on_poller_state_event,
+                    radio_state=self._radio_state,
+                )
+                self._radio_poller.start()
             if _supports_scope(self._radio):
                 self._scope_health_task = asyncio.get_running_loop().create_task(
                     self._scope_health_monitor(), name="scope-health"
@@ -898,6 +925,9 @@ class WebServer:
         if self._scope_reenable_task is not None:
             self._scope_reenable_task.cancel()
             self._scope_reenable_task = None
+        if self._yaesu_poller is not None:
+            await self._yaesu_poller.stop()
+            self._yaesu_poller = None
         if self._radio_poller is not None:
             self._radio_poller.stop()
             self._radio_poller = None
