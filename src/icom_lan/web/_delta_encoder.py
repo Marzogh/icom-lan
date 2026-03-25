@@ -25,6 +25,7 @@ Usage::
 
 from __future__ import annotations
 
+import copy
 from typing import Any
 
 __all__ = ["DeltaEncoder", "apply_delta"]
@@ -85,7 +86,7 @@ class DeltaEncoder:
             or self._delta_count >= self._full_state_interval
         ):
             # Send full state
-            self._previous_state = dict(current_state)
+            self._previous_state = copy.deepcopy(current_state)
             self._revision += 1
             self._delta_count = 0
             return {
@@ -110,7 +111,7 @@ class DeltaEncoder:
                 removed.append(key)
 
         # Update previous state for next comparison
-        self._previous_state = dict(current_state)
+        self._previous_state = copy.deepcopy(current_state)
         self._revision += 1
         self._delta_count += 1
 

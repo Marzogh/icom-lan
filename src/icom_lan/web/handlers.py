@@ -253,6 +253,14 @@ class ControlHandler:
         await self._send_hello()
         if self._server is not None:
             self._server.register_control_event_queue(self._event_queue)
+            # Push initial full state so this client has a baseline immediately.
+            try:
+                initial_state = self._server.build_public_state()
+                self._event_queue.put_nowait(
+                    {"type": "state_update", "data": {"type": "full", "data": initial_state, "revision": 0}}
+                )
+            except Exception:
+                logger.debug("control: failed to push initial state", exc_info=True)
         event_task: asyncio.Task[None] = asyncio.create_task(self._event_sender_loop())
         try:
             while True:

@@ -106,6 +106,20 @@ class YaesuCatRadio:
             self._code_to_mode[code] = name
             self._mode_to_code[name] = code
 
+        # Cross-vendor mode aliases (IC-7610 names → Yaesu names).
+        # The web UI uses IC-7610-style names; map them to profile names.
+        _ALIASES: dict[str, str] = {
+            "CW": "CW-U",
+            "CW-R": "CW-L",
+            "RTTY": "RTTY-L",
+            "RTTY-R": "RTTY-U",
+            "DATA": "DATA-U",
+            "DATA-R": "DATA-L",
+        }
+        for alias, canonical in _ALIASES.items():
+            if canonical in self._mode_to_code and alias not in self._mode_to_code:
+                self._mode_to_code[alias] = self._mode_to_code[canonical]
+
         # Compile response parsers once at init time (keyed by command name).
         # Commands with unsupported placeholders (e.g. {vfo}, {band}) are skipped.
         self._parsers: dict[str, CatCommandParser] = {}
