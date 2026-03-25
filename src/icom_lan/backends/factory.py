@@ -9,6 +9,7 @@ from .ic7300.serial import Ic7300SerialRadio
 from .ic705.serial import Ic705SerialRadio
 from .ic9700.serial import Ic9700SerialRadio
 from .icom7610.serial import Icom7610SerialRadio
+from .yaesu_cat.radio import YaesuCatRadio
 
 
 def create_radio(config: BackendConfig) -> Radio:
@@ -39,6 +40,18 @@ def create_radio(config: BackendConfig) -> Radio:
     if isinstance(config, SerialBackendConfig):
         # Route to model-specific serial backend
         model = (config.model or "IC-7610").upper()
+
+        # Yaesu CAT radios (FTX-1, FT-710, FT-991A, etc.)
+        _YAESU_MODELS = {"FTX-1", "FT-710", "FT-991A", "FT-991", "FTDX101", "FTDX10"}
+        if model in _YAESU_MODELS or model.startswith("FT"):
+            return YaesuCatRadio(
+                device=config.device,
+                baudrate=config.baudrate or 38400,
+                rx_device=config.rx_device,
+                tx_device=config.tx_device,
+                audio_sample_rate=config.audio_sample_rate or 48000,
+            )
+
         serial_class: (
             type[Ic705SerialRadio]
             | type[Ic7300SerialRadio]
