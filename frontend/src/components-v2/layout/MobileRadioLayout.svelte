@@ -51,7 +51,7 @@
   let keyboardConfig = $derived(getKeyboardConfig());
   let audioState = $derived(getAudioState());
   let txCapable = $derived(hasTx());
-  let txPermit = $derived(getTxPermit(mainVfo.freq));
+  let txPermit = $derived(getTxPermit(mainVfo.freq, caps?.txBands));
   let txIndicatorColor = $derived(
     (tx.txActive || pttActive) ? 'var(--v2-accent-red, #ef4444)' :
     txPermit === 'allowed' ? 'var(--v2-accent-green, #4ade80)' :

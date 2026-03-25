@@ -99,4 +99,5 @@ export interface Capabilities {
   scopeConfig?: ScopeConfig;
   audioConfig?: AudioConfig;
   controls?: Record<string, ControlRange>;
+  txBands?: { name: string; start: number; end: number }[];
 }

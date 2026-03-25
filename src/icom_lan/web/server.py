@@ -1236,6 +1236,10 @@ class WebServer:
                     "dataModeLabels": profile.data_mode_labels,
                     "keyboard": _serialize_keyboard_config(profile),
                     **({"controls": profile.controls} if profile.controls else {}),
+                    "txBands": [
+                        {"name": b.name, "start": b.start, "end": b.end}
+                        for b in profile.bands
+                    ] if profile.bands else None,
                 },
                 "connection": {
                     "rigConnected": connected,
@@ -1322,6 +1326,10 @@ class WebServer:
                     "codecs": ["opus"],
                 },
                 **({"controls": profile.controls} if profile.controls else {}),
+                "txBands": [
+                    {"name": b.name, "start": b.start, "end": b.end}
+                    for b in profile.bands
+                ] if profile.bands else None,
             },
             separators=(",", ":"),
         ).encode()
