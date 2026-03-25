@@ -152,7 +152,9 @@
   }
 
   // ── Quick modes (SSB operation essentials) ──
-  const QUICK_MODES = ['LSB', 'USB', 'CW', 'AM'];
+  // Quick modes — show first matching from profile (covers both CW and CW-U).
+  const QUICK_MODE_CANDIDATES = ['LSB', 'USB', 'CW', 'CW-U', 'AM'];
+  const QUICK_MODES = $derived(QUICK_MODE_CANDIDATES.filter((m) => mode.modes.includes(m)).slice(0, 4));
 
   // ── Landscape detection ──
   let isLandscape = $state(false);

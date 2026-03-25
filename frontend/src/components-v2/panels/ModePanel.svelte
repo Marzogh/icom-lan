@@ -24,7 +24,16 @@
     onDataModeChange,
   }: Props = $props();
 
-  const modeOrder = ['USB', 'LSB', 'CW', 'CW-R', 'RTTY', 'RTTY-R', 'PSK', 'PSK-R', 'AM', 'FM'];
+  // Canonical display order — covers both IC-7610 and Yaesu naming conventions.
+  const modeOrder = [
+    'USB', 'LSB',
+    'CW', 'CW-R', 'CW-U', 'CW-L',       // IC-7610: CW/CW-R, Yaesu: CW-U/CW-L
+    'RTTY', 'RTTY-R', 'RTTY-L', 'RTTY-U', // IC-7610: RTTY/RTTY-R, Yaesu: RTTY-L/RTTY-U
+    'PSK', 'PSK-R',
+    'DATA-U', 'DATA-L', 'DATA-FM', 'DATA-FM-N',
+    'AM', 'AM-N', 'FM', 'FM-N',
+    'C4FM-DN', 'C4FM-VW',
+  ];
 
   let orderedModes = $derived(modeOrder.filter((mode) => modes.includes(mode)));
   let extraModes = $derived(modes.filter((mode) => !modeOrder.includes(mode)));

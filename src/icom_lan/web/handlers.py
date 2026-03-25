@@ -251,16 +251,17 @@ class ControlHandler:
     async def run(self) -> None:
         """Run the control channel lifecycle."""
         await self._send_hello()
+        # Send initial full state so this client has a baseline immediately.
+        # Sent directly (not via event queue) so it arrives right after hello
+        # and before the recv loop — no interleaving with command responses.
         if self._server is not None:
-            self._server.register_control_event_queue(self._event_queue)
-            # Push initial full state so this client has a baseline immediately.
             try:
                 initial_state = self._server.build_public_state()
-                self._event_queue.put_nowait(
-                    {"type": "state_update", "data": {"type": "full", "data": initial_state, "revision": 0}}
-                )
+                msg = {"type": "state_update", "data": {"type": "full", "data": initial_state, "revision": 0}}
+                await self._ws.send_text(encode_json(msg))
             except Exception:
-                logger.debug("control: failed to push initial state", exc_info=True)
+                logger.debug("control: failed to send initial state", exc_info=True)
+            self._server.register_control_event_queue(self._event_queue)
         event_task: asyncio.Task[None] = asyncio.create_task(self._event_sender_loop())
         try:
             while True:

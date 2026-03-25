@@ -170,6 +170,56 @@ async def _ws_recv_frame(
         return opcode, payload
 
 
+async def _ws_skip_handshake(
+    reader: asyncio.StreamReader,
+    timeout: float = 5.0,
+) -> None:
+    """Skip hello + optional initial state_update pushed by server on connect.
+
+    Reads frames until we stop seeing handshake messages (hello / state_update).
+    Uses a short per-frame timeout so we don't block if no more frames arrive.
+    """
+    for _ in range(5):  # at most 5 handshake frames
+        try:
+            _, payload = await _ws_recv_frame(reader, timeout=timeout)
+        except (asyncio.TimeoutError, TimeoutError):
+            return
+        try:
+            msg = json.loads(payload)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return
+        msg_type = msg.get("type")
+        if msg_type in ("hello", "state_update"):
+            timeout = 0.5  # subsequent frames: short timeout
+            continue
+        # Non-handshake frame — can't un-read, but shouldn't happen in practice.
+        return
+
+
+async def _ws_recv_cmd_response(
+    reader: asyncio.StreamReader,
+    timeout: float = 10.0,
+) -> dict[str, Any]:
+    """Read WS frames until we get a command response (has 'ok' or 'error' key).
+
+    Skips hello, state_update, and other broadcast messages.
+    """
+    deadline = asyncio.get_event_loop().time() + timeout
+    while True:
+        remaining = deadline - asyncio.get_event_loop().time()
+        if remaining <= 0:
+            raise asyncio.TimeoutError("no cmd response within timeout")
+        _, payload = await _ws_recv_frame(reader, timeout=remaining)
+        try:
+            msg = json.loads(payload)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            continue
+        # Command responses have 'ok' or 'error' at top level
+        if "ok" in msg or "error" in msg:
+            return msg
+        # Skip state_update, hello, etc.
+
+
 async def _close_ws(writer: asyncio.StreamWriter) -> None:
     # Send masked close frame
     mask = b"\x00\x00\x00\x00"
@@ -624,7 +674,7 @@ class TestControlChannel:
         host, port = _addr(server)
         reader, writer, _ = await _ws_connect(host, port, "/api/v1/ws")
         try:
-            await _ws_recv_frame(reader)  # hello
+            await _ws_skip_handshake(reader)
             await _ws_send_text(
                 writer, json.dumps({"type": "subscribe", "streams": []})
             )
@@ -643,7 +693,7 @@ class TestControlChannel:
         host, port = _addr(server)
         reader, writer, _ = await _ws_connect(host, port, "/api/v1/ws")
         try:
-            await _ws_recv_frame(reader)  # hello
+            await _ws_skip_handshake(reader)
             mock_radio.get_filter.return_value = 2
             cmd = {
                 "type": "cmd",
@@ -668,7 +718,7 @@ class TestControlChannel:
         host, port = _addr(server)
         reader, writer, _ = await _ws_connect(host, port, "/api/v1/ws")
         try:
-            await _ws_recv_frame(reader)  # hello
+            await _ws_skip_handshake(reader)
             cmd = {
                 "type": "cmd",
                 "id": "test-2",
@@ -687,7 +737,7 @@ class TestControlChannel:
         host, port = _addr(server)
         reader, writer, _ = await _ws_connect(host, port, "/api/v1/ws")
         try:
-            await _ws_recv_frame(reader)  # hello
+            await _ws_skip_handshake(reader)
             cmd = {
                 "type": "cmd",
                 "id": "ptt-1",
@@ -706,7 +756,7 @@ class TestControlChannel:
         host, port = _addr(server)
         reader, writer, _ = await _ws_connect(host, port, "/api/v1/ws")
         try:
-            await _ws_recv_frame(reader)  # hello
+            await _ws_skip_handshake(reader)
             cmd = {
                 "type": "cmd",
                 "id": "bad-1",
@@ -726,7 +776,7 @@ class TestControlChannel:
         host, port = _addr(server)
         reader, writer, _ = await _ws_connect(host, port, "/api/v1/ws")
         try:
-            await _ws_recv_frame(reader)  # hello
+            await _ws_skip_handshake(reader)
             # subscribe
             await _ws_send_text(
                 writer,
@@ -748,7 +798,7 @@ class TestControlChannel:
         host, port = _addr(server_no_radio)
         reader, writer, _ = await _ws_connect(host, port, "/api/v1/ws")
         try:
-            await _ws_recv_frame(reader)  # hello
+            await _ws_skip_handshake(reader)
             cmd = {
                 "type": "cmd",
                 "id": "nr-1",
@@ -769,7 +819,7 @@ class TestControlChannel:
         host, port = _addr(server)
         reader, writer, _ = await _ws_connect(host, port, "/api/v1/ws")
         try:
-            await _ws_recv_frame(reader)  # hello
+            await _ws_skip_handshake(reader)
             cmd = {"type": "cmd", "id": "vs-1", "name": "vfo_swap", "params": {}}
             await _ws_send_text(writer, json.dumps(cmd))
             _, payload = await _ws_recv_frame(reader)
@@ -2466,8 +2516,7 @@ class TestSwitchScopeReceiverCommand:
         host, port = _addr(server)
         reader, writer, _ = await _ws_connect(host, port, "/api/v1/ws")
         try:
-            # skip hello
-            await _ws_recv_frame(reader)
+            await _ws_skip_handshake(reader)
 
             cmd = json.dumps(
                 {
@@ -2504,7 +2553,7 @@ class TestSwitchScopeReceiverCommand:
         host, port = _addr(server)
         reader, writer, _ = await _ws_connect(host, port, "/api/v1/ws")
         try:
-            await _ws_recv_frame(reader)
+            await _ws_skip_handshake(reader)
 
             cmd = json.dumps(
                 {
@@ -2545,7 +2594,7 @@ class TestScopeAdvancedCommands:
         host, port = _addr(server)
         reader, writer, _ = await _ws_connect(host, port, "/api/v1/ws")
         try:
-            await _ws_recv_frame(reader)  # skip hello
+            await _ws_skip_handshake(reader)
 
             cmd = json.dumps(
                 {
@@ -2574,7 +2623,7 @@ class TestScopeAdvancedCommands:
         host, port = _addr(server)
         reader, writer, _ = await _ws_connect(host, port, "/api/v1/ws")
         try:
-            await _ws_recv_frame(reader)
+            await _ws_skip_handshake(reader)
 
             cmd = json.dumps(
                 {
@@ -2603,7 +2652,7 @@ class TestScopeAdvancedCommands:
         host, port = _addr(server)
         reader, writer, _ = await _ws_connect(host, port, "/api/v1/ws")
         try:
-            await _ws_recv_frame(reader)
+            await _ws_skip_handshake(reader)
 
             cmd = json.dumps(
                 {
@@ -2632,7 +2681,7 @@ class TestScopeAdvancedCommands:
         host, port = _addr(server)
         reader, writer, _ = await _ws_connect(host, port, "/api/v1/ws")
         try:
-            await _ws_recv_frame(reader)
+            await _ws_skip_handshake(reader)
 
             cmd = json.dumps(
                 {

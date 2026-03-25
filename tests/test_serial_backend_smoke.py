@@ -245,6 +245,12 @@ async def test_web_server_smoke_with_serial_mock_backend() -> None:
             assert hello["connected"] is False
             assert hello["radio_ready"] is False
 
+            # Skip initial state_update pushed after hello
+            _op, _payload = await _ws_recv_frame(reader)
+            _msg = json.loads(_payload.decode("utf-8"))
+            if _msg.get("type") == "state_update":
+                pass  # consumed initial state
+
             await _ws_send_text(
                 writer,
                 json.dumps({"type": "radio_connect", "id": "connect-1"}),
