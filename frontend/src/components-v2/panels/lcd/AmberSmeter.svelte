@@ -6,56 +6,61 @@
 
   let { value, txActive = false }: Props = $props();
 
-  // S-meter calibration: S0=0, S1=18 ... S9=162, +10=180, +20=198, +40=234, +60=260
   const MAX_RAW = 260;
-  const SEGMENTS = 40;
+  const SEGMENTS = 192;
   const S9_RAW = 162;
   const S9_SEG = Math.round((S9_RAW / MAX_RAW) * SEGMENTS);
 
-  // Major tick marks with labels
+  // Major ticks: S-units + dB over S9
   const MAJOR_TICKS = [
     { label: '1', raw: 18 },
-    { label: '2', raw: 36 },
     { label: '3', raw: 54 },
-    { label: '4', raw: 72 },
     { label: '5', raw: 90 },
-    { label: '6', raw: 108 },
     { label: '7', raw: 126 },
-    { label: '8', raw: 144 },
     { label: '9', raw: 162 },
     { label: '+20', raw: 198 },
     { label: '+40', raw: 234 },
     { label: '+60', raw: 260 },
   ];
 
-  // Minor ticks (between majors, no label)
-  const MINOR_TICKS = [
-    9, 27, 45, 63, 81, 99, 117, 135, 153, 171, 189, 207, 216, 225, 243, 252,
+  // Medium ticks: every S-unit
+  const MEDIUM_TICKS = [
+    { raw: 36 },  // S2
+    { raw: 72 },  // S4
+    { raw: 108 }, // S6
+    { raw: 144 }, // S8
   ];
+
+  // Minor ticks: every 4.5 raw units (~quarter S-unit) for dense scale
+  const MINOR_TICKS: number[] = [];
+  for (let raw = 4; raw < MAX_RAW; raw += 4.5) {
+    const r = Math.round(raw);
+    // Skip positions that overlap with major/medium ticks
+    const isMajor = MAJOR_TICKS.some(t => Math.abs(t.raw - r) < 3);
+    const isMedium = MEDIUM_TICKS.some(t => Math.abs(t.raw - r) < 3);
+    if (!isMajor && !isMedium) MINOR_TICKS.push(r);
+  }
 
   let filledSegs = $derived(Math.round(Math.min(SEGMENTS, Math.max(0, (value / MAX_RAW) * SEGMENTS))));
 
-  // S-unit and dBm readout
   let sReadout = $derived(computeReadout(value));
 
   function computeReadout(raw: number): { sUnit: string; dbm: string } {
     if (raw <= 0) return { sUnit: 'S0', dbm: '-127' };
-    // S1=-121, S2=-115, S3=-109 ... S9=-73, each S-unit = 6 dB
     const sFloat = Math.min(9, (raw / S9_RAW) * 9);
     const sInt = Math.floor(sFloat);
     if (raw <= S9_RAW) {
       const dbm = -127 + sInt * 6;
       return { sUnit: `S${sInt}`, dbm: dbm.toString() };
     }
-    // Over S9: +dB
     const overDb = Math.round(((raw - S9_RAW) / (MAX_RAW - S9_RAW)) * 60);
-    return { sUnit: `S9+${overDb}`, dbm: (-73 + overDb).toString() };
+    return { sUnit: `9+${overDb}`, dbm: (-73 + overDb).toString() };
   }
 </script>
 
 <div class="lcd-smeter">
   <div class="meter-left">
-    <!-- Bargraph segments -->
+    <!-- Bargraph -->
     <div class="meter-bar">
       {#each Array(SEGMENTS) as _, i}
         <div
@@ -67,33 +72,32 @@
       {/each}
     </div>
 
-    <!-- Scale with tick marks below the bar -->
+    <!-- Scale below bar -->
     <div class="meter-scale">
-    <!-- Minor ticks -->
-    {#each MINOR_TICKS as raw}
-      <div class="tick tick-minor" style="left: {(raw / MAX_RAW) * 100}%"></div>
-    {/each}
-    <!-- Major ticks + labels -->
-    {#each MAJOR_TICKS as tick}
-      <div
-        class="tick tick-major"
-        class:over-s9={tick.raw > S9_RAW}
-        style="left: {(tick.raw / MAX_RAW) * 100}%"
-      >
-        <span class="tick-label">{tick.label}</span>
-      </div>
-    {/each}
-    <!-- S prefix at the start -->
-    <span class="scale-prefix">S</span>
-    <!-- dB label at over-S9 zone start -->
-    <span class="scale-db-label" style="left: {(S9_RAW / MAX_RAW) * 100}%">dB</span>
+      {#each MINOR_TICKS as raw}
+        <div class="tick tick-minor" style="left: {(raw / MAX_RAW) * 100}%"></div>
+      {/each}
+      {#each MEDIUM_TICKS as tick}
+        <div class="tick tick-medium" style="left: {(tick.raw / MAX_RAW) * 100}%"></div>
+      {/each}
+      {#each MAJOR_TICKS as tick}
+        <div
+          class="tick tick-major"
+          class:over-s9={tick.raw > S9_RAW}
+          style="left: {(tick.raw / MAX_RAW) * 100}%"
+        >
+          <span class="tick-label">{tick.label}</span>
+        </div>
+      {/each}
+      <span class="scale-s-label">S</span>
+      <span class="scale-db-zone" style="left: {(S9_RAW / MAX_RAW) * 100}%">dB</span>
     </div>
   </div>
 
-  <!-- Readout: S-unit + dBm -->
+  <!-- Readout -->
   <div class="meter-readout">
     <span class="readout-s">{sReadout.sUnit}</span>
-    <span class="readout-dbm">{sReadout.dbm} dBm</span>
+    <span class="readout-dbm">{sReadout.dbm}<span class="readout-unit">dBm</span></span>
   </div>
 </div>
 
@@ -101,23 +105,24 @@
   .lcd-smeter {
     display: flex;
     align-items: stretch;
-    gap: 8px;
+    gap: 12px;
     width: 100%;
   }
 
-  /* ── Bargraph + scale wrapper ── */
   .meter-left {
-    flex: 1;
+    flex: 1 1 0;
+    max-width: 88%;
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 0;
+    gap: 2px;
   }
 
+  /* ── Bargraph ── */
   .meter-bar {
     display: flex;
-    gap: 1.5px;
-    height: 14px;
+    gap: 0.5px;
+    height: 16px;
   }
 
   .seg {
@@ -127,27 +132,28 @@
   }
 
   .seg.filled {
-    background: rgba(26, 16, 0, 0.75);
+    background: rgba(26, 16, 0, 0.8);
   }
 
   .seg.filled.over-s9 {
-    background: rgba(80, 10, 0, 0.85);
+    background: rgba(80, 10, 0, 0.9);
   }
 
   .seg.filled.tx {
-    background: rgba(80, 10, 0, 0.8);
+    background: rgba(80, 10, 0, 0.85);
   }
 
   .seg.filled.tx.over-s9 {
-    background: rgba(120, 0, 0, 0.9);
+    background: rgba(120, 0, 0, 0.95);
   }
 
-  /* ── Scale below bar ── */
+  /* ── Scale ── */
   .meter-scale {
     position: relative;
-    height: 22px;
-    flex: 1;
-    min-width: 0;
+    height: 36px;
+    /* Thick baseline under bargraph — ticks hang from it */
+    border-top: 4px solid rgba(26, 16, 0, 0.5);
+    margin-top: 1px;
   }
 
   .tick {
@@ -157,78 +163,91 @@
 
   .tick-minor {
     width: 1px;
-    height: 4px;
+    height: 6px;
     background: rgba(26, 16, 0, 0.25);
   }
 
+  .tick-medium {
+    width: 1.5px;
+    height: 10px;
+    background: rgba(26, 16, 0, 0.4);
+  }
+
   .tick-major {
-    width: 1px;
-    height: 7px;
-    background: rgba(26, 16, 0, 0.45);
+    width: 2px;
+    height: 13px;
+    background: rgba(26, 16, 0, 0.6);
   }
 
   .tick-major.over-s9 {
-    background: rgba(80, 10, 0, 0.5);
+    background: rgba(80, 10, 0, 0.6);
   }
 
   .tick-label {
     position: absolute;
-    top: 9px;
+    top: 15px;
     left: 50%;
     transform: translateX(-50%);
     font-family: 'JetBrains Mono', 'Courier New', monospace;
-    font-size: 10px;
-    font-weight: 600;
-    color: rgba(26, 16, 0, 0.5);
+    font-size: 12px;
+    font-weight: 700;
+    color: rgba(26, 16, 0, 0.6);
     white-space: nowrap;
   }
 
   .tick-major.over-s9 .tick-label {
-    color: rgba(80, 10, 0, 0.6);
+    color: rgba(80, 10, 0, 0.65);
   }
 
-  .scale-prefix {
+  .scale-s-label {
     position: absolute;
-    top: 8px;
-    left: -2px;
+    top: 18px;
+    left: 0;
     font-family: 'JetBrains Mono', 'Courier New', monospace;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 700;
-    color: rgba(26, 16, 0, 0.4);
+    color: rgba(26, 16, 0, 0.45);
   }
 
-  .scale-db-label {
+  .scale-db-zone {
     position: absolute;
-    top: 0px;
-    transform: translateX(4px);
+    top: 6px;
+    transform: translateX(6px);
     font-family: 'JetBrains Mono', 'Courier New', monospace;
-    font-size: 9px;
-    font-weight: 600;
+    font-size: 10px;
+    font-weight: 700;
     color: rgba(80, 10, 0, 0.4);
   }
 
-  /* ── Readout (right side, large) ── */
+  /* ── Readout (right, large) ── */
   .meter-readout {
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
     align-items: flex-end;
     justify-content: center;
-    min-width: 64px;
+    min-width: 80px;
+    padding-left: 4px;
   }
 
   .readout-s {
     font-family: 'DSEG7 Classic', monospace;
     font-weight: bold;
-    font-size: 22px;
+    font-size: 28px;
     color: #1A1000;
     line-height: 1;
   }
 
   .readout-dbm {
     font-family: 'JetBrains Mono', 'Courier New', monospace;
-    font-size: 10px;
+    font-size: 11px;
     color: rgba(26, 16, 0, 0.45);
-    line-height: 1.2;
+    line-height: 1.3;
+  }
+
+  .readout-unit {
+    margin-left: 2px;
+    font-size: 9px;
+    color: rgba(26, 16, 0, 0.35);
   }
 </style>

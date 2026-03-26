@@ -32,16 +32,22 @@
   let mode = $derived(rx?.mode ?? '---');
   let filter = $derived(rx?.filter ?? '');
   let sValue = $derived(rx?.sMeter ?? 0);
-  let txActive = $derived(state?.txActive ?? false);
-  let ritActive = $derived(state?.ritActive ?? false);
-  let ritOffset = $derived(state?.ritOffset ?? 0);
-  let splitActive = $derived(state?.splitActive ?? false);
-  let voxActive = $derived(state?.voxActive ?? false);
-  let atuActive = $derived(state?.atuActive ?? false);
-  let preamp = $derived(state?.pre ?? 0);
-  let nbActive = $derived(state?.nbActive ?? false);
-  let nrMode = $derived(state?.nrMode ?? 0);
-  let agcMode = $derived(state?.agcMode ?? 0);
+  let txActive = $derived(state?.ptt ?? false);
+  let ritActive = $derived(state?.ritOn ?? false);
+  let ritOffset = $derived(state?.ritFreq ?? 0);
+  let splitActive = $derived(state?.split ?? false);
+  let voxActive = $derived(state?.voxOn ?? false);
+  let atuActive = $derived((state?.tunerStatus ?? 0) > 0);
+  let preamp = $derived(rx?.preamp ?? 0);
+  // FTX-1: no separate NB/NR on/off — level > 0 means active
+  let nbLevel = $derived(rx?.nbLevel ?? 0);
+  let nrLevel = $derived(rx?.nrLevel ?? 0);
+  let nbActive = $derived((rx?.nb ?? false) || nbLevel > 0);
+  let nrActive = $derived((rx?.nr ?? false) || nrLevel > 0);
+  let agcMode = $derived(rx?.agc ?? 0);
+  let notchActive = $derived(rx?.autoNotch ?? false);
+  let compActive = $derived(state?.compressorOn ?? false);
+  let lockActive = $derived(state?.dialLock ?? false);
   let activeVfo = $derived(state?.active === 'SUB' ? 'B' : 'A');
 
   let subRx = $derived(state?.active === 'SUB' ? state?.main : state?.sub);
@@ -52,8 +58,13 @@
   let fftPush: ((data: Uint8Array) => void) | null = null;
   let showFft = $derived(isAudioFftScope());
 
+  // FTX-1 AGC: 0=OFF, 1=FAST, 2=MID, 3=SLOW, 4=AUTO-F, 5=AUTO-M, 6=AUTO-S
+  const AGC_LABELS: Record<number, string> = {
+    0: 'OFF', 1: 'FAST', 2: 'MID', 3: 'SLOW',
+    4: 'A-F', 5: 'A-M', 6: 'A-S',
+  };
   function agcLabel(m: number): string {
-    return m === 1 ? 'FAST' : m === 2 ? 'MID' : m === 3 ? 'SLOW' : '';
+    return AGC_LABELS[m] ?? `${m}`;
   }
 
   onMount(() => {
@@ -82,23 +93,25 @@
   <div class="lcd-screen">
     <div class="lcd-scanlines"></div>
 
-    <!-- ═══ Indicators bar ═══ -->
+    <!-- ═══ S-Meter (top) ═══ -->
+    <div class="lcd-meter-row">
+      <AmberSmeter value={sValue} {txActive} />
+    </div>
+
+    <!-- ═══ Indicators (below S-meter) ═══ -->
     <div class="lcd-ind-row">
       <span class="lcd-ind" class:active={txActive} class:ind-tx={txActive}>TX</span>
       <span class="lcd-ind" class:active={voxActive}>VOX</span>
+      <span class="lcd-ind" class:active={compActive}>COMP</span>
       <span class="lcd-ind" class:active={atuActive}>ATU</span>
       <span class="lcd-ind" class:active={preamp > 0}>PRE</span>
-      <span class="lcd-ind" class:active={nbActive}>NB</span>
-      <span class="lcd-ind" class:active={nrMode > 0}>NR</span>
-      {#if ritActive}
-        <span class="lcd-ind active">RIT</span>
-      {/if}
-      {#if splitActive}
-        <span class="lcd-ind active">SPLIT</span>
-      {/if}
-      {#if agcMode > 0}
-        <span class="lcd-ind active">AGC-{agcLabel(agcMode)}</span>
-      {/if}
+      <span class="lcd-ind" class:active={nbActive}>NB{nbActive ? ` ${nbLevel}` : ''}</span>
+      <span class="lcd-ind" class:active={nrActive}>NR{nrActive ? ` ${nrLevel}` : ''}</span>
+      <span class="lcd-ind" class:active={notchActive}>NOTCH</span>
+      <span class="lcd-ind" class:active={ritActive}>RIT</span>
+      <span class="lcd-ind" class:active={splitActive}>SPLIT</span>
+      <span class="lcd-ind" class:active={lockActive}>LOCK</span>
+      <span class="lcd-ind active">AGC {agcLabel(agcMode)}</span>
     </div>
 
     <!-- ═══ VFO A: main frequency ═══ -->
@@ -113,11 +126,6 @@
           <span class="vfo-filter">FIL{filter}</span>
         {/if}
       </div>
-    </div>
-
-    <!-- ═══ S-Meter ═══ -->
-    <div class="lcd-meter-row">
-      <AmberSmeter value={sValue} {txActive} />
     </div>
 
     <!-- ═══ VFO B: sub frequency ═══ -->
@@ -196,28 +204,34 @@
   /* ── Indicators ── */
   .lcd-ind-row {
     display: flex;
-    gap: 10px;
+    gap: 14px;
     align-items: center;
     flex-wrap: wrap;
     position: relative;
     z-index: 2;
+    padding: 2px 0;
   }
 
   .lcd-ind {
     font-family: 'JetBrains Mono', 'Courier New', monospace;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 700;
     letter-spacing: 0.5px;
-    color: rgba(0, 0, 0, 0.07);
+    color: rgba(0, 0, 0, 0.08);
+    border: 1.5px solid rgba(0, 0, 0, 0.06);
+    border-radius: 3px;
+    padding: 1px 6px;
     user-select: none;
   }
 
   .lcd-ind.active {
     color: #1A1000;
+    border-color: rgba(26, 16, 0, 0.4);
   }
 
   .lcd-ind.ind-tx {
     color: #5A0800;
+    border-color: rgba(90, 8, 0, 0.5);
     font-size: 15px;
   }
 
