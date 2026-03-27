@@ -487,13 +487,18 @@ class YaesuCatPoller:
             logger.debug("YaesuCatPoller: get_squelch failed", exc_info=True)
 
         # -- DSP: NB/NR levels, auto notch --
+        # For level_is_toggle radios (e.g. FTX-1), level > 0 means active.
         try:
-            state.main.nb_level = await radio.get_nb_level(0)
+            nb_level = await radio.get_nb_level(0)
+            state.main.nb_level = nb_level
+            state.main.nb = nb_level > 0
         except Exception:
             logger.debug("YaesuCatPoller: get_nb_level failed", exc_info=True)
 
         try:
-            state.main.nr_level = await radio.get_nr_level(0)
+            nr_level = await radio.get_nr_level(0)
+            state.main.nr_level = nr_level
+            state.main.nr = nr_level > 0
         except Exception:
             logger.debug("YaesuCatPoller: get_nr_level failed", exc_info=True)
 
