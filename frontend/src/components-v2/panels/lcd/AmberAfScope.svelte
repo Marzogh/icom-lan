@@ -55,7 +55,7 @@
 
   // Trapezoid animation — smooth lerp toward target filterWidth
   let animatedFilterWidth = $state(filterWidth);
-  const TRAP_LERP = 0.08; // lower = slower/smoother animation
+  const TRAP_LERP = 0.16; // lower = slower/smoother animation
 
   function draw(): void {
     if (!visible) { rafId = 0; return; }
