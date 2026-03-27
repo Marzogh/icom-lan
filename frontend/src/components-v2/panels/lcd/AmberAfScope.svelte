@@ -6,8 +6,10 @@
     data: Uint8Array | null;
     /** Register a push callback for streaming updates */
     onRegisterPush?: (fn: (data: Uint8Array) => void) => void;
-    /** Filter passband width in Hz (e.g. 2400 for SSB) */
+    /** Filter width — raw index from radio (e.g. 0-36 for FTX-1 SSB) or Hz */
     filterWidth?: number;
+    /** Max filter width value (index or Hz) for normalization */
+    filterWidthMax?: number;
     /** IF shift in Hz */
     ifShift?: number;
     /** Contour level 0=off, >0=active */
@@ -25,7 +27,8 @@
   let {
     data,
     onRegisterPush,
-    filterWidth = 2400,
+    filterWidth = 13,
+    filterWidthMax = 36,
     ifShift = 0,
     contour = 0,
     contourFreq = 128,
@@ -98,14 +101,11 @@
     // Slope: how much the legs flare outward
     const slopeExtra = h * 0.35;
 
-    // Filter width → top edge width (proportional)
-    // FTX-1 filter range: ~200 Hz (CW) to ~4000 Hz (AM/wide)
-    // Reference: 3000 Hz SSB ≈ current visual size
-    const refFilterHz = 3000;
-    const filterRatio = filterWidth / refFilterHz;
-    // Top half-width = (totalHalfW - slopeExtra) * ratio, clamped
+    // Filter width → top edge width (proportional to max)
+    // filterWidth / filterWidthMax = how wide the passband is (0..1)
+    const filterRatio = Math.max(0.05, Math.min(1, filterWidth / Math.max(1, filterWidthMax)));
     const maxTopHalfW = totalHalfW - slopeExtra;
-    const topHalfW = Math.max(h * 0.1, Math.min(maxTopHalfW, maxTopHalfW * filterRatio));
+    const topHalfW = Math.max(h * 0.1, maxTopHalfW * filterRatio);
 
     // Trapezoid corners
     const tl = cx - topHalfW;

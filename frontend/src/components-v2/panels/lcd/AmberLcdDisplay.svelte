@@ -162,6 +162,7 @@
             data={fftPixels}
             onRegisterPush={(fn) => { fftPush = fn; }}
             filterWidth={filterWidthHz}
+          filterWidthMax={36}
             contour={contourLevel}
             manualNotch={manualNotchOn}
             notchFreq={notchFreqRaw}
