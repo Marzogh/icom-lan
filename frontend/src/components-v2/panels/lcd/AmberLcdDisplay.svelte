@@ -3,7 +3,6 @@
   import { isAudioFftScope, hasDualReceiver } from '$lib/stores/capabilities.svelte';
   import AmberFrequency from './AmberFrequency.svelte';
   import AmberSmeter from './AmberSmeter.svelte';
-  import AmberFftStrip from './AmberFftStrip.svelte';
   import AmberAfScope from './AmberAfScope.svelte';
   import { getChannel } from '$lib/transport/ws-client';
   import { setScopeConnected, markScopeFrame } from '$lib/stores/connection.svelte';
