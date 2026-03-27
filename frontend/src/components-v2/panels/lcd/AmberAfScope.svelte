@@ -219,8 +219,8 @@
       ctx.stroke();
     }
 
-    // ── FFT bars INSIDE trapezoid only ──
-    drawFft(ctx, pixels, w, h, trapTop, trapH, cx, topHalfW, slopeExtra);
+    // ── FFT bars INSIDE trapezoid — only passband portion of spectrum ──
+    drawFft(ctx, pixels, w, h, trapTop, trapH, cx, topHalfW, slopeExtra, filterHz);
   }
 
   function drawFft(
@@ -233,6 +233,7 @@
     cx: number,
     topHalfW: number,
     slopeExtra: number,
+    passbandHz: number,
   ): void {
     const maxVal = 160;
     const barW = 2;
@@ -252,16 +253,22 @@
       smoothed = new Float32Array(numBars);
     }
 
+    // Only show FFT bins within the passband (0 → passbandHz)
+    // FFT pixels cover 0 → sampleRate/2 (Nyquist)
+    const nyquist = sampleRate / 2;
+    const passbandFrac = Math.min(1, passbandHz / nyquist);
+
     for (let i = 0; i < numBars; i++) {
       const x = startX + i * step;
       const barCenterX = x + barW / 2;
 
-      // Get raw amplitude
+      // Get raw amplitude — map bar position to passband FFT bins only
       let rawAmp: number;
       if (pixels && pixels.length > 0) {
-        // Map bar position to FFT bin
-        const frac = (barCenterX - startX) / (endX - startX);
-        const pixIdx = Math.floor(frac * pixels.length);
+        // Bar position 0→1 within trapezoid
+        const barFrac = (barCenterX - startX) / (endX - startX);
+        // Map to FFT bin within passband only (0 → passbandFrac of total bins)
+        const pixIdx = Math.floor(barFrac * passbandFrac * pixels.length);
         const clamped = Math.max(0, Math.min(pixels.length - 1, pixIdx));
         rawAmp = Math.min(pixels[clamped], maxVal) / maxVal;
       } else {
