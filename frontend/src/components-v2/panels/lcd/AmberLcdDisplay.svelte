@@ -6,7 +6,7 @@
   import AmberAfScope from './AmberAfScope.svelte';
   import { getChannel } from '$lib/transport/ws-client';
   import { setScopeConnected, markScopeFrame } from '$lib/stores/connection.svelte';
-  import { onMount } from 'svelte';
+
 
   interface ScopeFrame {
     receiver: number;
@@ -74,8 +74,13 @@
     return AGC_LABELS[m] ?? `${m}`;
   }
 
-  onMount(() => {
-    if (!isAudioFftScope()) return;
+  // Scope WS connection — reactive to capabilities (may load after mount)
+  let scopeCleanup: (() => void) | null = null;
+
+  $effect(() => {
+    const wantScope = isAudioFftScope();
+    if (!wantScope) return;
+
     const scopeCh = getChannel('scope');
     scopeCh.connect('/api/v1/scope');
     const unsubState = scopeCh.onStateChange((s) => {
@@ -88,10 +93,16 @@
       fftPixels = frame.pixels;
       fftPush?.(frame.pixels);
     });
-    return () => {
+
+    scopeCleanup = () => {
       unsubState();
       unsubBinary();
       scopeCh.disconnect();
+      scopeCleanup = null;
+    };
+
+    return () => {
+      scopeCleanup?.();
     };
   });
 </script>
