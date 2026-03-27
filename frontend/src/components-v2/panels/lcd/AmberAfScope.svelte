@@ -8,25 +8,17 @@
     onRegisterPush?: (fn: (data: Uint8Array) => void) => void;
     /** Filter passband width in Hz (e.g. 2400 for SSB) */
     filterWidth?: number;
-    /** IF shift in Hz (positive = up, negative = down) */
+    /** IF shift in Hz */
     ifShift?: number;
-    /** Contour level 0=off, 1-255=active (DSP EQ curve) */
-    contour?: number;
-    /** Contour center frequency offset (0-255, maps to audio range) */
-    contourFreq?: number;
     /** Manual notch active */
     manualNotch?: boolean;
-    /** Manual notch frequency (0-255 raw, maps to audio range) */
+    /** Manual notch frequency (0-255 raw) */
     notchFreq?: number;
-    /** Auto notch active */
-    autoNotch?: boolean;
     /** Audio sample rate */
     sampleRate?: number;
-    /** Center frequency in Hz for scope display */
-    centerFreqHz?: number;
-    /** Current mode (SSB/CW/AM/FM etc.) */
+    /** Current mode */
     mode?: string;
-    /** Compact mode — hide labels, fill filter more prominently */
+    /** Compact mode (embedded in LCD) */
     compact?: boolean;
   }
 
@@ -35,13 +27,9 @@
     onRegisterPush,
     filterWidth = 2400,
     ifShift = 0,
-    contour = 0,
-    contourFreq = 128,
     manualNotch = false,
     notchFreq = 128,
-    autoNotch = false,
     sampleRate = 48000,
-    centerFreqHz = 0,
     mode = 'USB',
     compact = false,
   }: Props = $props();
@@ -53,28 +41,40 @@
   let visible = true;
   let latestPixels: Uint8Array | null = null;
 
-  // ── LCD Colors ──
-  const BG = '#C8A030';
-  const DARK = '#1A1000';
-  const DARK_ALPHA = 'rgba(26, 16, 0,';
-  const GRID_ALPHA = 0.05;
-  const SCANLINE_ALPHA = 0.035;
+  // ── Dark scope palette (like real FTX-1 scope) ──
+  const SCOPE_BG = '#0C0C0C';
+  const BAR_COLOR_LO = 'rgba(160, 165, 170, 0.6)';   // gray bars (low)
+  const BAR_COLOR_HI = 'rgba(200, 205, 210, 0.85)';   // brighter bars (high)
+  const FILTER_ARC_COLOR = '#FFD700';                   // golden yellow
+  const FILTER_GLOW = 'rgba(255, 160, 0, 0.15)';       // orange glow under arc
+  const BORDER_COLOR = 'rgba(140, 150, 160, 0.3)';     // subtle border highlight
 
-  // ── Filter geometry ──
-  const SLOPE_ANGLE = 30; // degrees
-  const SLOPE_TAN = Math.tan((SLOPE_ANGLE * Math.PI) / 180);
-
-  // ── Smoothing for FFT bars ──
+  // ── Smoothing ──
   let smoothed: Float32Array | null = null;
-  const SMOOTH_ATTACK = 0.4;   // how fast bars rise
-  const SMOOTH_DECAY = 0.15;   // how fast bars fall (slower = smoother)
+  const SMOOTH_ATTACK = 0.35;
+  const SMOOTH_DECAY = 0.12;
 
   function draw(): void {
     if (!visible) { rafId = 0; return; }
     const pixels = latestPixels ?? data;
-    if (canvas && cssWidth > 0 && cssHeight > 0) {
+    let w = cssWidth;
+    let h = cssHeight;
+    if ((w <= 1 || h <= 1) && canvas) {
+      w = canvas.clientWidth || canvas.parentElement?.clientWidth || 1;
+      h = canvas.clientHeight || canvas.parentElement?.clientHeight || 1;
+      if (w > 1 && h > 1) {
+        cssWidth = w;
+        cssHeight = h;
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = Math.round(w * dpr);
+        canvas.height = Math.round(h * dpr);
+        const ctx = canvas.getContext('2d');
+        ctx?.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+    }
+    if (canvas && w > 1 && h > 1) {
       const ctx = canvas.getContext('2d');
-      if (ctx) renderScope(ctx, pixels, cssWidth, cssHeight);
+      if (ctx) renderScope(ctx, pixels, w, h);
     }
     rafId = requestAnimationFrame(draw);
   }
@@ -87,298 +87,131 @@
   ): void {
     const maxVal = 160;
     const halfBw = sampleRate / 2;
-    const topMargin = compact ? 1 : 4;
-    const bottomMargin = compact ? 1 : 14; // space for freq labels
-    const drawH = h - topMargin - bottomMargin;
-    const drawTop = topMargin;
 
-    // ── Background ──
-    ctx.fillStyle = BG;
+    // ── Dark background ──
+    ctx.fillStyle = SCOPE_BG;
     ctx.fillRect(0, 0, w, h);
 
-    // ── Grid lines (horizontal, subtle) ──
-    ctx.strokeStyle = `${DARK_ALPHA} ${GRID_ALPHA})`;
-    ctx.lineWidth = 1;
-    for (let i = 1; i <= 4; i++) {
-      const y = drawTop + (drawH * i) / 5;
-      ctx.beginPath();
-      ctx.moveTo(0, Math.round(y) + 0.5);
-      ctx.lineTo(w, Math.round(y) + 0.5);
-      ctx.stroke();
-    }
+    // ── Subtle border highlight ──
+    ctx.strokeStyle = BORDER_COLOR;
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
 
-    // ── Center frequency marker ──
-    ctx.strokeStyle = `${DARK_ALPHA} 0.12)`;
-    ctx.lineWidth = 1;
-    ctx.setLineDash([2, 4]);
-    ctx.beginPath();
-    ctx.moveTo(w / 2, drawTop);
-    ctx.lineTo(w / 2, drawTop + drawH);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    // ── Filter trapezoid ──
+    // ── Filter passband arc (golden U-shape at top) ──
     const filterCenterX = w / 2 + (ifShift / halfBw) * (w / 2);
     const filterHalfW = (filterWidth / 2 / halfBw) * (w / 2);
-    // Slope width = height / tan(angle)
-    const slopeW = drawH / SLOPE_TAN;
-    const clampedSlope = Math.min(slopeW, filterHalfW * 0.8);
 
-    // Trapezoid points (top-left, top-right, bottom-right, bottom-left)
-    const topL = filterCenterX - filterHalfW;
-    const topR = filterCenterX + filterHalfW;
-    const botL = topL - clampedSlope;
-    const botR = topR + clampedSlope;
+    // Arc: U-shape hanging from top
+    const arcLeft = filterCenterX - filterHalfW;
+    const arcRight = filterCenterX + filterHalfW;
+    const arcDepth = h * 0.35; // how deep the U dips
 
-    // Draw trapezoid fill — solid warm fill like real radio passband indicator
-    ctx.fillStyle = compact
-      ? 'rgba(140, 60, 10, 0.25)'  // more visible in compact
-      : `${DARK_ALPHA} 0.06)`;
+    // Glow fill under the arc
+    const glowGrad = ctx.createLinearGradient(0, 0, 0, arcDepth + 5);
+    glowGrad.addColorStop(0, FILTER_GLOW);
+    glowGrad.addColorStop(1, 'transparent');
+    ctx.fillStyle = glowGrad;
     ctx.beginPath();
-    ctx.moveTo(topL, drawTop);
-    ctx.lineTo(topR, drawTop);
-    ctx.lineTo(botR, drawTop + drawH);
-    ctx.lineTo(botL, drawTop + drawH);
+    ctx.moveTo(arcLeft, 0);
+    ctx.quadraticCurveTo(filterCenterX, arcDepth * 2, arcRight, 0);
+    ctx.lineTo(arcRight, 0);
     ctx.closePath();
     ctx.fill();
 
-    // Draw trapezoid outline
-    ctx.strokeStyle = compact
-      ? 'rgba(120, 50, 5, 0.5)'
-      : `${DARK_ALPHA} 0.35)`;
-    ctx.lineWidth = compact ? 1 : 1.5;
+    // Arc line
+    ctx.strokeStyle = FILTER_ARC_COLOR;
+    ctx.lineWidth = 2;
+    ctx.shadowColor = 'rgba(255, 200, 0, 0.4)';
+    ctx.shadowBlur = 4;
     ctx.beginPath();
-    ctx.moveTo(topL, drawTop);
-    ctx.lineTo(topR, drawTop);
-    ctx.lineTo(botR, drawTop + drawH);
-    ctx.lineTo(botL, drawTop + drawH);
-    ctx.closePath();
+    ctx.moveTo(arcLeft, 0);
+    ctx.quadraticCurveTo(filterCenterX, arcDepth * 2, arcRight, 0);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Edges from arc down to bottom (angled sides)
+    ctx.strokeStyle = 'rgba(255, 215, 0, 0.3)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(arcLeft, 0);
+    ctx.lineTo(arcLeft - w * 0.03, h);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(arcRight, 0);
+    ctx.lineTo(arcRight + w * 0.03, h);
     ctx.stroke();
 
-    // ── Contour curve (EQ) ──
-    if (contour > 0) {
-      const contourCenterX = (contourFreq / 255) * w;
-      const contourDepth = (contour / 255) * drawH * 0.5;
-      const contourWidth = w * 0.12;
-
-      ctx.strokeStyle = `${DARK_ALPHA} 0.25)`;
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([4, 3]);
-      ctx.beginPath();
-      for (let x = 0; x < w; x += 2) {
-        const dx = x - contourCenterX;
-        const gaussian = Math.exp(-(dx * dx) / (2 * contourWidth * contourWidth));
-        const y = drawTop + contourDepth * gaussian;
-        if (x === 0) ctx.moveTo(x, drawTop);
-        else ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-      ctx.setLineDash([]);
-    }
-
-    // ── Manual notch V-shape ──
+    // ── Manual notch (sharp V) ──
     if (manualNotch) {
       const notchX = (notchFreq / 255) * w;
-      const notchDepth = drawH * 0.7;
-      const notchHalfW = w * 0.015;
-
-      ctx.strokeStyle = `${DARK_ALPHA} 0.5)`;
+      const notchDepth = h * 0.5;
+      ctx.strokeStyle = 'rgba(255, 80, 80, 0.7)';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.moveTo(notchX - notchHalfW * 3, drawTop);
-      ctx.lineTo(notchX, drawTop + notchDepth);
-      ctx.lineTo(notchX + notchHalfW * 3, drawTop);
+      ctx.moveTo(notchX - w * 0.015, 0);
+      ctx.lineTo(notchX, notchDepth);
+      ctx.lineTo(notchX + w * 0.015, 0);
       ctx.stroke();
-
-      // Notch label
-      ctx.fillStyle = `${DARK_ALPHA} 0.35)`;
-      ctx.font = '8px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText('N', notchX, drawTop + notchDepth + 10);
     }
 
-    // ── FFT Bars ──
-    if (!pixels || pixels.length === 0) {
-      // No data — flat noise floor
-      drawNoiseFloor(ctx, w, drawTop, drawH);
-    } else {
-      drawFftBars(ctx, pixels, w, drawTop, drawH, maxVal,
-        filterCenterX, filterHalfW, clampedSlope);
-    }
+    // ── FFT Spectrum bars ──
+    drawFftBars(ctx, pixels, w, h, maxVal);
 
-    // ── Scanlines overlay ──
-    for (let y = 0; y < h; y += 3) {
-      ctx.fillStyle = `rgba(0, 0, 0, ${SCANLINE_ALPHA})`;
-      ctx.fillRect(0, y, w, 1);
-    }
-
-    if (!compact) {
-      // ── Frequency labels at bottom ──
-      drawFreqLabels(ctx, w, h, bottomMargin);
-
-      // ── Bandwidth label (top-right) ──
-      ctx.fillStyle = `${DARK_ALPHA} 0.3)`;
-      ctx.font = '9px monospace';
-      ctx.textAlign = 'right';
-      const bwLabel = filterWidth >= 1000
-        ? `${(filterWidth / 1000).toFixed(1)}k`
-        : `${filterWidth}`;
-      ctx.fillText(`BW ${bwLabel}`, w - 4, 10);
-
-      // ── Mode label (top-left) ──
-      ctx.textAlign = 'left';
-      ctx.fillText(mode, 4, 10);
-    }
+    // ── Thin baseline ──
+    ctx.strokeStyle = 'rgba(160, 165, 170, 0.2)';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(0, h - 1);
+    ctx.lineTo(w, h - 1);
+    ctx.stroke();
   }
 
   function drawFftBars(
     ctx: CanvasRenderingContext2D,
-    pixels: Uint8Array,
+    pixels: Uint8Array | null,
     w: number,
-    drawTop: number,
-    drawH: number,
+    h: number,
     maxVal: number,
-    filterCenterX: number,
-    filterHalfW: number,
-    slopeW: number,
   ): void {
-    const len = pixels.length;
-    // Target ~2px wide bars with 1px gap
-    const barWidth = 2;
+    const barWidth = 1;
     const barGap = 1;
     const barStep = barWidth + barGap;
     const numBars = Math.floor(w / barStep);
 
-    // Initialize smoothed array
     if (!smoothed || smoothed.length !== numBars) {
       smoothed = new Float32Array(numBars);
     }
 
     for (let i = 0; i < numBars; i++) {
       const x = i * barStep;
-      const centerX = x + barWidth / 2;
 
-      // Map bar position to pixel index
-      const pixIdx = Math.floor((i / numBars) * len);
-      const rawAmp = Math.min(pixels[pixIdx], maxVal) / maxVal;
-
-      // Apply filter mask: attenuate outside passband
-      const filterGain = getFilterGain(centerX, drawTop, drawH,
-        filterCenterX, filterHalfW, slopeW);
-
-      // Apply contour EQ
-      let contourGain = 1.0;
-      if (contour > 0) {
-        const contourCenterX = (contourFreq / 255) * w;
-        const contourWidthPx = w * 0.12;
-        const dx = centerX - contourCenterX;
-        const gaussian = Math.exp(-(dx * dx) / (2 * contourWidthPx * contourWidthPx));
-        const depth = (contour / 255) * 0.8;
-        contourGain = 1.0 - depth * gaussian;
-      }
-
-      // Apply notch
-      let notchGain = 1.0;
-      if (manualNotch) {
-        const notchX = (notchFreq / 255) * w;
-        const notchWidthPx = w * 0.015;
-        const dx = centerX - notchX;
-        const gaussian = Math.exp(-(dx * dx) / (2 * notchWidthPx * notchWidthPx));
-        notchGain = 1.0 - 0.95 * gaussian;
-      }
-
-      const targetAmp = rawAmp * filterGain * contourGain * notchGain;
-
-      // Smooth (attack/decay)
-      const prev = smoothed[i];
-      if (targetAmp > prev) {
-        smoothed[i] = prev + (targetAmp - prev) * SMOOTH_ATTACK;
+      let rawAmp: number;
+      if (pixels && pixels.length > 0) {
+        const pixIdx = Math.floor((i / numBars) * pixels.length);
+        rawAmp = Math.min(pixels[pixIdx], maxVal) / maxVal;
       } else {
-        smoothed[i] = prev + (targetAmp - prev) * SMOOTH_DECAY;
+        // No data: random low noise floor
+        rawAmp = Math.random() * 0.08 + 0.02;
+      }
+
+      // Smooth
+      const prev = smoothed[i];
+      if (rawAmp > prev) {
+        smoothed[i] = prev + (rawAmp - prev) * SMOOTH_ATTACK;
+      } else {
+        smoothed[i] = prev + (rawAmp - prev) * SMOOTH_DECAY;
       }
 
       const amp = smoothed[i];
-      const barH = amp * drawH;
+      const barH = amp * h * 0.85;
       if (barH < 1) continue;
 
-      const y = drawTop + drawH - barH;
+      const y = h - barH;
 
-      // Pixelated: snap to 2px grid vertically
-      const snapY = Math.round(y / 2) * 2;
-      const snapH = drawTop + drawH - snapY;
-
-      // Color intensity based on amplitude
-      const alpha = 0.3 + amp * 0.55;
-      ctx.fillStyle = `${DARK_ALPHA} ${alpha})`;
-      ctx.fillRect(x, snapY, barWidth, snapH);
+      // Color: brighter for taller bars
+      ctx.fillStyle = amp > 0.4 ? BAR_COLOR_HI : BAR_COLOR_LO;
+      ctx.fillRect(x, y, barWidth, barH);
     }
-  }
-
-  function getFilterGain(
-    x: number,
-    drawTop: number,
-    drawH: number,
-    filterCenterX: number,
-    filterHalfW: number,
-    slopeW: number,
-  ): number {
-    const dist = Math.abs(x - filterCenterX);
-    if (dist <= filterHalfW) return 1.0; // Inside passband
-    if (dist >= filterHalfW + slopeW) return 0.04; // Outside — very attenuated
-    // On the slope — linear interpolation
-    const t = (dist - filterHalfW) / slopeW;
-    return 1.0 - t * 0.96;
-  }
-
-  function drawNoiseFloor(
-    ctx: CanvasRenderingContext2D,
-    w: number,
-    drawTop: number,
-    drawH: number,
-  ): void {
-    const barWidth = 2;
-    const barStep = 3;
-    const numBars = Math.floor(w / barStep);
-    for (let i = 0; i < numBars; i++) {
-      const x = i * barStep;
-      const noiseH = (Math.random() * 0.08 + 0.02) * drawH;
-      const y = drawTop + drawH - noiseH;
-      ctx.fillStyle = `${DARK_ALPHA} 0.12)`;
-      ctx.fillRect(x, y, barWidth, noiseH);
-    }
-  }
-
-  function drawFreqLabels(
-    ctx: CanvasRenderingContext2D,
-    w: number,
-    h: number,
-    bottomMargin: number,
-  ): void {
-    const halfBw = sampleRate / 2;
-    ctx.fillStyle = `${DARK_ALPHA} 0.3)`;
-    ctx.font = '8px monospace';
-    ctx.textAlign = 'center';
-
-    // Frequency ticks every 6 kHz
-    const tickStep = 6000;
-    for (let freq = tickStep; freq < halfBw; freq += tickStep) {
-      const xRight = w / 2 + (freq / halfBw) * (w / 2);
-      const xLeft = w / 2 - (freq / halfBw) * (w / 2);
-      const label = `${freq / 1000}k`;
-
-      if (xRight < w - 20) {
-        ctx.fillText(label, xRight, h - 2);
-        // Tick mark
-        ctx.fillRect(xRight - 0.5, h - bottomMargin, 1, 3);
-      }
-      if (xLeft > 20) {
-        ctx.fillText(label, xLeft, h - 2);
-        ctx.fillRect(xLeft - 0.5, h - bottomMargin, 1, 3);
-      }
-    }
-
-    // Center label
-    ctx.fillText('0', w / 2, h - 2);
   }
 
   function onVisibilityChange() {
@@ -425,13 +258,13 @@
     width: 100%;
     height: 100%;
     position: relative;
+    background: #0C0C0C;
+    border-radius: 2px;
   }
 
   canvas {
     display: block;
     width: 100%;
     height: 100%;
-    border-radius: 2px;
-    image-rendering: pixelated;
   }
 </style>
