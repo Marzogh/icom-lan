@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] — 2026-03-27
+
 ### Added
 
 - **Multi-vendor rig profile support** — TOML schema extended for non-Icom radios:
@@ -25,7 +27,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`civ_addr` now optional** — defaults to 0 for Kenwood/Yaesu CAT radios
 - `RadioProfile` and `RigConfig` extended with `protocol_type`, `controls`,
   `meter_calibrations`, `rules`
-- 42 new tests in `test_rig_multi_vendor.py` (139 total, 0 regressions)
+- **Yaesu CAT backend** (Epic #107) — full implementation for Yaesu FTX-1/FT-710/FT-991A:
+  - YaesuCatTransport (async line protocol, `;` terminated, echo handling)
+  - CAT template formatter + response parser (compile-once)
+  - Polling scheduler for smooth meters (fast meters, slower state)
+  - Full Web UI integration (command dispatch, levels, audio)
+- **Audio FFT Scope** (Epic #383) — IF waterfall from USB/LAN audio stream:
+  - AudioFftScope class (real-time FFT processor, consumes PCM, produces ScopeFrame)
+  - Backend-agnostic (works with any AudioCapable radio)
+  - Reuses existing scope protocol (SpectrumPanel + WaterfallCanvas)
+- **Amber LCD display** (#389, #386) — retro KX3-style UI for radios without hardware spectrum:
+  - 7-segment font, segmented bargraph, status indicators
+  - Embedded Audio FFT strip (trapezoid filter visualization)
+  - Grouped indicators (ATT/PRE/ATU/Contour/PROC/VOX)
+  - Adaptive lerp (smooth animated filter width transitions)
+- **Profile-driven command dispatch** (Epic #390-#396) — auto-wire all TOML commands to Web UI:
+  - Frontend capability guards for multi-radio (hide unsupported controls)
+  - Optimistic UI updates for NB/NR levels
+  - Auto-reconnect on persistent serial errors
+- **Serial discovery** (Epic #222) — `icom-lan discover` scans LAN + USB serial:
+  - Multi-protocol probing (CI-V auto baud, Yaesu CAT, Kenwood CAT)
+  - Deduplication (same radio found via LAN and serial)
+- 42 new tests in `test_rig_multi_vendor.py` + 636 new tests total (3934 passed, 0 regressions)
 
 ## [0.12.0] — 2026-03-15
 
