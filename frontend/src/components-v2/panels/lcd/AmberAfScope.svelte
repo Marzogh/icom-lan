@@ -86,33 +86,43 @@
     ctx.clearRect(0, 0, w, h);
 
     // ── Trapezoid geometry ──
-    // The trapezoid represents the filter passband.
-    // Top flat edge = passband, legs slope outward to bottom (open bottom).
-    // Scale so the top edge is visually prominent (~60% of scope width for typical SSB).
+    // The total construct (whiskers + trapezoid) has FIXED outer width.
+    // The trapezoid (filter passband) grows/shrinks inside.
+    // When filter narrows → trapezoid shrinks, whiskers extend.
+    // When filter widens → trapezoid grows, whiskers shrink.
     const cx = w / 2 + (ifShift / halfBw) * (w / 2);
 
-    // Map filter width to visual width: full audio BW = full scope width
-    // But clamp so a 2.4kHz filter on 48kHz SR doesn't look tiny
-    const minTopFrac = 0.25; // minimum top width as fraction of scope
-    const rawFrac = filterWidth / sampleRate;
-    const topFrac = Math.max(minTopFrac, Math.min(0.65, rawFrac * 5.5));
-    const topHalfW = (topFrac * w) / 2;
+    // Fixed outer endpoints of the whiskers (total construct width)
+    const totalHalfW = w * 0.42; // total half-width of entire construct
 
-    // Slope: legs flare outward ~30°
+    // Slope: how much the legs flare outward
     const slopeExtra = h * 0.35;
 
+    // Filter width → top edge width (proportional)
+    // FTX-1 filter range: ~200 Hz (CW) to ~4000 Hz (AM/wide)
+    // Reference: 3000 Hz SSB ≈ current visual size
+    const refFilterHz = 3000;
+    const filterRatio = filterWidth / refFilterHz;
+    // Top half-width = (totalHalfW - slopeExtra) * ratio, clamped
+    const maxTopHalfW = totalHalfW - slopeExtra;
+    const topHalfW = Math.max(h * 0.1, Math.min(maxTopHalfW, maxTopHalfW * filterRatio));
+
+    // Trapezoid corners
     const tl = cx - topHalfW;
     const tr = cx + topHalfW;
     const bl = cx - topHalfW - slopeExtra;
     const br = cx + topHalfW + slopeExtra;
 
-    // ── Draw trapezoid outline (no bottom edge) + baseline extensions ──
-    const legLen = Math.hypot(tl - bl, h); // length of one leg
+    // Fixed whisker outer endpoints
+    const whiskerLeft = cx - totalHalfW;
+    const whiskerRight = cx + totalHalfW;
+
+    // ── Draw trapezoid + whiskers (fixed outer width) ──
     ctx.strokeStyle = INK;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    // Left baseline extension (from bottom-left, going left)
-    ctx.moveTo(bl - legLen, h);
+    // Left whisker: from fixed outer point to bottom-left of trapezoid
+    ctx.moveTo(whiskerLeft, h);
     ctx.lineTo(bl, h);
     // Left leg up
     ctx.lineTo(tl, 0);
@@ -120,8 +130,8 @@
     ctx.lineTo(tr, 0);
     // Right leg down
     ctx.lineTo(br, h);
-    // Right baseline extension (from bottom-right, going right)
-    ctx.lineTo(br + legLen, h);
+    // Right whisker: from bottom-right of trapezoid to fixed outer point
+    ctx.lineTo(whiskerRight, h);
     ctx.stroke();
 
     // ── Contour (U-shape dip from top) ──
