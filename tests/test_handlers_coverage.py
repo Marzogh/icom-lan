@@ -1257,7 +1257,7 @@ async def test_set_tuner_status_ws_command() -> None:
 async def test_set_tuner_status_ws_command_no_radio() -> None:
     """set_tuner_status raises when radio is not connected."""
     handler = _control_handler(radio=None)
-    with pytest.raises(RuntimeError, match="radio connection not available"):
+    with pytest.raises(RuntimeError, match="no command queue available"):
         await handler._enqueue_command("set_tuner_status", {"value": 1})
 
 

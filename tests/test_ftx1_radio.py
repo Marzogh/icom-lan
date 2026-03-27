@@ -623,43 +623,9 @@ async def test_get_processor(connected_radio):
     assert await connected_radio.get_processor() is True
 
 
-@pytest.mark.asyncio
-async def test_get_monitor_on(connected_radio):
-    """ML0 sub-command: monitor on/off state."""
-    connected_radio._transport.query = AsyncMock(return_value="ML0001")
-    assert await connected_radio.get_monitor_on() is True
-    connected_radio._transport.query.assert_called_once_with("ML0;")
 
-
-@pytest.mark.asyncio
-async def test_get_monitor_on_off(connected_radio):
-    """ML0 sub-command: monitor off."""
-    connected_radio._transport.query = AsyncMock(return_value="ML0000")
-    assert await connected_radio.get_monitor_on() is False
-
-
-@pytest.mark.asyncio
-async def test_set_monitor_on(connected_radio):
-    """ML0 sub-command: set monitor on."""
-    connected_radio._transport.write = AsyncMock()
-    await connected_radio.set_monitor_on(True)
-    connected_radio._transport.write.assert_called_once_with("ML0001;")
-
-
-@pytest.mark.asyncio
-async def test_get_monitor_level(connected_radio):
-    """ML1 sub-command: monitor gain level."""
-    connected_radio._transport.query = AsyncMock(return_value="ML1100")
-    assert await connected_radio.get_monitor_level() == 100
-    connected_radio._transport.query.assert_called_once_with("ML1;")
-
-
-@pytest.mark.asyncio
-async def test_set_monitor_level(connected_radio):
-    """ML1 sub-command: set monitor gain level."""
-    connected_radio._transport.write = AsyncMock()
-    await connected_radio.set_monitor_level(128)
-    connected_radio._transport.write.assert_called_once_with("ML1128;")
+# Monitor (ML) tests removed — FTX-1 does not support ML command via CAT (returns ?;)
+# See rigs/ftx1.toml: monitor commented out, capability disabled in commit 39e3dc1
 
 
 # ---------------------------------------------------------------------------
