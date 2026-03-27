@@ -86,14 +86,21 @@
     ctx.clearRect(0, 0, w, h);
 
     // ── Trapezoid geometry ──
-    // Center of filter in pixel coords
+    // The trapezoid represents the filter passband.
+    // Top flat edge = passband, legs slope outward to bottom (open bottom).
+    // Scale so the top edge is visually prominent (~60% of scope width for typical SSB).
     const cx = w / 2 + (ifShift / halfBw) * (w / 2);
-    // Half-width of passband at TOP (flat top of trapezoid)
-    const topHalfW = (filterWidth / 2 / halfBw) * (w / 2);
-    // Slope: edges flare outward going down. ~30° angle
-    const slopeExtra = h * 0.55; // how much wider at bottom vs top
 
-    // 4 points: topLeft, topRight (flat top), botLeft, botRight (open bottom)
+    // Map filter width to visual width: full audio BW = full scope width
+    // But clamp so a 2.4kHz filter on 48kHz SR doesn't look tiny
+    const minTopFrac = 0.35; // minimum top width as fraction of scope
+    const rawFrac = filterWidth / sampleRate;
+    const topFrac = Math.max(minTopFrac, Math.min(0.9, rawFrac * 8));
+    const topHalfW = (topFrac * w) / 2;
+
+    // Slope: legs flare outward ~30°
+    const slopeExtra = h * 0.5;
+
     const tl = cx - topHalfW;
     const tr = cx + topHalfW;
     const bl = cx - topHalfW - slopeExtra;
