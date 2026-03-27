@@ -106,15 +106,22 @@
     const bl = cx - topHalfW - slopeExtra;
     const br = cx + topHalfW + slopeExtra;
 
-    // ── Draw trapezoid outline (no bottom edge) ──
+    // ── Draw trapezoid outline (no bottom edge) + baseline extensions ──
+    const legLen = Math.hypot(tl - bl, h); // length of one leg
     ctx.strokeStyle = INK;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(bl, h);            // bottom-left
-    ctx.lineTo(tl, 0);            // up to top-left
-    ctx.lineTo(tr, 0);            // across top
-    ctx.lineTo(br, h);            // down to bottom-right
-    // NO closePath — open bottom
+    // Left baseline extension (from bottom-left, going left)
+    ctx.moveTo(bl - legLen, h);
+    ctx.lineTo(bl, h);
+    // Left leg up
+    ctx.lineTo(tl, 0);
+    // Flat top
+    ctx.lineTo(tr, 0);
+    // Right leg down
+    ctx.lineTo(br, h);
+    // Right baseline extension (from bottom-right, going right)
+    ctx.lineTo(br + legLen, h);
     ctx.stroke();
 
     // ── Contour (U-shape dip from top) ──
