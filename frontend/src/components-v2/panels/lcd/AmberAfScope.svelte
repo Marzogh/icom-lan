@@ -53,6 +53,11 @@
   const ATTACK = 0.4;
   const DECAY = 0.15;
 
+  // Auto-gain AGC for scope display
+  let agcPeak = 40; // smoothed peak value
+  const AGC_ATTACK = 0.3;  // fast attack (signal appears)
+  const AGC_RELEASE = 0.02; // slow release (signal fades)
+
   // Trapezoid animation — adaptive lerp toward target filterWidth
   // Big jumps (fast knob turning) → fast animation to keep up
   // Small jumps (fine tuning) → smooth slow animation for polish
@@ -60,9 +65,14 @@
   let prevTargetFilter = filterWidth;
   let adaptiveLerp = 0.12;
 
+  let _drawCount = 0;
   function draw(): void {
     if (!visible) { rafId = 0; return; }
     const pixels = latestPixels ?? data;
+    if (_drawCount < 3) {
+      _drawCount++;
+      console.log(`[AF-SCOPE draw#${_drawCount}] pixels=${pixels ? pixels.length : 'null'} latestPixels=${latestPixels ? latestPixels.length : 'null'} data=${data ? data.length : 'null'} w=${cssWidth} h=${cssHeight} canvas=${!!canvas}`);
+    }
     let w = cssWidth;
     let h = cssHeight;
     if ((w <= 1 || h <= 1) && canvas) {
@@ -220,7 +230,7 @@
     }
 
     // ── FFT bars INSIDE trapezoid — only passband portion of spectrum ──
-    drawFft(ctx, pixels, w, h, trapTop, trapH, cx, topHalfW, slopeExtra, filterHz);
+    drawFft(ctx, pixels, w, h, trapTop, trapH, cx, topHalfW, slopeExtra, filterHz, gainMultiplier);
   }
 
   function drawFft(
@@ -234,6 +244,7 @@
     topHalfW: number,
     slopeExtra: number,
     passbandHz: number,
+    gain: number,
   ): void {
     const maxVal = 160;
     const barW = 2;
@@ -254,9 +265,42 @@
     }
 
     // Only show FFT bins within the passband (0 → passbandHz)
-    // FFT pixels cover 0 → sampleRate/2 (Nyquist)
     const nyquist = sampleRate / 2;
     const passbandFrac = Math.min(1, passbandHz / nyquist);
+
+    // Auto-gain AGC: find peak in passband, smooth it, normalize bars
+    let peakVal = 1;
+    if (pixels && pixels.length > 0) {
+      const dcIdx = Math.floor(pixels.length / 2);
+      const endBin = dcIdx + Math.ceil(passbandFrac * (pixels.length - dcIdx));
+      for (let j = dcIdx; j < endBin && j < pixels.length; j++) {
+        if (pixels[j] > peakVal) peakVal = pixels[j];
+      }
+    }
+    // Smooth the peak (fast attack, slow release — like real AGC)
+    if (peakVal > agcPeak) {
+      agcPeak += (peakVal - agcPeak) * AGC_ATTACK;
+    } else {
+      agcPeak += (peakVal - agcPeak) * AGC_RELEASE;
+    }
+    agcPeak = Math.max(10, agcPeak); // floor to avoid division issues
+    const gainMultiplier = maxVal / agcPeak;
+
+    // DEBUG: log first frame's data
+    if (pixels && pixels.length > 0 && !drawFft._logged) {
+      drawFft._logged = true;
+      const dcIdx = Math.floor(pixels.length / 2);
+      const first20pos = Array.from(pixels.slice(dcIdx, dcIdx + 20));
+      const first20neg = Array.from(pixels.slice(0, 20));
+      const mid20 = Array.from(pixels.slice(dcIdx - 10, dcIdx + 10));
+      const max = Math.max(...Array.from(pixels));
+      const avg = Array.from(pixels).reduce((a, b) => a + b, 0) / pixels.length;
+      console.log(`[AF-SCOPE] len=${pixels.length} dcIdx=${dcIdx} max=${max} avg=${avg.toFixed(1)}`);
+      console.log(`[AF-SCOPE] first20neg=`, first20neg);
+      console.log(`[AF-SCOPE] around_dc=`, mid20);
+      console.log(`[AF-SCOPE] first20pos=`, first20pos);
+      console.log(`[AF-SCOPE] passbandHz=${passbandHz} passbandFrac=${passbandFrac.toFixed(4)} numBars=${numBars}`);
+    }
 
     for (let i = 0; i < numBars; i++) {
       const x = startX + i * step;
@@ -275,7 +319,7 @@
         // Map to positive-side FFT bin within passband only
         const pixIdx = dcIdx + Math.floor(barFrac * passbandFrac * positiveLen);
         const clamped = Math.max(dcIdx, Math.min(pixels.length - 1, pixIdx));
-        rawAmp = Math.min(pixels[clamped], maxVal) / maxVal;
+        rawAmp = Math.min(pixels[clamped] * gain, maxVal) / maxVal;
       } else {
         rawAmp = Math.random() * 0.06 + 0.02;
       }
