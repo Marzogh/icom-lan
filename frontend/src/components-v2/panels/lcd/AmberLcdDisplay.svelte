@@ -111,23 +111,6 @@
   <div class="lcd-screen">
     <div class="lcd-scanlines"></div>
 
-    <!-- ═══ AF Scope (top, mini strip) ═══ -->
-    {#if showFft}
-      <div class="lcd-scope-strip">
-        <AmberAfScope
-          data={fftPixels}
-          onRegisterPush={(fn) => { fftPush = fn; }}
-          filterWidth={filterWidthHz}
-          contour={contourLevel}
-          manualNotch={manualNotchOn}
-          notchFreq={notchFreqRaw}
-          autoNotch={notchActive}
-          {mode}
-          compact
-        />
-      </div>
-    {/if}
-
     <!-- ═══ S-Meter ═══ -->
     <div class="lcd-meter-row">
       <AmberSmeter value={sValue} {txActive} />
@@ -164,13 +147,30 @@
       <span class="lcd-ind" class:active={lockActive}>LOCK</span>
     </div>
 
-    <!-- ═══ VFO A: main frequency ═══ -->
-    <div class="lcd-vfo-row lcd-vfo-main">
-      <span class="vfo-tag">{activeVfo}</span>
-      <div class="vfo-freq">
-        <AmberFrequency {freqHz} size="large" />
+    <!-- ═══ VFO A + AF Scope row ═══ -->
+    <div class="lcd-vfo-scope-row">
+      <div class="lcd-vfo-row lcd-vfo-main">
+        <span class="vfo-tag">{activeVfo}</span>
+        <div class="vfo-freq">
+          <AmberFrequency {freqHz} size="large" />
+        </div>
+        <span class="vfo-mode-box">{mode}{filter ? ` ${filter}` : ''}</span>
       </div>
-      <span class="vfo-mode-box">{mode}{filter ? ` ${filter}` : ''}</span>
+      {#if showFft}
+        <div class="lcd-scope-strip">
+          <AmberAfScope
+            data={fftPixels}
+            onRegisterPush={(fn) => { fftPush = fn; }}
+            filterWidth={filterWidthHz}
+            contour={contourLevel}
+            manualNotch={manualNotchOn}
+            notchFreq={notchFreqRaw}
+            autoNotch={notchActive}
+            {mode}
+            compact
+          />
+        </div>
+      {/if}
     </div>
 
     <!-- ═══ VFO B: sub frequency ═══ -->
@@ -280,6 +280,15 @@
     font-size: 15px;
   }
 
+  /* ── VFO + Scope row ── */
+  .lcd-vfo-scope-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: relative;
+    z-index: 2;
+  }
+
   /* ── VFO rows ── */
   .lcd-vfo-row {
     display: flex;
@@ -375,16 +384,15 @@
     color: rgba(26, 16, 0, 0.6);
   }
 
-  /* ── AF Scope strip (top, ~1/5 LCD width) ── */
+  /* ── AF Scope strip (next to VFO freq) ── */
   .lcd-scope-strip {
     position: relative;
     z-index: 2;
-    width: 22%;
-    height: 36px;
-    flex-shrink: 0;
-    align-self: center;
-    border: 1px solid rgba(26, 16, 0, 0.15);
-    border-radius: 2px;
+    flex: 0 0 30%;
+    height: 54px;
+    border: 1.5px solid rgba(26, 16, 0, 0.25);
+    border-radius: 3px;
+    background: rgba(180, 140, 40, 0.12);
   }
 
   /* ── TX glow ── */
