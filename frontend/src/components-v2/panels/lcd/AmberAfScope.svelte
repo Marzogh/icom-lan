@@ -48,10 +48,14 @@
   const INK = '#1A1000';
   const INK_A = 'rgba(26, 16, 0,';
 
-  // Smoothing
+  // FFT bar smoothing
   let smoothed: Float32Array | null = null;
   const ATTACK = 0.4;
   const DECAY = 0.15;
+
+  // Trapezoid animation — smooth lerp toward target filterWidth
+  let animatedFilterWidth = $state(filterWidth);
+  const TRAP_LERP = 0.08; // lower = slower/smoother animation
 
   function draw(): void {
     if (!visible) { rafId = 0; return; }
@@ -70,6 +74,14 @@
         canvas.getContext('2d')?.setTransform(dpr, 0, 0, dpr, 0, 0);
       }
     }
+    // Animate trapezoid toward target filter width
+    const diff = filterWidth - animatedFilterWidth;
+    if (Math.abs(diff) > 0.01) {
+      animatedFilterWidth += diff * TRAP_LERP;
+    } else {
+      animatedFilterWidth = filterWidth;
+    }
+
     if (canvas && w > 1 && h > 1) {
       const ctx = canvas.getContext('2d');
       if (ctx) render(ctx, pixels, w, h);
@@ -102,8 +114,8 @@
     const slopeExtra = h * 0.35;
 
     // Filter width → top edge width (proportional to max)
-    // filterWidth / filterWidthMax = how wide the passband is (0..1)
-    const filterRatio = Math.max(0.05, Math.min(1, filterWidth / Math.max(1, filterWidthMax)));
+    // Use animated value for smooth transitions
+    const filterRatio = Math.max(0.05, Math.min(1, animatedFilterWidth / Math.max(1, filterWidthMax)));
     const maxTopHalfW = totalHalfW - slopeExtra;
     const topHalfW = Math.max(h * 0.1, maxTopHalfW * filterRatio);
 
