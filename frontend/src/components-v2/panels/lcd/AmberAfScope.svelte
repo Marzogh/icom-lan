@@ -113,6 +113,9 @@
     h: number,
   ): void {
     const halfBw = sampleRate / 2;
+    const labelH = 14; // space for filter width label at top
+    const trapTop = labelH;
+    const trapH = h - labelH;
 
     // Clear to transparent (amber LCD shines through)
     ctx.clearRect(0, 0, w, h);
@@ -125,18 +128,17 @@
     const cx = w / 2 + (ifShift / halfBw) * (w / 2);
 
     // Fixed outer endpoints of the whiskers (total construct width)
-    const totalHalfW = w * 0.42; // total half-width of entire construct
+    const totalHalfW = w * 0.42;
 
     // Slope: how much the legs flare outward
-    const slopeExtra = h * 0.35;
+    const slopeExtra = trapH * 0.35;
 
     // Filter width → top edge width (proportional to max)
-    // Use animated value for smooth transitions
     const filterRatio = Math.max(0.05, Math.min(1, animatedFilterWidth / Math.max(1, filterWidthMax)));
     const maxTopHalfW = totalHalfW - slopeExtra;
-    const topHalfW = Math.max(h * 0.1, maxTopHalfW * filterRatio);
+    const topHalfW = Math.max(trapH * 0.1, maxTopHalfW * filterRatio);
 
-    // Trapezoid corners
+    // Trapezoid corners (in trapezoid zone: trapTop → h)
     const tl = cx - topHalfW;
     const tr = cx + topHalfW;
     const bl = cx - topHalfW - slopeExtra;
@@ -146,55 +148,62 @@
     const whiskerLeft = cx - totalHalfW;
     const whiskerRight = cx + totalHalfW;
 
-    // ── Draw trapezoid + whiskers (fixed outer width) ──
+    // ── Filter width label (segment font + "kHz") ──
+    const filterHz = 200 + (animatedFilterWidth / 36) * 3800;
+    const filterKhz = (filterHz / 1000).toFixed(1);
+    ctx.font = "bold 12px 'DSEG7 Classic', monospace";
+    ctx.fillStyle = INK;
+    ctx.textAlign = 'center';
+    const numW = ctx.measureText(filterKhz).width;
+    ctx.fillText(filterKhz, cx - 8, labelH - 1);
+    ctx.font = "bold 8px 'JetBrains Mono', 'Courier New', monospace";
+    ctx.fillStyle = `${INK_A} 0.55)`;
+    ctx.textAlign = 'left';
+    ctx.fillText('kHz', cx + numW / 2 - 5, labelH - 1);
+
+    // ── Draw trapezoid + whiskers (thick LCD ink) ──
     ctx.strokeStyle = INK;
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
-    // Left whisker: from fixed outer point to bottom-left of trapezoid
     ctx.moveTo(whiskerLeft, h);
     ctx.lineTo(bl, h);
-    // Left leg up
-    ctx.lineTo(tl, 0);
-    // Flat top
-    ctx.lineTo(tr, 0);
-    // Right leg down
+    ctx.lineTo(tl, trapTop);
+    ctx.lineTo(tr, trapTop);
     ctx.lineTo(br, h);
-    // Right whisker: from bottom-right of trapezoid to fixed outer point
     ctx.lineTo(whiskerRight, h);
     ctx.stroke();
 
-    // ── Contour (U-shape dip from top) ──
+    // ── Contour (U-shape dip from top of trapezoid) ──
     if (contour > 0) {
-      // Map contourFreq (0-255) to position within the top edge
       const contourX = tl + (contourFreq / 255) * (tr - tl);
-      const depth = (contour / 255) * h * 0.4;
-      const cWidth = (tr - tl) * 0.25; // width of the U
+      const depth = (contour / 255) * trapH * 0.4;
+      const cWidth = (tr - tl) * 0.25;
 
       ctx.strokeStyle = `${INK_A} 0.6)`;
       ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.moveTo(contourX - cWidth, 0);
-      ctx.quadraticCurveTo(contourX, depth * 2, contourX + cWidth, 0);
+      ctx.moveTo(contourX - cWidth, trapTop);
+      ctx.quadraticCurveTo(contourX, trapTop + depth * 2, contourX + cWidth, trapTop);
       ctx.stroke();
     }
 
-    // ── Manual notch (sharp V from top) ──
+    // ── Manual notch (sharp V from top of trapezoid) ──
     if (manualNotch) {
       const notchX = tl + (notchFreq / 255) * (tr - tl);
-      const depth = h * 0.55;
+      const depth = trapH * 0.55;
       const nHalfW = (tr - tl) * 0.06;
 
       ctx.strokeStyle = `${INK_A} 0.75)`;
       ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.moveTo(notchX - nHalfW, 0);
-      ctx.lineTo(notchX, depth);
-      ctx.lineTo(notchX + nHalfW, 0);
+      ctx.moveTo(notchX - nHalfW, trapTop);
+      ctx.lineTo(notchX, trapTop + depth);
+      ctx.lineTo(notchX + nHalfW, trapTop);
       ctx.stroke();
     }
 
     // ── FFT bars INSIDE trapezoid only ──
-    drawFft(ctx, pixels, w, h, cx, topHalfW, slopeExtra);
+    drawFft(ctx, pixels, w, h, trapTop, trapH, cx, topHalfW, slopeExtra);
   }
 
   function drawFft(
@@ -202,6 +211,8 @@
     pixels: Uint8Array | null,
     w: number,
     h: number,
+    trapTop: number,
+    trapH: number,
     cx: number,
     topHalfW: number,
     slopeExtra: number,
@@ -249,32 +260,20 @@
       const amp = smoothed[i];
 
       // Max bar height = clipped by trapezoid at this X
-      // At position x, the trapezoid edge is at:
-      //   left edge: y = h * (x - botLeft) / (topLeft - botLeft + slopeExtra) ... 
-      // Simpler: at x, how high is the trapezoid?
       const distFromCenter = Math.abs(barCenterX - cx);
-      // At bottom (y=h): allowed if distFromCenter <= topHalfW + slopeExtra
-      // At top (y=0): allowed if distFromCenter <= topHalfW
-      // The trapezoid boundary at height y from bottom:
-      //   maxDist(y) = topHalfW + slopeExtra * (1 - y/h)
-      // Invert: max height for this x:
-      //   if distFromCenter <= topHalfW: full height
-      //   else: maxY = h * (1 - (distFromCenter - topHalfW) / slopeExtra)
-      let maxH: number;
+      let maxBarH: number;
       if (distFromCenter <= topHalfW) {
-        maxH = h;
+        maxBarH = trapH;
       } else if (distFromCenter <= topHalfW + slopeExtra) {
-        maxH = h * (1 - (distFromCenter - topHalfW) / slopeExtra);
+        maxBarH = trapH * (1 - (distFromCenter - topHalfW) / slopeExtra);
       } else {
-        continue; // outside trapezoid
+        continue;
       }
 
-      const barH = Math.min(amp * h * 0.85, maxH);
+      const barH = Math.min(amp * trapH * 0.85, maxBarH);
       if (barH < 1) continue;
 
       const y = h - barH;
-
-      // Snap to 2px grid for pixelated LCD look
       const snapY = Math.round(y / 2) * 2;
       const snapH = h - snapY;
 
