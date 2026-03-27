@@ -26,6 +26,8 @@
     centerFreqHz?: number;
     /** Current mode (SSB/CW/AM/FM etc.) */
     mode?: string;
+    /** Compact mode — hide labels, fill filter more prominently */
+    compact?: boolean;
   }
 
   let {
@@ -41,6 +43,7 @@
     sampleRate = 48000,
     centerFreqHz = 0,
     mode = 'USB',
+    compact = false,
   }: Props = $props();
 
   let canvas: HTMLCanvasElement;
@@ -84,8 +87,8 @@
   ): void {
     const maxVal = 160;
     const halfBw = sampleRate / 2;
-    const topMargin = 4;
-    const bottomMargin = 14; // space for freq labels
+    const topMargin = compact ? 1 : 4;
+    const bottomMargin = compact ? 1 : 14; // space for freq labels
     const drawH = h - topMargin - bottomMargin;
     const drawTop = topMargin;
 
@@ -127,8 +130,10 @@
     const botL = topL - clampedSlope;
     const botR = topR + clampedSlope;
 
-    // Draw trapezoid fill (very subtle)
-    ctx.fillStyle = `${DARK_ALPHA} 0.04)`;
+    // Draw trapezoid fill — solid warm fill like real radio passband indicator
+    ctx.fillStyle = compact
+      ? 'rgba(140, 60, 10, 0.25)'  // more visible in compact
+      : `${DARK_ALPHA} 0.06)`;
     ctx.beginPath();
     ctx.moveTo(topL, drawTop);
     ctx.lineTo(topR, drawTop);
@@ -138,8 +143,10 @@
     ctx.fill();
 
     // Draw trapezoid outline
-    ctx.strokeStyle = `${DARK_ALPHA} 0.35)`;
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = compact
+      ? 'rgba(120, 50, 5, 0.5)'
+      : `${DARK_ALPHA} 0.35)`;
+    ctx.lineWidth = compact ? 1 : 1.5;
     ctx.beginPath();
     ctx.moveTo(topL, drawTop);
     ctx.lineTo(topR, drawTop);
@@ -205,21 +212,23 @@
       ctx.fillRect(0, y, w, 1);
     }
 
-    // ── Frequency labels at bottom ──
-    drawFreqLabels(ctx, w, h, bottomMargin);
+    if (!compact) {
+      // ── Frequency labels at bottom ──
+      drawFreqLabels(ctx, w, h, bottomMargin);
 
-    // ── Bandwidth label (top-right) ──
-    ctx.fillStyle = `${DARK_ALPHA} 0.3)`;
-    ctx.font = '9px monospace';
-    ctx.textAlign = 'right';
-    const bwLabel = filterWidth >= 1000
-      ? `${(filterWidth / 1000).toFixed(1)}k`
-      : `${filterWidth}`;
-    ctx.fillText(`BW ${bwLabel}`, w - 4, 10);
+      // ── Bandwidth label (top-right) ──
+      ctx.fillStyle = `${DARK_ALPHA} 0.3)`;
+      ctx.font = '9px monospace';
+      ctx.textAlign = 'right';
+      const bwLabel = filterWidth >= 1000
+        ? `${(filterWidth / 1000).toFixed(1)}k`
+        : `${filterWidth}`;
+      ctx.fillText(`BW ${bwLabel}`, w - 4, 10);
 
-    // ── Mode label (top-left) ──
-    ctx.textAlign = 'left';
-    ctx.fillText(mode, 4, 10);
+      // ── Mode label (top-left) ──
+      ctx.textAlign = 'left';
+      ctx.fillText(mode, 4, 10);
+    }
   }
 
   function drawFftBars(

@@ -111,7 +111,24 @@
   <div class="lcd-screen">
     <div class="lcd-scanlines"></div>
 
-    <!-- ═══ S-Meter (top) ═══ -->
+    <!-- ═══ AF Scope (top, mini strip) ═══ -->
+    {#if showFft}
+      <div class="lcd-scope-strip">
+        <AmberAfScope
+          data={fftPixels}
+          onRegisterPush={(fn) => { fftPush = fn; }}
+          filterWidth={filterWidthHz}
+          contour={contourLevel}
+          manualNotch={manualNotchOn}
+          notchFreq={notchFreqRaw}
+          autoNotch={notchActive}
+          {mode}
+          compact
+        />
+      </div>
+    {/if}
+
+    <!-- ═══ S-Meter ═══ -->
     <div class="lcd-meter-row">
       <AmberSmeter value={sValue} {txActive} />
     </div>
@@ -177,21 +194,7 @@
       </div>
     {/if}
 
-    <!-- ═══ Audio AF Scope (LCD-style filter/FFT display) ═══ -->
-    {#if showFft}
-      <div class="lcd-fft-area">
-        <AmberAfScope
-          data={fftPixels}
-          onRegisterPush={(fn) => { fftPush = fn; }}
-          filterWidth={filterWidthHz}
-          contour={contourLevel}
-          manualNotch={manualNotchOn}
-          notchFreq={notchFreqRaw}
-          autoNotch={notchActive}
-          {mode}
-        />
-      </div>
-    {/if}
+
   </div>
 </div>
 
@@ -372,14 +375,16 @@
     color: rgba(26, 16, 0, 0.6);
   }
 
-  /* ── FFT ── */
-  .lcd-fft-area {
+  /* ── AF Scope strip (top, ~1/5 LCD width) ── */
+  .lcd-scope-strip {
     position: relative;
     z-index: 2;
-    height: 120px;
+    width: 22%;
+    height: 36px;
     flex-shrink: 0;
-    border-top: 1px solid rgba(0, 0, 0, 0.08);
-    padding-top: 3px;
+    align-self: center;
+    border: 1px solid rgba(26, 16, 0, 0.15);
+    border-radius: 2px;
   }
 
   /* ── TX glow ── */
