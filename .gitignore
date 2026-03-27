@@ -54,3 +54,5 @@ references/
 .kombai/
 
 .firecrawl/
+config/lancedb/
+config/models/
