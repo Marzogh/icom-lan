@@ -22,6 +22,7 @@ from .transport import YaesuCatTransport
 
 if TYPE_CHECKING:
     from ...audio_bus import AudioBus
+    from ...profiles import RadioProfile
 
 __all__ = ["YaesuCatRadio"]
 
@@ -82,6 +83,7 @@ class YaesuCatRadio:
             audio_driver: Optional pre-constructed UsbAudioDriver (for testing).
         """
         self._config = _load_config(profile)
+        self._profile_cache: RadioProfile | None = None
         self._transport = YaesuCatTransport(device=device, baudrate=baudrate)
         self._state = RadioState()
         self._audio_bus: AudioBus | None = None
@@ -161,8 +163,10 @@ class YaesuCatRadio:
 
     @property
     def profile(self) -> "RadioProfile":
-        """RadioProfile for this rig (from TOML config)."""
-        return self._config.to_profile()
+        """RadioProfile for this rig (from TOML config, cached)."""
+        if self._profile_cache is None:
+            self._profile_cache = self._config.to_profile()
+        return self._profile_cache
 
     @property
     def radio_state(self) -> RadioState:
@@ -375,10 +379,13 @@ class YaesuCatRadio:
     async def set_dual_watch(self, on: bool) -> None:
         """Enable or disable dual watch.
 
-        No-op if the rig profile does not define a ``set_dual_watch`` command.
+        No-op with warning if the rig profile does not define a
+        ``set_dual_watch`` command.
         """
         if self.has_write_command("set_dual_watch"):
             await self._write("set_dual_watch", state="1" if on else "0")
+        else:
+            logger.warning("set_dual_watch: no CAT command defined for %s", self.model)
 
     # -- Runtime profile introspection -------------------------------------
 
@@ -626,6 +633,13 @@ class YaesuCatRadio:
         """Set attenuator state (0 = OFF, 1 = ON)."""
         await self._write("set_attenuator", state=str(state))
 
+    async def set_attenuator_level(self, db: int, receiver: int = 0) -> None:
+        """Set attenuator by dB level.
+
+        FTX-1 has a simple on/off attenuator: any db > 0 turns it on.
+        """
+        await self.set_attenuator(1 if db > 0 else 0, receiver=receiver)
+
     async def get_preamp(self, band: int = 0) -> int:
         """Get preamp setting (0–2).
 
@@ -635,14 +649,15 @@ class YaesuCatRadio:
         result = await self._query("get_preamp")
         return int(result["value"])
 
-    async def set_preamp(self, value: int, band: int = 0) -> None:
+    async def set_preamp(self, level: int, receiver: int = 0, *, band: int = 0) -> None:
         """Set preamp setting.
 
         Args:
-            value: Preamp level (0–2).
+            level: Preamp level (0–2).
+            receiver: Ignored (FTX-1 single preamp path). Present for protocol compat.
             band: 0 = HF/50 MHz, 1 = VHF, 2 = UHF.
         """
-        await self._write("set_preamp", band=str(band), value=str(value))
+        await self._write("set_preamp", band=str(band), value=str(level))
 
     # -- D3: DSP (NB/NR/Notch) ----------------------------------------------
 

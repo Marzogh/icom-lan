@@ -1196,13 +1196,8 @@ class RadioPoller:
                 if self._on_state_event:
                     self._on_state_event("ipplus_changed", {"on": on, "receiver": rx})
             case SetAttenuator(db=db, receiver=rx):
-                if hasattr(radio, "set_attenuator_level"):
-                    self._ensure_receiver_supported(rx, operation="set_attenuator")
-                    await radio.set_attenuator_level(db, receiver=rx)
-                else:
-                    # Wire bytes from TOML: set_attenuator = [0x11]
-                    bcd = ((db // 10) << 4) | (db % 10)
-                    await self._send_cmd("set_attenuator", bytes([bcd]), receiver=rx)
+                self._ensure_receiver_supported(rx, operation="set_attenuator")
+                await radio.set_attenuator_level(db, receiver=rx)
                 if self._radio_state:
                     target = (
                         self._radio_state.sub if rx != 0 else self._radio_state.main
@@ -1216,12 +1211,8 @@ class RadioPoller:
                         "attenuator_changed", {"db": db, "receiver": rx}
                     )
             case SetPreamp(level=level, receiver=rx):
-                if hasattr(radio, "set_preamp"):
-                    self._ensure_receiver_supported(rx, operation="set_preamp")
-                    await radio.set_preamp(level, receiver=rx)
-                else:
-                    # Wire bytes from TOML: set_preamp = [0x16, 0x02]
-                    await self._send_cmd("set_preamp", bytes([level]), receiver=rx)
+                self._ensure_receiver_supported(rx, operation="set_preamp")
+                await radio.set_preamp(level, receiver=rx)
                 if self._radio_state:
                     target = (
                         self._radio_state.sub if rx != 0 else self._radio_state.main

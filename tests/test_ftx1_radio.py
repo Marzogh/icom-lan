@@ -402,7 +402,7 @@ async def test_get_preamp(connected_radio):
 @pytest.mark.asyncio
 async def test_set_preamp(connected_radio):
     connected_radio._transport.write = AsyncMock()
-    await connected_radio.set_preamp(2, band=0)
+    await connected_radio.set_preamp(2)
     connected_radio._transport.write.assert_called_once_with("PA02;")
 
 
