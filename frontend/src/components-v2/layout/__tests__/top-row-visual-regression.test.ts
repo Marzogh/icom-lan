@@ -1,11 +1,34 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushSync, mount, unmount } from 'svelte';
 
+vi.mock('$lib/stores/layout.svelte', () => ({
+  useLcdLayout: vi.fn(() => false),
+  getLayoutMode: vi.fn(() => 'auto'),
+  cycleLayoutMode: vi.fn(),
+  setLayoutMode: vi.fn(),
+}));
+
+vi.mock('$lib/stores/connection.svelte', () => ({
+  getConnectionStatus: vi.fn(() => ({ connected: false })),
+  getRadioPowerOn: vi.fn(() => null),
+  getRadioStatus: vi.fn(() => 'disconnected'),
+  isScopeConnected: vi.fn(() => false),
+  isAudioConnected: vi.fn(() => false),
+  getHttpConnected: vi.fn(() => false),
+}));
+
+vi.mock('$lib/stores/tuning.svelte', () => ({
+  applyModeDefault: vi.fn(),
+}));
+
 vi.mock('$lib/stores/capabilities.svelte', () => ({
   hasDualReceiver: vi.fn(() => true),
   hasTx: vi.fn(() => true),
   hasAudio: vi.fn(() => false),
   hasSpectrum: vi.fn(() => false),
+  hasAnyScope: vi.fn(() => false),
+  isAudioFftScope: vi.fn(() => false),
+  getScopeSource: vi.fn(() => null),
   hasCapability: vi.fn(() => false),
   getKeyboardConfig: vi.fn(() => null),
   getVfoScheme: vi.fn(() => 'main_sub'),
@@ -24,16 +47,19 @@ vi.mock('$lib/stores/capabilities.svelte', () => ({
       },
     ],
   })),
+  setCapabilities: vi.fn(),
   getAgcModes: vi.fn(() => [0, 1, 2, 3]),
   getAgcLabels: vi.fn(() => ({ 0: 'OFF', 1: 'FAST', 2: 'MID', 3: 'SLOW' })),
   getSupportedModes: vi.fn(() => ['USB', 'LSB', 'CW', 'AM', 'FM']),
   getSupportedFilters: vi.fn(() => ['FIL1', 'FIL2', 'FIL3']),
   getAttValues: vi.fn(() => [0, 10, 20]),
+  getAttLabels: vi.fn(() => ({ 0: '0dB', 10: '10dB', 20: '20dB' })),
   getPreValues: vi.fn(() => [0, 1, 2]),
+  getPreLabels: vi.fn(() => ({ 0: 'OFF', 1: 'PRE1', 2: 'PRE2' })),
+  getAntennaCount: vi.fn(() => 1),
   getSmeterCalibration: vi.fn(() => null),
   getSmeterRedline: vi.fn(() => null),
-  hasAnyScope: vi.fn(() => false),
-  isAudioFftScope: vi.fn(() => false),
+  getControlRange: vi.fn(() => ({ min: 0, max: 255 })),
 }));
 
 vi.mock('../../../components/spectrum/SpectrumPanel.svelte', async () => {
@@ -306,6 +332,12 @@ describe('VfoHeader visual regression', () => {
 });
 
 describe('RadioLayout top-row profile switching', () => {
+  beforeEach(() => {
+    // JSDOM defaults to 0x0 — force desktop dimensions so isMobile stays false
+    Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 1440 });
+    Object.defineProperty(window, 'innerHeight', { writable: true, configurable: true, value: 900 });
+  });
+
   it('promotes the top row to wide profile when the deck width crosses the threshold', () => {
     vi.stubGlobal('ResizeObserver', ResizeObserverStub);
 

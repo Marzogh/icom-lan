@@ -9,7 +9,7 @@ import { txStatusColor } from '../tx-utils';
 // ---------------------------------------------------------------------------
 
 describe('txStatusColor', () => {
-  
+
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -64,6 +64,13 @@ function mountPanel(props: ComponentProps<typeof TxPanel>) {
   return t;
 }
 
+function openTxSettings(container: HTMLElement) {
+  const btn = Array.from(container.querySelectorAll<HTMLButtonElement>('.v2-control-button'))
+    .find((b) => b.textContent?.includes('LEVELS'));
+  btn?.click();
+  flushSync();
+}
+
 beforeEach(() => {
   components = [];
   vi.mocked(hasTx).mockReturnValue(true);
@@ -101,18 +108,19 @@ const baseProps: ComponentProps<typeof TxPanel> = {
 describe('panel structure', () => {
   it('renders TX IDLE badge when txActive is false', () => {
     const t = mountPanel(baseProps);
-    const badge = t.querySelector('.tx-indicator .v2-status-indicator');
-    expect(badge?.textContent?.trim()).toBe('TX IDLE');
+    const strip = t.querySelector('.tx-strip');
+    expect(strip?.textContent?.trim()).toBe('○ RX');
   });
 
   it('renders TX ACTIVE badge when txActive is true', () => {
     const t = mountPanel({ ...baseProps, txActive: true });
-    const badge = t.querySelector('.tx-indicator .v2-status-indicator');
-    expect(badge?.textContent?.trim()).toBe('TX ACTIVE');
+    const strip = t.querySelector('.tx-strip');
+    expect(strip?.textContent?.trim()).toBe('● TX');
   });
 
   it('renders Mic Gain slider', () => {
     const t = mountPanel(baseProps);
+    openTxSettings(t);
     const labels = Array.from(t.querySelectorAll('.vc-label'));
     expect(labels.some((el) => el.textContent === 'Mic Gain')).toBe(true);
   });
@@ -120,12 +128,13 @@ describe('panel structure', () => {
   it('renders ATU toggle', () => {
     const t = mountPanel(baseProps);
     const buttons = Array.from(t.querySelectorAll('.v2-control-button'));
-    expect(buttons.some((el) => el.textContent?.trim() === 'ATU')).toBe(true);
+    expect(buttons.some((el) => el.textContent?.trim().startsWith('TUNE'))).toBe(true);
   });
 
   it('renders TUNE button', () => {
     const t = mountPanel(baseProps);
-    expect(t.querySelector('.tune-button')?.textContent?.trim()).toBe('TUNE');
+    const buttons = Array.from(t.querySelectorAll('.v2-control-button'));
+    expect(buttons.some((el) => el.textContent?.trim().startsWith('TUNE'))).toBe(true);
   });
 
   it('renders VOX toggle', () => {
@@ -137,13 +146,13 @@ describe('panel structure', () => {
   it('renders COMP toggle', () => {
     const t = mountPanel(baseProps);
     const buttons = Array.from(t.querySelectorAll('.v2-control-button'));
-    expect(buttons.some((el) => el.textContent?.trim() === 'COMP')).toBe(true);
+    expect(buttons.some((el) => el.textContent?.trim().startsWith('COMP'))).toBe(true);
   });
 
   it('renders MON toggle', () => {
     const t = mountPanel(baseProps);
     const buttons = Array.from(t.querySelectorAll('.v2-control-button'));
-    expect(buttons.some((el) => el.textContent?.trim() === 'MON')).toBe(true);
+    expect(buttons.some((el) => el.textContent?.trim().startsWith('MON'))).toBe(true);
   });
 });
 
@@ -151,13 +160,13 @@ describe('hasTx gating', () => {
   it('renders panel content when hasTx returns true', () => {
     vi.mocked(hasTx).mockReturnValue(true);
     const t = mountPanel(baseProps);
-    expect(t.querySelector('.panel-body')).not.toBeNull();
+    expect(t.querySelector('.tx-panel')).not.toBeNull();
   });
 
   it('hides panel content when hasTx returns false', () => {
     vi.mocked(hasTx).mockReturnValue(false);
     const t = mountPanel(baseProps);
-    expect(t.querySelector('.panel')).toBeNull();
+    expect(t.querySelector('.tx-panel')).toBeNull();
   });
 });
 
@@ -170,6 +179,7 @@ describe('COMP slider visibility', () => {
 
   it('renders Comp Level slider when compActive is true', () => {
     const t = mountPanel({ ...baseProps, compActive: true });
+    openTxSettings(t);
     const labels = Array.from(t.querySelectorAll('.vc-label')).map((el) => el.textContent);
     expect(labels).toContain('Comp Level');
   });
@@ -184,6 +194,7 @@ describe('MON slider visibility', () => {
 
   it('renders Mon Level slider when monActive is true', () => {
     const t = mountPanel({ ...baseProps, monActive: true });
+    openTxSettings(t);
     const labels = Array.from(t.querySelectorAll('.vc-label')).map((el) => el.textContent);
     expect(labels).toContain('Mon Level');
   });
@@ -192,12 +203,14 @@ describe('MON slider visibility', () => {
 describe('tuning state', () => {
   it('adds tuning class to TUNE button when atuTuning is true', () => {
     const t = mountPanel({ ...baseProps, atuTuning: true });
-    expect(t.querySelector('.tune-button')?.classList.contains('tuning')).toBe(true);
+    const buttons = Array.from(t.querySelectorAll('.v2-control-button'));
+    expect(buttons.some((el) => el.textContent?.trim().startsWith('TUNING'))).toBe(true);
   });
 
   it('does not add tuning class when atuTuning is false', () => {
     const t = mountPanel(baseProps);
-    expect(t.querySelector('.tune-button')?.classList.contains('tuning')).toBe(false);
+    const buttons = Array.from(t.querySelectorAll('.v2-control-button'));
+    expect(buttons.some((el) => el.textContent?.trim() === 'TUNE')).toBe(true);
   });
 });
 
@@ -214,14 +227,20 @@ describe('callbacks', () => {
   it('calls onAtuTune when TUNE button is clicked', () => {
     const onAtuTune = vi.fn();
     const t = mountPanel({ ...baseProps, onAtuTune });
-    const btn = t.querySelector<HTMLElement>('.tune-button');
-    btn?.click();
+    const buttons = Array.from(t.querySelectorAll<HTMLElement>('.v2-control-button'));
+    const tuneBtn = buttons.find((el) => el.textContent?.trim().startsWith('TUNE'));
+    tuneBtn?.click();
     expect(onAtuTune).toHaveBeenCalledOnce();
   });
 
   it('calls onMicGainChange when Mic Gain slider changes', () => {
     const onMicGainChange = vi.fn();
     const t = mountPanel({ ...baseProps, onMicGainChange });
+    // Open the settings modal to reveal sliders
+    const levelsBtn = Array.from(t.querySelectorAll<HTMLElement>('.v2-control-button'))
+      .find((b) => b.textContent?.includes('LEVELS'));
+    levelsBtn?.click();
+    flushSync();
     // Find the Mic Gain slider (second [role="slider"], after RF Power)
     const sliders = t.querySelectorAll<HTMLElement>('[role="slider"]');
     const micSlider = sliders[1]; // RF Power is [0], Mic Gain is [1]

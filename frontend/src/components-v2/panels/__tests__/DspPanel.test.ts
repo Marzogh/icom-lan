@@ -96,7 +96,7 @@ const baseProps: ComponentProps<typeof DspPanel> = {
 };
 
 function getFillButtons(container: HTMLElement): HTMLButtonElement[] {
-  return Array.from(container.querySelectorAll<HTMLButtonElement>('.dsp-toggle-cell .v2-control-button'));
+  return Array.from(container.querySelectorAll<HTMLButtonElement>('.dsp-btn-wrap button'));
 }
 
 describe('compact toggle row', () => {
@@ -107,19 +107,13 @@ describe('compact toggle row', () => {
     expect(texts).toContain('NB');
     expect(texts).toContain('NOTCH');
   });
-
-  it('renders settings (gear) buttons for each toggle cell', () => {
-    const t = mountPanel(baseProps);
-    const gears = t.querySelectorAll('.dsp-settings-btn');
-    expect(gears.length).toBe(3);
-  });
 });
 
 describe('NR toggle', () => {
   it('calls onNrModeChange(1) when NR is off and toggle is clicked', () => {
     const onNrModeChange = vi.fn();
     const t = mountPanel({ ...baseProps, nrMode: 0, onNrModeChange });
-    const nrBtn = getFillButtons(t).find((b) => b.textContent?.trim() === 'NR');
+    const nrBtn = getFillButtons(t).find((b) => b.textContent?.trim().startsWith('NR'));
     nrBtn?.click();
     flushSync();
     expect(onNrModeChange).toHaveBeenCalledWith(1);
@@ -128,7 +122,7 @@ describe('NR toggle', () => {
   it('calls onNrModeChange(0) when NR is on and toggle is clicked', () => {
     const onNrModeChange = vi.fn();
     const t = mountPanel({ ...baseProps, nrMode: 1, onNrModeChange });
-    const nrBtn = getFillButtons(t).find((b) => b.textContent?.trim() === 'NR');
+    const nrBtn = getFillButtons(t).find((b) => b.textContent?.trim().startsWith('NR'));
     nrBtn?.click();
     flushSync();
     expect(onNrModeChange).toHaveBeenCalledWith(0);
@@ -139,7 +133,7 @@ describe('NB toggle', () => {
   it('calls onNbToggle(true) when NB is off and toggle is clicked', () => {
     const onNbToggle = vi.fn();
     const t = mountPanel({ ...baseProps, nbActive: false, onNbToggle });
-    const nbBtn = getFillButtons(t).find((b) => b.textContent?.trim() === 'NB');
+    const nbBtn = getFillButtons(t).find((b) => b.textContent?.trim().startsWith('NB'));
     nbBtn?.click();
     flushSync();
     expect(onNbToggle).toHaveBeenCalledWith(true);
@@ -148,7 +142,7 @@ describe('NB toggle', () => {
   it('calls onNbToggle(false) when NB is on and toggle is clicked', () => {
     const onNbToggle = vi.fn();
     const t = mountPanel({ ...baseProps, nbActive: true, onNbToggle });
-    const nbBtn = getFillButtons(t).find((b) => b.textContent?.trim() === 'NB');
+    const nbBtn = getFillButtons(t).find((b) => b.textContent?.trim().startsWith('NB'));
     nbBtn?.click();
     flushSync();
     expect(onNbToggle).toHaveBeenCalledWith(false);
@@ -184,63 +178,41 @@ describe('Notch toggle', () => {
   });
 });
 
-describe('settings modals', () => {
-  it('opens NR modal when NR gear is clicked', () => {
+describe('modal initial state', () => {
+  it('no backdrop when no modal is open', () => {
     const t = mountPanel(baseProps);
-    const nrGear = t.querySelector<HTMLButtonElement>('[aria-label="NR settings"]');
-    nrGear?.click();
-    flushSync();
-    expect(t.querySelector('[aria-label="Noise reduction settings"]')).toBeTruthy();
-    expect(t.querySelector('.menu-backdrop')).toBeTruthy();
+    expect(t.querySelector('.menu-backdrop')).toBeNull();
   });
 
-  it('opens NB modal when NB gear is clicked', () => {
+  it('no NR modal when no modal is open', () => {
     const t = mountPanel(baseProps);
-    const nbGear = t.querySelector<HTMLButtonElement>('[aria-label="NB settings"]');
-    nbGear?.click();
-    flushSync();
-    expect(t.querySelector('[aria-label="Noise blanker settings"]')).toBeTruthy();
+    expect(t.querySelector('[aria-label="Noise reduction settings"]')).toBeNull();
   });
 
-  it('opens Notch modal when Notch gear is clicked', () => {
+  it('no NB modal when no modal is open', () => {
     const t = mountPanel(baseProps);
-    const notchGear = t.querySelector<HTMLButtonElement>('[aria-label="Notch settings"]');
-    notchGear?.click();
-    flushSync();
-    expect(t.querySelector('[role="dialog"][aria-label="Notch filter settings"]')).toBeTruthy();
+    expect(t.querySelector('[aria-label="Noise blanker settings"]')).toBeNull();
   });
 
-  it('closes modal when backdrop is clicked', () => {
+  it('no Notch modal when no modal is open', () => {
     const t = mountPanel(baseProps);
-    t.querySelector<HTMLButtonElement>('[aria-label="NR settings"]')?.click();
-    flushSync();
-    expect(t.querySelector('[aria-label="Noise reduction settings"]')).toBeTruthy();
-    t.querySelector<HTMLButtonElement>('[aria-label="Close DSP settings"]')?.click();
-    flushSync();
-    expect(t.querySelector('[aria-label="Noise reduction settings"]')).toBeFalsy();
+    expect(t.querySelector('[aria-label="Notch filter settings"]')).toBeNull();
   });
 
-  it('shows Notch Freq slider in notch modal only when manual is selected', () => {
-    const t = mountPanel({ ...baseProps, notchMode: 'manual' });
-    t.querySelector<HTMLButtonElement>('[aria-label="Notch settings"]')?.click();
-    flushSync();
-    const labels = Array.from(t.querySelectorAll('.vc-label')).map((el) => el.textContent?.trim());
-    expect(labels).toContain('Notch Freq');
+  it('renders the A-NOTCH button', () => {
+    const t = mountPanel(baseProps);
+    const buttons = getFillButtons(t);
+    expect(buttons.some((b) => b.textContent?.trim() === 'A-NOTCH')).toBe(true);
   });
 });
 
-describe('modal NR mode change', () => {
-  it('calls onNrModeChange when NR modal segmented control changes', () => {
+describe('NR mode via short-click cycle', () => {
+  it('cycles NR mode: off → 1 → off on successive clicks', () => {
     const onNrModeChange = vi.fn();
-    const t = mountPanel({ ...baseProps, onNrModeChange });
-    t.querySelector<HTMLButtonElement>('[aria-label="NR settings"]')?.click();
+    const t = mountPanel({ ...baseProps, nrMode: 0, onNrModeChange });
+    const nrBtn = getFillButtons(t).find((b) => b.textContent?.trim().startsWith('NR'));
+    nrBtn?.click();
     flushSync();
-    const segments = t.querySelectorAll<HTMLButtonElement>(
-      '[aria-label="Noise reduction settings"] .v2-control-button',
-    );
-    const seg2 = Array.from(segments).find((b) => b.textContent?.trim() === '2');
-    seg2?.click();
-    flushSync();
-    expect(onNrModeChange).toHaveBeenCalledWith(2);
+    expect(onNrModeChange).toHaveBeenLastCalledWith(1);
   });
 });

@@ -6,6 +6,26 @@ vi.mock('../../../components/spectrum/SpectrumPanel.svelte', async () => {
   return { default: stub.default };
 });
 
+vi.mock('$lib/stores/layout.svelte', () => ({
+  useLcdLayout: vi.fn(() => false),
+  getLayoutMode: vi.fn(() => 'auto'),
+  cycleLayoutMode: vi.fn(),
+  setLayoutMode: vi.fn(),
+}));
+
+vi.mock('$lib/stores/connection.svelte', () => ({
+  getConnectionStatus: vi.fn(() => ({ connected: false })),
+  getRadioPowerOn: vi.fn(() => null),
+  getRadioStatus: vi.fn(() => 'disconnected'),
+  isScopeConnected: vi.fn(() => false),
+  isAudioConnected: vi.fn(() => false),
+  getHttpConnected: vi.fn(() => false),
+}));
+
+vi.mock('$lib/stores/tuning.svelte', () => ({
+  applyModeDefault: vi.fn(),
+}));
+
 import RadioLayout from '../RadioLayout.svelte';
 import { extractVfoState, extractMeterState, hasLiveAudioFromState } from '../layout-utils';
 import { radio } from '$lib/stores/radio.svelte';
@@ -149,21 +169,27 @@ vi.mock('$lib/stores/capabilities.svelte', () => ({
   hasDualReceiver: vi.fn(() => false),
   hasAudio: vi.fn(() => false),
   hasSpectrum: vi.fn(() => true),
+  hasAnyScope: vi.fn(() => false),
+  isAudioFftScope: vi.fn(() => false),
+  getScopeSource: vi.fn(() => null),
   hasCapability: vi.fn(() => false),
   vfoLabel: vi.fn((slot: 'A' | 'B') => (slot === 'A' ? 'MAIN' : 'SUB')),
   getCapabilities: vi.fn(() => ({ freqRanges: [], modes: [], filters: [] })),
+  setCapabilities: vi.fn(),
   getAgcModes: vi.fn(() => [0, 1, 2, 3]),
   getAgcLabels: vi.fn(() => ({ 0: 'OFF', 1: 'FAST', 2: 'MID', 3: 'SLOW' })),
   getSupportedModes: vi.fn(() => ['USB', 'LSB', 'CW', 'AM', 'FM']),
   getSupportedFilters: vi.fn(() => ['FIL1', 'FIL2', 'FIL3']),
   getAttValues: vi.fn(() => [0, 10, 20]),
+  getAttLabels: vi.fn(() => ({ 0: '0dB', 10: '10dB', 20: '20dB' })),
   getPreValues: vi.fn(() => [0, 1, 2]),
+  getPreLabels: vi.fn(() => ({ 0: 'OFF', 1: 'PRE1', 2: 'PRE2' })),
   getKeyboardConfig: vi.fn(() => null),
   getVfoScheme: vi.fn(() => 'ab'),
+  getAntennaCount: vi.fn(() => 1),
   getSmeterCalibration: vi.fn(() => null),
   getSmeterRedline: vi.fn(() => null),
-  hasAnyScope: vi.fn(() => false),
-  isAudioFftScope: vi.fn(() => false),
+  getControlRange: vi.fn(() => ({ min: 0, max: 255 })),
 }));
 
 import { hasTx, hasDualReceiver } from '$lib/stores/capabilities.svelte';
@@ -184,6 +210,9 @@ beforeEach(() => {
   radio.current = null;
   vi.mocked(hasTx).mockReturnValue(true);
   vi.mocked(hasDualReceiver).mockReturnValue(false);
+  // JSDOM defaults to 0x0 — force desktop dimensions so isMobile stays false
+  Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 1440 });
+  Object.defineProperty(window, 'innerHeight', { writable: true, configurable: true, value: 900 });
 });
 
 afterEach(() => {
