@@ -789,7 +789,7 @@ def _build_backend_config(
 async def _cmd_list_audio_devices(args: argparse.Namespace) -> int:
     """List available USB audio devices."""
     try:
-        import sounddevice as _sd  # noqa: F401
+        import sounddevice as _sd  # type: ignore[import-untyped]  # noqa: F401
     except ImportError:
         print(
             "Error: --list-audio-devices requires the sounddevice package.\n"
@@ -2035,7 +2035,7 @@ async def _cmd_discover(_radio: Radio, args: argparse.Namespace) -> int:
     lan_only: bool = getattr(args, "lan_only", False)
     timeout: float = getattr(args, "timeout", 3.0)
 
-    tasks = []
+    tasks: list[Any] = []
     if not serial_only:
         tasks.append(discover_lan_radios(timeout=timeout))
     if not lan_only:

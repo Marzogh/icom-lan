@@ -1177,7 +1177,8 @@ class RadioPoller:
                     await radio.set_squelch(level, receiver=rx)
             case SetNB(on=on, receiver=rx):
                 self._ensure_receiver_supported(rx, operation="set_nb")
-                await radio.set_nb(on, receiver=rx)
+                if isinstance(radio, AdvancedControlCapable):
+                    await radio.set_nb(on, receiver=rx)
                 if self._radio_state:
                     target = (
                         self._radio_state.sub if rx != 0 else self._radio_state.main
@@ -1188,7 +1189,8 @@ class RadioPoller:
                     self._on_state_event("nb_changed", {"on": on, "receiver": rx})
             case SetNR(on=on, receiver=rx):
                 self._ensure_receiver_supported(rx, operation="set_nr")
-                await radio.set_nr(on, receiver=rx)
+                if isinstance(radio, AdvancedControlCapable):
+                    await radio.set_nr(on, receiver=rx)
                 if self._radio_state:
                     target = (
                         self._radio_state.sub if rx != 0 else self._radio_state.main
@@ -1211,7 +1213,8 @@ class RadioPoller:
                     self._on_state_event("ipplus_changed", {"on": on, "receiver": rx})
             case SetAttenuator(db=db, receiver=rx):
                 self._ensure_receiver_supported(rx, operation="set_attenuator")
-                await radio.set_attenuator_level(db, receiver=rx)
+                if isinstance(radio, AdvancedControlCapable):
+                    await radio.set_attenuator_level(db, receiver=rx)
                 if self._radio_state:
                     target = (
                         self._radio_state.sub if rx != 0 else self._radio_state.main
@@ -1226,7 +1229,8 @@ class RadioPoller:
                     )
             case SetPreamp(level=level, receiver=rx):
                 self._ensure_receiver_supported(rx, operation="set_preamp")
-                await radio.set_preamp(level, receiver=rx)
+                if isinstance(radio, AdvancedControlCapable):
+                    await radio.set_preamp(level, receiver=rx)
                 if self._radio_state:
                     target = (
                         self._radio_state.sub if rx != 0 else self._radio_state.main

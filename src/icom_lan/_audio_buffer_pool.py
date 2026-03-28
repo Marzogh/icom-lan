@@ -156,7 +156,7 @@ class AudioBufferPool:
         """Context manager support for buffer acquisition."""
         return self.acquire()
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: object) -> None:
         """Context manager support for buffer release."""
         # Note: This is a simplified version; in practice we'd need to track
         # which buffer was acquired in __enter__. For now, this is just
@@ -182,7 +182,7 @@ class ContextManagedBuffer:
         self._buffer = self._pool.acquire()
         return self._buffer
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: object) -> None:
         if self._buffer is not None:
             self._pool.release(self._buffer)
             self._buffer = None

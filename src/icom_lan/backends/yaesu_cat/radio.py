@@ -154,7 +154,7 @@ class YaesuCatRadio:
     @property
     def model(self) -> str:
         """Human-readable radio model name (e.g. ``'FTX-1'``)."""
-        return self._config.model
+        return str(self._config.model)
 
     @property
     def capabilities(self) -> set[str]:
@@ -317,8 +317,8 @@ class YaesuCatRadio:
     async def get_audio_stats(self) -> dict[str, Any]:
         """Return basic audio stats."""
         return {
-            "rx_active": self._audio_driver._rx_active,
-            "tx_active": self._audio_driver._tx_active,
+            "rx_active": self._audio_driver._rx_active,  # type: ignore[attr-defined]
+            "tx_active": self._audio_driver._tx_active,  # type: ignore[attr-defined]
             "sample_rate": self._audio_sample_rate,
         }
 
@@ -406,13 +406,13 @@ class YaesuCatRadio:
     def _default_nb_level(self) -> int:
         """Default NB level for turning on when current level is 0."""
         ctrl = (self._config.controls or {}).get("nb", {})
-        range_max = ctrl.get("range_max", 10)
+        range_max = int(ctrl.get("range_max", 10))
         return max(1, range_max // 2)
 
     def _default_nr_level(self) -> int:
         """Default NR level for turning on when current level is 0."""
         ctrl = (self._config.controls or {}).get("nr", {})
-        range_max = ctrl.get("range_max", 15)
+        range_max = int(ctrl.get("range_max", 15))
         return max(1, range_max // 2)
 
     # -- Internal helpers ---------------------------------------------------
@@ -565,7 +565,7 @@ class YaesuCatRadio:
             ``True`` if transmitting, ``False`` if receiving.
         """
         result = await self._query("get_ptt")
-        ptt = result["state"] == "1"
+        ptt: bool = result["state"] == "1"
         self._state.ptt = ptt
         return ptt
 
@@ -598,7 +598,7 @@ class YaesuCatRadio:
             receiver: 0 = main (sub not yet supported by TOML profile).
         """
         result = await self._query("get_af_level")
-        return result["level"]
+        return int(result["level"])
 
     async def set_af_level(self, level: int, receiver: int = 0) -> None:
         """Set the AF (audio) level (0–255)."""
@@ -607,7 +607,7 @@ class YaesuCatRadio:
     async def get_rf_gain(self, receiver: int = 0) -> int:
         """Get the RF gain (0–255)."""
         result = await self._query("get_rf_gain")
-        return result["level"]
+        return int(result["level"])
 
     async def set_rf_gain(self, level: int, receiver: int = 0) -> None:
         """Set the RF gain (0–255)."""
@@ -616,7 +616,7 @@ class YaesuCatRadio:
     async def get_squelch(self, receiver: int = 0) -> int:
         """Get the squelch level (0–255)."""
         result = await self._query("get_squelch")
-        return result["level"]
+        return int(result["level"])
 
     async def set_squelch(self, level: int, receiver: int = 0) -> None:
         """Set the squelch level (0–255)."""
@@ -664,7 +664,7 @@ class YaesuCatRadio:
     async def get_nb_level(self, receiver: int = 0) -> int:
         """Get noise blanker level (0 = OFF, 1–10 = level)."""
         result = await self._query("get_nb_level")
-        return result["level"]
+        return int(result["level"])
 
     async def set_nb_level(self, level: int, receiver: int = 0) -> None:
         """Set noise blanker level (0 = OFF, 1–10 = level)."""
@@ -673,7 +673,7 @@ class YaesuCatRadio:
     async def get_nr_level(self, receiver: int = 0) -> int:
         """Get noise reduction level (0 = OFF, 1–15 = level)."""
         result = await self._query("get_nr_level")
-        return result["level"]
+        return int(result["level"])
 
     async def set_nr_level(self, level: int, receiver: int = 0) -> None:
         """Set noise reduction level (0 = OFF, 1–15 = level)."""
@@ -682,7 +682,7 @@ class YaesuCatRadio:
     async def get_auto_notch(self, receiver: int = 0) -> bool:
         """Get auto notch state (True = ON)."""
         result = await self._query("get_auto_notch")
-        return result["state"] == "1"
+        return bool(result["state"] == "1")
 
     async def set_auto_notch(self, state: bool, receiver: int = 0) -> None:
         """Set auto notch state."""
@@ -719,7 +719,7 @@ class YaesuCatRadio:
         """
         cmd = "get_filter_width" if receiver == 0 else "get_filter_width_sub"
         result = await self._query(cmd)
-        return result["code"]
+        return int(result["code"])
 
     async def set_filter_width(self, value: int, receiver: int = 0) -> None:
         """Set filter width index (SH0/SH1)."""
@@ -744,7 +744,7 @@ class YaesuCatRadio:
     async def get_narrow(self, receiver: int = 0) -> bool:
         """Get narrow filter state (True = narrow)."""
         result = await self._query("get_narrow")
-        return result["state"] == "1"
+        return bool(result["state"] == "1")
 
     async def set_narrow(self, state: bool, receiver: int = 0) -> None:
         """Set narrow filter state."""
@@ -755,7 +755,7 @@ class YaesuCatRadio:
     async def get_rx_func(self) -> int:
         """Get RX function (0 = Dual RX, 1 = Single RX)."""
         result = await self._query("get_rx_func")
-        return result["mode"]
+        return int(result["mode"])
 
     async def set_rx_func(self, mode: int) -> None:
         """Set RX function (0 = Dual RX, 1 = Single RX)."""
@@ -773,7 +773,7 @@ class YaesuCatRadio:
     async def get_split(self) -> bool:
         """Get split operation state."""
         result = await self._query("get_split")
-        return result["state"] == "1"
+        return bool(result["state"] == "1")
 
     async def set_split(self, state: bool) -> None:
         """Set split operation state."""
@@ -819,7 +819,7 @@ class YaesuCatRadio:
     async def get_mic_gain(self) -> int:
         """Get microphone gain (0–100)."""
         result = await self._query("get_mic_gain")
-        return result["level"]
+        return int(result["level"])
 
     async def set_mic_gain(self, level: int) -> None:
         """Set microphone gain (0–100)."""
@@ -828,7 +828,7 @@ class YaesuCatRadio:
     async def get_processor(self) -> bool:
         """Get speech processor state."""
         result = await self._query("get_processor")
-        return result["state"] == "1"
+        return bool(result["state"] == "1")
 
     async def set_processor(self, state: bool) -> None:
         """Set speech processor state."""
@@ -838,7 +838,7 @@ class YaesuCatRadio:
         """Get processor level (PL: drive + comp level, 0-100 each)."""
         result = await self._query("get_processor_level")
         self._last_drive_gain = result.get("drive", 0)
-        return result["level"]
+        return int(result["level"])
 
     async def set_processor_level(self, level: int) -> None:
         """Set processor level (0-100). Preserves current drive gain."""
@@ -848,7 +848,7 @@ class YaesuCatRadio:
     async def get_monitor_on(self) -> bool:
         """Get monitor ON/OFF state (ML0)."""
         result = await self._query("get_monitor_on")
-        return result["level"] != 0
+        return bool(result["level"] != 0)
 
     async def set_monitor_on(self, state: bool) -> None:
         """Set monitor ON/OFF.  ML is a single 0-255 value; 0=off, >0=on."""
@@ -858,7 +858,7 @@ class YaesuCatRadio:
     async def get_monitor_level(self) -> int:
         """Get monitor level (0–100, ML1)."""
         result = await self._query("get_monitor_level")
-        return result["level"]
+        return int(result["level"])
 
     async def set_monitor_level(self, level: int) -> None:
         """Set monitor level (0–100, ML1)."""
@@ -869,7 +869,7 @@ class YaesuCatRadio:
     async def get_keyer_speed(self) -> int:
         """Get CW keyer speed in WPM (4–60)."""
         result = await self._query("get_keyer_speed")
-        return result["wpm"]
+        return int(result["wpm"])
 
     async def set_keyer_speed(self, wpm: int) -> None:
         """Set CW keyer speed in WPM (4–60)."""
@@ -878,7 +878,7 @@ class YaesuCatRadio:
     async def get_key_pitch(self) -> int:
         """Get CW pitch index (0–75, maps to 300–1050 Hz)."""
         result = await self._query("get_key_pitch")
-        return result["idx"]
+        return int(result["idx"])
 
     async def set_key_pitch(self, idx: int) -> None:
         """Set CW pitch index (0–75)."""
@@ -887,7 +887,7 @@ class YaesuCatRadio:
     async def get_break_in(self) -> bool:
         """Get CW break-in state."""
         result = await self._query("get_break_in")
-        return result["state"] == "1"
+        return bool(result["state"] == "1")
 
     async def set_break_in(self, state: bool) -> None:
         """Set CW break-in state."""
@@ -896,7 +896,7 @@ class YaesuCatRadio:
     async def get_cw_spot(self) -> bool:
         """Get CW spot tone state."""
         result = await self._query("get_cw_spot")
-        return result["state"] == "1"
+        return bool(result["state"] == "1")
 
     async def set_cw_spot(self, state: bool) -> None:
         """Set CW spot tone state."""
@@ -914,7 +914,7 @@ class YaesuCatRadio:
     async def get_break_in_delay(self) -> int:
         """Get CW break-in delay in milliseconds (30–3000)."""
         result = await self._query("get_break_in_delay")
-        return result["delay"]
+        return int(result["delay"])
 
     async def set_break_in_delay(self, delay: int) -> None:
         """Set CW break-in delay in milliseconds (30–3000)."""
@@ -958,7 +958,7 @@ class YaesuCatRadio:
     async def get_sql_type(self, receiver: int = 0) -> int:
         """Get squelch type code (CT0)."""
         result = await self._query("get_sql_type")
-        return result["type"]
+        return int(result["type"])
 
     async def set_sql_type(self, type_code: int, receiver: int = 0) -> None:
         """Set squelch type code (CT0)."""
@@ -974,7 +974,7 @@ class YaesuCatRadio:
     async def get_auto_info(self) -> bool:
         """Get auto-info (AI) state."""
         result = await self._query("get_auto_info")
-        return result["state"] == "1"
+        return bool(result["state"] == "1")
 
     async def set_auto_info(self, state: bool) -> None:
         """Set auto-info (AI) state."""
@@ -983,7 +983,7 @@ class YaesuCatRadio:
     async def get_vox(self) -> bool:
         """Get VOX state."""
         result = await self._query("get_vox")
-        return result["state"] == "1"
+        return bool(result["state"] == "1")
 
     async def set_vox(self, state: bool) -> None:
         """Set VOX state."""
@@ -992,7 +992,7 @@ class YaesuCatRadio:
     async def get_lock(self) -> bool:
         """Get dial lock state."""
         result = await self._query("get_lock")
-        return result["state"] == "1"
+        return bool(result["state"] == "1")
 
     async def set_lock(self, state: bool) -> None:
         """Set dial lock state."""

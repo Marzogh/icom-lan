@@ -4879,9 +4879,9 @@ def parse_powerstat(frame: CivFrame) -> bool:
     Raises:
         ValueError: If response format is invalid.
     """
-    if frame.cmd != _CMD_POWER_CTRL:
+    if frame.command != _CMD_POWER_CTRL:
         raise ValueError(
-            f"Expected power control response (0x18), got 0x{frame.cmd:02X}"
+            f"Expected power control response (0x18), got 0x{frame.command:02X}"
         )
     if len(frame.data) != 1:
         raise ValueError(

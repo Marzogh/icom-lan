@@ -61,7 +61,7 @@ class _OpuslibBackend:
 
 def _load_default_backend() -> _OpusBackend | None:
     try:
-        import opuslib  # noqa: F401
+        import opuslib  # type: ignore[import-untyped]  # noqa: F401
     except ImportError:
         return None
     return _OpuslibBackend(opuslib)

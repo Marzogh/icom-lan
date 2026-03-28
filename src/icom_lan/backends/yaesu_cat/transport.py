@@ -158,7 +158,7 @@ class YaesuCatTransport:
             return
 
         try:
-            import serial_asyncio  # type: ignore[import-not-found]
+            import serial_asyncio  # type: ignore[import-untyped]
         except ImportError as exc:
             raise CatTransportError(_DEPENDENCY_HINT) from exc
 

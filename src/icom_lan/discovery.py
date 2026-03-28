@@ -187,7 +187,7 @@ async def _try_baud(
 def _default_open_serial() -> _OpenSerial:
     """Return the real serial_asyncio opener, or raise ImportError with hint."""
     try:
-        import serial_asyncio
+        import serial_asyncio  # type: ignore[import-untyped]
 
         return serial_asyncio.open_serial_connection  # type: ignore[no-any-return]
     except ImportError as exc:
@@ -263,9 +263,9 @@ _YaesuTransportFactory = Callable[..., Any]
 
 def _default_yaesu_transport_factory() -> _YaesuTransportFactory:
     """Return YaesuCatTransport class, or raise ImportError with hint."""
-    from .backends.yaesu_cat.transport import YaesuCatTransport  # type: ignore[import-untyped]
+    from .backends.yaesu_cat.transport import YaesuCatTransport
 
-    return YaesuCatTransport  # type: ignore[return-value]
+    return YaesuCatTransport
 
 
 async def probe_serial_yaesu_cat(

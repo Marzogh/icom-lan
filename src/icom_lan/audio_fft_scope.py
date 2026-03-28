@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Callable
+from typing import Any, Callable
 
 from .scope import ScopeFrame
 
@@ -37,7 +37,7 @@ _DB_FLOOR = -120.0  # noise floor dB
 _DB_CEIL = 0.0  # clipping level dB
 
 
-def _import_numpy():
+def _import_numpy() -> Any:
     """Lazy-import numpy to avoid hard dependency at module level."""
     try:
         import numpy as np
@@ -108,7 +108,7 @@ class AudioFftScope:
             sample_rate,
         )
 
-    def _make_window(self, name: str, size: int):
+    def _make_window(self, name: str, size: int) -> Any:
         """Create a numpy window function array."""
         np = self._np
         windows = {
@@ -183,7 +183,7 @@ class AudioFftScope:
             self._buf = self._buf[self._fft_size :]
             self._process_chunk(chunk, now)
 
-    def _process_chunk(self, chunk, now: float) -> None:
+    def _process_chunk(self, chunk: Any, now: float) -> None:
         """Perform FFT on one window and emit a ScopeFrame."""
         np = self._np
         callback = self._callback

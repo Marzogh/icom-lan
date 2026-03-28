@@ -140,7 +140,7 @@ def _resolve_macos(
     sd: Any = sounddevice_module
     if sd is None:
         try:
-            import sounddevice as sd_mod
+            import sounddevice as sd_mod  # type: ignore[import-untyped]
 
             sd = sd_mod
         except ImportError:

@@ -299,7 +299,7 @@ class UsbAudioDriver:
                 raise ImportError(_DEPENDENCY_HINT) from exc
         else:
             try:
-                import sounddevice as sd_module  # noqa: F401
+                import sounddevice as sd_module  # type: ignore[import-untyped]  # noqa: F401
             except ImportError as exc:
                 raise ImportError(_DEPENDENCY_HINT) from exc
             try:

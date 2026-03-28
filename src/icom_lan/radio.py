@@ -3686,8 +3686,7 @@ class Icom7610CoreRadio:
         civ = get_powerstat(to_addr=self._radio_addr)
         resp = await self._send_civ_raw(civ)
         assert resp is not None
-        frame = parse_civ_frame(resp)
-        return parse_powerstat(frame)
+        return parse_powerstat(resp)
 
     async def set_powerstat(self, on: bool) -> None:
         """Power the radio on or off (PowerControlCapable protocol).

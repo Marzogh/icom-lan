@@ -803,8 +803,9 @@ class WebServer:
                     self._radio_state = state
                     self._broadcast_state_update()
 
+                from ..backends.yaesu_cat.radio import YaesuCatRadio as _YaesuCatRadio
                 self._yaesu_poller = YaesuCatPoller(
-                    self._radio,
+                    cast(_YaesuCatRadio, self._radio),
                     callback=_yaesu_state_cb,
                     command_queue=self._command_queue,
                 )
@@ -1779,7 +1780,7 @@ class WebServer:
                         {"Content-Type": "application/json"},
                     )
                     return
-                if power_state == "on" and not radio.control_connected:
+                if power_state == "on" and not getattr(radio, "control_connected", False):
                     # Radio is off → reconnect transport first, then send power-on CI-V
                     logger.info("power-on: radio disconnected, reconnecting first")
                     try:

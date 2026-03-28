@@ -57,7 +57,7 @@ def find_loopback_device(name: str | None = None) -> dict[str, Any] | None:
         A ``sounddevice`` device info dict, or ``None`` if not found.
     """
     try:
-        import sounddevice as sd  # noqa: F401
+        import sounddevice as sd  # type: ignore[import-untyped]  # noqa: F401
     except ImportError:
         raise ImportError(
             "sounddevice is required for audio bridge. "
@@ -83,7 +83,7 @@ def list_audio_devices() -> list[dict[str, Any]]:
         List of device info dicts from sounddevice.
     """
     try:
-        import sounddevice as sd
+        import sounddevice as sd  # noqa: F401
     except ImportError:
         raise ImportError(
             "sounddevice is required. Install with: pip install icom-lan[bridge]"
@@ -246,7 +246,7 @@ class AudioBridge:
 
         if self._is_opus:
             try:
-                import opuslib
+                import opuslib  # type: ignore[import-untyped]
             except ImportError:
                 raise ImportError(
                     "opuslib is required for audio bridge with Opus codec. "
