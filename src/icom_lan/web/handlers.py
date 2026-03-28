@@ -98,6 +98,21 @@ from .radio_poller import (
     SwitchScopeReceiver,
     VfoEqualize,
     VfoSwap,
+    SetToneFreq,
+    SetTsqlFreq,
+    SetMainSubTracking,
+    SetSsbTxBandwidth,
+    SetManualNotchWidth,
+    SetBreakInDelay,
+    SetVoxGain,
+    SetAntiVoxGain,
+    SetVoxDelay,
+    SetNbDepth,
+    SetNbWidth,
+    SetDashRatio,
+    SetRepeaterTone,
+    SetRepeaterTsql,
+    SetRxAntenna,
 )
 from .runtime_helpers import (
     build_public_state_payload,
@@ -223,6 +238,21 @@ class ControlHandler:
             "set_tuner_status",
             "set_comp",
             "set_compressor",
+            "set_tone_freq",
+            "set_tsql_freq",
+            "set_main_sub_tracking",
+            "set_ssb_tx_bw",
+            "set_manual_notch_width",
+            "set_break_in_delay",
+            "set_vox_gain",
+            "set_anti_vox_gain",
+            "set_vox_delay",
+            "set_nb_depth",
+            "set_nb_width",
+            "set_dash_ratio",
+            "set_repeater_tone",
+            "set_repeater_tsql",
+            "set_rx_antenna",
         ]
     )
 
@@ -1129,6 +1159,96 @@ class ControlHandler:
                 on = bool(params.get("on", True))
                 q.put(SetCompressor(on))
                 return {"on": on}
+            case "set_tone_freq":
+                freq = int(params["freq"])
+                rx = int(params.get("receiver", 0))
+                self._ensure_capability("repeater_tone", "set_tone_freq")
+                self._ensure_receiver_supported(rx)
+                q.put(SetToneFreq(freq, receiver=rx))
+                return {"freq": freq, "receiver": rx}
+            case "set_tsql_freq":
+                freq = int(params["freq"])
+                rx = int(params.get("receiver", 0))
+                self._ensure_capability("tsql", "set_tsql_freq")
+                self._ensure_receiver_supported(rx)
+                q.put(SetTsqlFreq(freq, receiver=rx))
+                return {"freq": freq, "receiver": rx}
+            case "set_main_sub_tracking":
+                on = bool(params.get("on", False))
+                self._ensure_capability("main_sub_tracking", "set_main_sub_tracking")
+                q.put(SetMainSubTracking(on))
+                return {"on": on}
+            case "set_ssb_tx_bw":
+                value = int(params["value"])
+                self._ensure_capability("ssb_tx_bw", "set_ssb_tx_bw")
+                q.put(SetSsbTxBandwidth(value))
+                return {"value": value}
+            case "set_manual_notch_width":
+                value = int(params["value"])
+                rx = int(params.get("receiver", 0))
+                self._ensure_capability("notch", "set_manual_notch_width")
+                self._ensure_receiver_supported(rx)
+                q.put(SetManualNotchWidth(value, receiver=rx))
+                return {"value": value, "receiver": rx}
+            case "set_break_in_delay":
+                level = int(params["level"])
+                self._ensure_capability("break_in", "set_break_in_delay")
+                q.put(SetBreakInDelay(level))
+                return {"level": level}
+            case "set_vox_gain":
+                level = int(params["level"])
+                self._ensure_capability("vox", "set_vox_gain")
+                q.put(SetVoxGain(level))
+                return {"level": level}
+            case "set_anti_vox_gain":
+                level = int(params["level"])
+                self._ensure_capability("vox", "set_anti_vox_gain")
+                q.put(SetAntiVoxGain(level))
+                return {"level": level}
+            case "set_vox_delay":
+                level = int(params["level"])
+                self._ensure_capability("vox", "set_vox_delay")
+                q.put(SetVoxDelay(level))
+                return {"level": level}
+            case "set_nb_depth":
+                level = int(params["level"])
+                rx = int(params.get("receiver", 0))
+                self._ensure_capability("nb", "set_nb_depth")
+                self._ensure_receiver_supported(rx)
+                q.put(SetNbDepth(level, receiver=rx))
+                return {"level": level, "receiver": rx}
+            case "set_nb_width":
+                level = int(params["level"])
+                rx = int(params.get("receiver", 0))
+                self._ensure_capability("nb", "set_nb_width")
+                self._ensure_receiver_supported(rx)
+                q.put(SetNbWidth(level, receiver=rx))
+                return {"level": level, "receiver": rx}
+            case "set_dash_ratio":
+                value = int(params["value"])
+                self._ensure_capability("cw", "set_dash_ratio")
+                q.put(SetDashRatio(value))
+                return {"value": value}
+            case "set_repeater_tone":
+                on = bool(params.get("on", False))
+                rx = int(params.get("receiver", 0))
+                self._ensure_capability("repeater_tone", "set_repeater_tone")
+                self._ensure_receiver_supported(rx)
+                q.put(SetRepeaterTone(on, receiver=rx))
+                return {"on": on, "receiver": rx}
+            case "set_repeater_tsql":
+                on = bool(params.get("on", False))
+                rx = int(params.get("receiver", 0))
+                self._ensure_capability("tsql", "set_repeater_tsql")
+                self._ensure_receiver_supported(rx)
+                q.put(SetRepeaterTsql(on, receiver=rx))
+                return {"on": on, "receiver": rx}
+            case "set_rx_antenna":
+                antenna = int(params["antenna"])
+                on = bool(params.get("on", False))
+                self._ensure_capability("rx_antenna", "set_rx_antenna")
+                q.put(SetRxAntenna(antenna, on))
+                return {"antenna": antenna, "on": on}
             case _:
                 raise ValueError(f"unhandled command: {name!r}")
 

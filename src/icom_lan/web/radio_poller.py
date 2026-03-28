@@ -76,6 +76,21 @@ __all__ = [
     "SetDriveGain",
     "ScanStart",
     "ScanStop",
+    "SetToneFreq",
+    "SetTsqlFreq",
+    "SetMainSubTracking",
+    "SetSsbTxBandwidth",
+    "SetManualNotchWidth",
+    "SetBreakInDelay",
+    "SetVoxGain",
+    "SetAntiVoxGain",
+    "SetVoxDelay",
+    "SetNbDepth",
+    "SetNbWidth",
+    "SetDashRatio",
+    "SetRepeaterTone",
+    "SetRepeaterTsql",
+    "SetRxAntenna",
 ]
 
 logger = logging.getLogger(__name__)
@@ -472,6 +487,89 @@ class SetCompressor:
     on: bool
 
 
+@dataclass(frozen=True, slots=True)
+class SetToneFreq:
+    freq_hz: int
+    receiver: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class SetTsqlFreq:
+    freq_hz: int
+    receiver: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class SetMainSubTracking:
+    on: bool
+
+
+@dataclass(frozen=True, slots=True)
+class SetSsbTxBandwidth:
+    value: int
+
+
+@dataclass(frozen=True, slots=True)
+class SetManualNotchWidth:
+    value: int
+    receiver: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class SetBreakInDelay:
+    level: int
+
+
+@dataclass(frozen=True, slots=True)
+class SetVoxGain:
+    level: int
+
+
+@dataclass(frozen=True, slots=True)
+class SetAntiVoxGain:
+    level: int
+
+
+@dataclass(frozen=True, slots=True)
+class SetVoxDelay:
+    level: int
+
+
+@dataclass(frozen=True, slots=True)
+class SetNbDepth:
+    level: int
+    receiver: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class SetNbWidth:
+    level: int
+    receiver: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class SetDashRatio:
+    value: int
+
+
+@dataclass(frozen=True, slots=True)
+class SetRepeaterTone:
+    on: bool
+    receiver: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class SetRepeaterTsql:
+    on: bool
+    receiver: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class SetRxAntenna:
+    antenna: int  # 1 or 2
+    on: bool
+
+
 Command = (
     SetFreq
     | SetMode
@@ -540,6 +638,21 @@ Command = (
     | SetLanModLevel
     | SetDualWatch
     | SetCompressor
+    | SetToneFreq
+    | SetTsqlFreq
+    | SetMainSubTracking
+    | SetSsbTxBandwidth
+    | SetManualNotchWidth
+    | SetBreakInDelay
+    | SetVoxGain
+    | SetAntiVoxGain
+    | SetVoxDelay
+    | SetNbDepth
+    | SetNbWidth
+    | SetDashRatio
+    | SetRepeaterTone
+    | SetRepeaterTsql
+    | SetRxAntenna
 )
 
 
@@ -1641,6 +1754,92 @@ class RadioPoller:
             case SetCompressor(on=on):
                 if isinstance(radio, AdvancedControlCapable):
                     await radio.set_compressor(on)
+            case SetToneFreq(freq_hz=freq, receiver=rx):
+                self._ensure_receiver_supported(rx, operation="set_tone_freq")
+                if isinstance(radio, AdvancedControlCapable):
+                    await radio.set_tone_freq(freq, receiver=rx)
+                self.bump_revision()
+            case SetTsqlFreq(freq_hz=freq, receiver=rx):
+                self._ensure_receiver_supported(rx, operation="set_tsql_freq")
+                if isinstance(radio, AdvancedControlCapable):
+                    await radio.set_tsql_freq(freq, receiver=rx)
+                self.bump_revision()
+            case SetMainSubTracking(on=on):
+                if isinstance(radio, AdvancedControlCapable):
+                    await radio.set_main_sub_tracking(on)
+                if self._radio_state:
+                    self._radio_state.main_sub_tracking = on
+                    self.bump_revision()
+            case SetSsbTxBandwidth(value=value):
+                if isinstance(radio, AdvancedControlCapable):
+                    await radio.set_ssb_tx_bandwidth(value)
+                if self._radio_state:
+                    self._radio_state.ssb_tx_bandwidth = value
+                    self.bump_revision()
+            case SetManualNotchWidth(value=value, receiver=rx):
+                self._ensure_receiver_supported(rx, operation="set_manual_notch_width")
+                if isinstance(radio, AdvancedControlCapable):
+                    await radio.set_manual_notch_width(value, receiver=rx)
+                self.bump_revision()
+            case SetBreakInDelay(level=level):
+                if isinstance(radio, AdvancedControlCapable):
+                    await radio.set_break_in_delay(level)
+                if self._radio_state:
+                    self._radio_state.break_in_delay = level
+                    self.bump_revision()
+            case SetVoxGain(level=level):
+                if isinstance(radio, AdvancedControlCapable):
+                    await radio.set_vox_gain(level)
+                if self._radio_state:
+                    self._radio_state.vox_gain = level
+                    self.bump_revision()
+            case SetAntiVoxGain(level=level):
+                if isinstance(radio, AdvancedControlCapable):
+                    await radio.set_anti_vox_gain(level)
+                if self._radio_state:
+                    self._radio_state.anti_vox_gain = level
+                    self.bump_revision()
+            case SetVoxDelay(level=level):
+                if isinstance(radio, AdvancedControlCapable):
+                    await radio.set_vox_delay(level)
+                self.bump_revision()
+            case SetNbDepth(level=level, receiver=rx):
+                self._ensure_receiver_supported(rx, operation="set_nb_depth")
+                if isinstance(radio, AdvancedControlCapable):
+                    await radio.set_nb_depth(level, receiver=rx)
+                if self._radio_state:
+                    self._radio_state.nb_depth = level
+                    self.bump_revision()
+            case SetNbWidth(level=level, receiver=rx):
+                self._ensure_receiver_supported(rx, operation="set_nb_width")
+                if isinstance(radio, AdvancedControlCapable):
+                    await radio.set_nb_width(level, receiver=rx)
+                if self._radio_state:
+                    self._radio_state.nb_width = level
+                    self.bump_revision()
+            case SetDashRatio(value=value):
+                if isinstance(radio, AdvancedControlCapable):
+                    await radio.set_dash_ratio(value)
+                if self._radio_state:
+                    self._radio_state.dash_ratio = value
+                    self.bump_revision()
+            case SetRepeaterTone(on=on, receiver=rx):
+                self._ensure_receiver_supported(rx, operation="set_repeater_tone")
+                if isinstance(radio, AdvancedControlCapable):
+                    await radio.set_repeater_tone(on, receiver=rx)
+                self.bump_revision()
+            case SetRepeaterTsql(on=on, receiver=rx):
+                self._ensure_receiver_supported(rx, operation="set_repeater_tsql")
+                if isinstance(radio, AdvancedControlCapable):
+                    await radio.set_repeater_tsql(on, receiver=rx)
+                self.bump_revision()
+            case SetRxAntenna(antenna=antenna, on=on):
+                if isinstance(radio, AdvancedControlCapable):
+                    if antenna == 1:
+                        await radio.set_rx_antenna_ant1(on)
+                    else:
+                        await radio.set_rx_antenna_ant2(on)
+                self.bump_revision()
 
     # Fast: meters (polled on even cycles)
     # wfview: Priority=Highest, queue interval 25ms for LAN (HasFDComms)
