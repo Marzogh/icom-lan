@@ -499,6 +499,14 @@ class DualReceiverCapable(Protocol):
         """Set Sub VFO frequency equal to Main."""
         ...
 
+    async def set_main_sub_tracking(self, on: bool) -> None:
+        """Enable or disable Main/Sub frequency tracking."""
+        ...
+
+    async def get_main_sub_tracking(self) -> bool:
+        """Get Main/Sub frequency tracking on/off state."""
+        ...
+
 
 @runtime_checkable
 class StateCacheCapable(Protocol):
@@ -611,6 +619,142 @@ class AdvancedControlCapable(Protocol):
     async def set_scope_ref(self, ref: int) -> None: ...
     async def get_scope_hold(self) -> bool: ...
     async def set_scope_hold(self, on: bool) -> None: ...
+
+    # APF / Twin Peak filter
+    async def set_audio_peak_filter(self, mode: int, receiver: int = 0) -> None:
+        """Set Audio Peak Filter (APF) mode (0=off, 1=soft, 2=sharp)."""
+        ...
+
+    async def get_audio_peak_filter(self, receiver: int = 0) -> int:
+        """Get Audio Peak Filter (APF) mode."""
+        ...
+
+    async def set_twin_peak_filter(self, on: bool, receiver: int = 0) -> None:
+        """Enable or disable Twin Peak Filter (TPF)."""
+        ...
+
+    async def get_twin_peak_filter(self, receiver: int = 0) -> bool:
+        """Get Twin Peak Filter (TPF) on/off state."""
+        ...
+
+    # SSB TX Bandwidth
+    async def set_ssb_tx_bandwidth(self, value: int) -> None:
+        """Set SSB TX bandwidth (0-2 or vendor-specific index)."""
+        ...
+
+    async def get_ssb_tx_bandwidth(self) -> int:
+        """Get SSB TX bandwidth index."""
+        ...
+
+    # Manual Notch Width
+    async def set_manual_notch_width(self, value: int, receiver: int = 0) -> None:
+        """Set manual notch filter width (0-255)."""
+        ...
+
+    async def get_manual_notch_width(self, receiver: int = 0) -> int:
+        """Get manual notch filter width (0-255)."""
+        ...
+
+    # Break-in Delay
+    async def set_break_in_delay(self, level: int) -> None:
+        """Set CW break-in delay (0-255)."""
+        ...
+
+    async def get_break_in_delay(self) -> int:
+        """Get CW break-in delay (0-255)."""
+        ...
+
+    # VOX Delay
+    async def set_vox_delay(self, level: int) -> None:
+        """Set VOX hang delay (0-255)."""
+        ...
+
+    async def get_vox_delay(self) -> int:
+        """Get VOX hang delay (0-255)."""
+        ...
+
+    # Noise Blanker advanced (depth, width)
+    async def set_nb_depth(self, level: int, receiver: int = 0) -> None:
+        """Set NB depth (0-255)."""
+        ...
+
+    async def get_nb_depth(self, receiver: int = 0) -> int:
+        """Get NB depth (0-255)."""
+        ...
+
+    async def set_nb_width(self, level: int, receiver: int = 0) -> None:
+        """Set NB width (0-255)."""
+        ...
+
+    async def get_nb_width(self, receiver: int = 0) -> int:
+        """Get NB width (0-255)."""
+        ...
+
+    # CW Dash Ratio
+    async def set_dash_ratio(self, value: int) -> None:
+        """Set CW dash-to-dot ratio (0-255)."""
+        ...
+
+    async def get_dash_ratio(self) -> int:
+        """Get CW dash-to-dot ratio (0-255)."""
+        ...
+
+    # Key Speed
+    async def set_key_speed(self, speed: int) -> None:
+        """Set CW keyer speed in WPM."""
+        ...
+
+    async def get_key_speed(self) -> int:
+        """Get CW keyer speed in WPM."""
+        ...
+
+    # Band select
+    async def set_band(self, band_code: int) -> None:
+        """Select a band by vendor band code."""
+        ...
+
+    # Scan
+    async def scan_start(self, mode: int = 0) -> None:
+        """Start scanning in the given mode (0 = programmed scan)."""
+        ...
+
+    async def scan_stop(self) -> None:
+        """Stop any active scan."""
+        ...
+
+    # Repeater Tone / TSQL toggles
+    async def set_repeater_tone(self, on: bool, receiver: int = 0) -> None:
+        """Enable or disable repeater tone (CTCSS) on TX."""
+        ...
+
+    async def get_repeater_tone(self, receiver: int = 0) -> bool:
+        """Get repeater tone (CTCSS) TX on/off state."""
+        ...
+
+    async def set_repeater_tsql(self, on: bool, receiver: int = 0) -> None:
+        """Enable or disable tone squelch (TSQL) on RX."""
+        ...
+
+    async def get_repeater_tsql(self, receiver: int = 0) -> bool:
+        """Get tone squelch (TSQL) RX on/off state."""
+        ...
+
+    # Tone / TSQL frequencies
+    async def set_tone_freq(self, freq_hz: int, receiver: int = 0) -> None:
+        """Set CTCSS tone TX frequency in hundredths of Hz (e.g. 8800 = 88.0 Hz)."""
+        ...
+
+    async def get_tone_freq(self, receiver: int = 0) -> int:
+        """Get CTCSS tone TX frequency in hundredths of Hz."""
+        ...
+
+    async def set_tsql_freq(self, freq_hz: int, receiver: int = 0) -> None:
+        """Set TSQL (tone squelch) RX frequency in hundredths of Hz."""
+        ...
+
+    async def get_tsql_freq(self, receiver: int = 0) -> int:
+        """Get TSQL (tone squelch) RX frequency in hundredths of Hz."""
+        ...
 
 
 @runtime_checkable
