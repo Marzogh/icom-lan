@@ -1003,6 +1003,12 @@ class RadioPoller:
                 [
                     (0x15, 0x07, None),  # Overflow status
                     (0x16, 0x58, None),  # SSB TX bandwidth
+                    (0x27, 0x12, None),  # Scope receiver selection
+                    (0x27, 0x13, None),  # Scope single/dual mode
+                    (0x27, 0x14, None),  # Scope mode (center/fixed)
+                    (0x27, 0x15, None),  # Scope span
+                    (0x27, 0x17, None),  # Scope hold
+                    (0x27, 0x1A, None),  # Scope sweep speed
                 ]
             )
         return queries

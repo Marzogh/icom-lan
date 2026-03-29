@@ -353,6 +353,11 @@
     text-align: center;
   }
 
+  .step-control .toolbar-value {
+    min-width: 48px;
+    text-align: center;
+  }
+
   .auto-badge {
     color: #fbbf24;
     font-size: 9px;
