@@ -110,6 +110,20 @@ def _make_radio(active: str = "MAIN") -> MagicMock:
     radio.set_anti_vox_gain = AsyncMock()
     radio.get_monitor = AsyncMock(return_value=False)
     radio.set_monitor = AsyncMock()
+    # Ensure ALL AdvancedControlCapable protocol methods are explicitly set as
+    # instance attributes so isinstance() succeeds on Python 3.12+ where
+    # __getattr__-based attribute access no longer satisfies runtime-checkable
+    # protocol isinstance checks.
+    from icom_lan.radio_protocol import AdvancedControlCapable as _ACC
+    try:
+        from typing import get_protocol_members as _gpm  # Python 3.13+
+        _proto_attrs = _gpm(_ACC)
+    except ImportError:
+        import typing as _typing
+        _proto_attrs = _typing._get_protocol_attrs(_ACC)  # type: ignore[attr-defined]
+    for _attr in _proto_attrs:
+        if _attr not in vars(radio):
+            setattr(radio, _attr, AsyncMock())
     return radio
 
 
@@ -329,7 +343,6 @@ async def test_execute_set_filter_width_updates_sub_receiver_state_and_sends_cmd
     assert ("filter_width_changed", {"width": 1500, "receiver": 1}) in events
 
 
-@pytest.mark.xfail(reason="Flaky in CI — timing-dependent (#398)", strict=False)
 @pytest.mark.asyncio
 async def test_execute_set_filter_shape_updates_sub_receiver_state_and_radio_call() -> (
     None
