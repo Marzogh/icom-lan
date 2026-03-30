@@ -14,9 +14,9 @@
   import { getLayoutMode, cycleLayoutMode } from '$lib/stores/layout.svelte';
 
   let layoutMode = $derived(getLayoutMode());
-  let hasHwSpectrum = $derived(hasSpectrum());
-  const layoutLabels: Record<string, string> = { auto: 'AUTO', lcd: 'LCD', spectrum: 'SCOPE' };
-  const layoutTitles: Record<string, string> = { auto: 'Auto (LCD or Spectrum)', lcd: 'Force LCD layout', spectrum: 'Force Spectrum layout' };
+  let hasAnyScopeAvail = $derived(hasAnyScope());
+  const layoutLabels: Record<string, string> = { auto: 'AUTO', lcd: 'LCD', standard: 'STD' };
+  const layoutTitles: Record<string, string> = { auto: 'Auto layout', lcd: 'Force LCD layout', standard: 'Force standard layout' };
 
   let radioPowerOn = $derived(getRadioPowerOn());
   let isPoweredOff = $derived(radioPowerOn === false);
@@ -207,7 +207,7 @@
     <button
       type="button"
       class="control-btn layout-btn"
-      onclick={() => cycleLayoutMode(hasHwSpectrum)}
+      onclick={() => cycleLayoutMode(hasAnyScopeAvail)}
       title={layoutTitles[layoutMode]}
     >
       {#if layoutMode === 'lcd'}

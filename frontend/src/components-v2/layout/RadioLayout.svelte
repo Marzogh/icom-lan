@@ -15,9 +15,10 @@
   import { radio } from '$lib/stores/radio.svelte';
   import { getConnectionStatus, getRadioPowerOn } from '$lib/stores/connection.svelte';
   import { applyModeDefault } from '$lib/stores/tuning.svelte';
-  import { getCapabilities, getKeyboardConfig, hasDualReceiver, hasTx, hasAnyScope, hasSpectrum } from '$lib/stores/capabilities.svelte';
+  import { getCapabilities, getKeyboardConfig, hasDualReceiver, hasTx, hasAnyScope, hasSpectrum, isAudioFftScope } from '$lib/stores/capabilities.svelte';
   import { useLcdLayout } from '$lib/stores/layout.svelte';
   import SpectrumPanel from '../../components/spectrum/SpectrumPanel.svelte';
+  import AudioSpectrumPanel from '../panels/audio-scope/AudioSpectrumPanel.svelte';
   import AmberLcdDisplay from '../panels/lcd/AmberLcdDisplay.svelte';
   import LeftSidebar from './LeftSidebar.svelte';
   import RightSidebar from './RightSidebar.svelte';
@@ -82,6 +83,7 @@
   let connectionStatus = $derived(getConnectionStatus());
   // (mobile activeTab removed — MobileRadioLayout handles its own state)
 
+  let isAudioFft = $derived(isAudioFftScope());
   let activeReceiverLabel = $derived(radioState?.active === 'SUB' ? 'SUB' : 'MAIN');
   let activeModeLabel = $derived(radioState?.active === 'SUB' ? (radioState?.sub?.mode ?? '') : (radioState?.main?.mode ?? ''));
   let activeFilterLabel = $derived(radioState?.active === 'SUB' ? (radioState?.sub?.filter ?? '') : (radioState?.main?.filter ?? ''));
@@ -186,7 +188,7 @@
 
 {#if isMobile}
   <MobileRadioLayout />
-{:else if useLcdLayout(hasSpectrum())}
+{:else if useLcdLayout(hasAnyScope())}
   <LcdLayout />
 {:else}
 <div class="radio-layout">
@@ -225,11 +227,17 @@
     </div>
 
     <main class="content-center center-column">
-      <div class="spectrum-slot">
-        <div class="spectrum-frame">
-          <SpectrumPanel />
+      {#if isAudioFft}
+        <div class="audio-scope-slot">
+          <AudioSpectrumPanel />
         </div>
-      </div>
+      {:else}
+        <div class="spectrum-slot">
+          <div class="spectrum-frame">
+            <SpectrumPanel />
+          </div>
+        </div>
+      {/if}
     </main>
 
     <div class="content-right">
@@ -494,6 +502,18 @@
     min-height: 0;
     min-width: 0;
     display: flex;
+  }
+
+  .audio-scope-slot {
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    display: flex;
+    border: 1px solid var(--v2-border-panel);
+    border-radius: 4px;
+    background: var(--v2-bg-card);
+    box-shadow: var(--v2-shadow-sm);
+    overflow: hidden;
   }
 
   .spectrum-frame {

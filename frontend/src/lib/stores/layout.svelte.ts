@@ -1,20 +1,22 @@
 /**
  * Layout preference store.
- * 'auto' = use spectrum if available, LCD otherwise
- * 'lcd'  = force LCD layout
- * 'spectrum' = force spectrum layout (only if hardware supports it)
+ * 'auto'     = standard layout when any scope available (HW or audio FFT), LCD otherwise
+ * 'lcd'      = force LCD layout
+ * 'standard' = force standard layout
  */
 
 const STORAGE_KEY = 'icom-lan-layout';
 
-type LayoutMode = 'auto' | 'lcd' | 'spectrum';
+export type LayoutMode = 'auto' | 'lcd' | 'standard';
 
 let mode = $state<LayoutMode>(loadMode());
 
 function loadMode(): LayoutMode {
   if (typeof window === 'undefined') return 'auto';
   const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved === 'lcd' || saved === 'spectrum') return saved;
+  if (saved === 'lcd' || saved === 'standard') return saved;
+  // Migrate old 'spectrum' value to 'standard'
+  if (saved === 'spectrum') return 'standard';
   return 'auto';
 }
 
@@ -29,22 +31,25 @@ export function setLayoutMode(m: LayoutMode): void {
   }
 }
 
-export function cycleLayoutMode(hasHwSpectrum: boolean): void {
-  if (hasHwSpectrum) {
-    // auto → lcd → spectrum → auto
-    const order: LayoutMode[] = ['auto', 'lcd', 'spectrum'];
+export function cycleLayoutMode(hasAnyScope: boolean): void {
+  if (hasAnyScope) {
+    // auto → lcd → standard → auto
+    const order: LayoutMode[] = ['auto', 'lcd', 'standard'];
     const idx = order.indexOf(mode);
     setLayoutMode(order[(idx + 1) % order.length]);
   } else {
-    // No spectrum hardware: always LCD, no toggle needed
+    // No scope at all: always LCD, no toggle needed
     setLayoutMode('lcd');
   }
 }
 
-/** Resolve whether to use LCD layout given hardware capabilities. */
-export function useLcdLayout(hasHwSpectrum: boolean): boolean {
+/**
+ * Resolve whether to use LCD layout given scope capabilities.
+ * @param hasAnyScope — true if hardware spectrum OR audio FFT is available
+ */
+export function useLcdLayout(hasAnyScope: boolean): boolean {
   if (mode === 'lcd') return true;
-  if (mode === 'spectrum') return false;
-  // auto: LCD when no hardware spectrum
-  return !hasHwSpectrum;
+  if (mode === 'standard') return false;
+  // auto: standard layout when any scope is available, LCD otherwise
+  return !hasAnyScope;
 }
