@@ -97,6 +97,16 @@ __all__ = [
     "SetRepeaterTone",
     "SetRepeaterTsql",
     "SetRxAntenna",
+    "SetRefAdjust",
+    "SetCivTransceive",
+    "SetCivOutputAnt",
+    "SetAfMute",
+    "SetTuningStep",
+    "SetXfcStatus",
+    "SetTxFreqMonitor",
+    "SetUtcOffset",
+    "QuickSplit",
+    "QuickDualWatch",
 ]
 
 logger = logging.getLogger(__name__)
@@ -636,6 +646,59 @@ class SetBsr:
     bsr: Any  # BandStackRegister dataclass
 
 
+@dataclass(frozen=True, slots=True)
+class SetRefAdjust:
+    value: int
+
+
+@dataclass(frozen=True, slots=True)
+class SetCivTransceive:
+    on: bool
+
+
+@dataclass(frozen=True, slots=True)
+class SetCivOutputAnt:
+    on: bool
+
+
+@dataclass(frozen=True, slots=True)
+class SetAfMute:
+    on: bool
+    receiver: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class SetTuningStep:
+    step: int
+
+
+@dataclass(frozen=True, slots=True)
+class SetXfcStatus:
+    on: bool
+
+
+@dataclass(frozen=True, slots=True)
+class SetTxFreqMonitor:
+    on: bool
+
+
+@dataclass(frozen=True, slots=True)
+class SetUtcOffset:
+    hours: int
+    minutes: int
+    is_negative: bool
+
+
+@dataclass(frozen=True, slots=True)
+class QuickSplit:
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class QuickDualWatch:
+    pass
+
+
 Command = (
     SetFreq
     | SetMode
@@ -731,6 +794,16 @@ Command = (
     | MemoryClear
     | SetMemoryContents
     | SetBsr
+    | SetRefAdjust
+    | SetCivTransceive
+    | SetCivOutputAnt
+    | SetAfMute
+    | SetTuningStep
+    | SetXfcStatus
+    | SetTxFreqMonitor
+    | SetUtcOffset
+    | QuickSplit
+    | QuickDualWatch
 )
 
 
@@ -1999,6 +2072,39 @@ class RadioPoller:
             case SetBsr(bsr=bsr):
                 if isinstance(radio, MemoryCapable):
                     await radio.set_bsr(bsr)
+            case SetRefAdjust(value=value):
+                await _r.set_ref_adjust(value)
+                if self._radio_state:
+                    self._radio_state.ref_adjust = value
+                    self.bump_revision()
+            case SetCivTransceive(on=on):
+                await _r.set_civ_transceive(on)
+            case SetCivOutputAnt(on=on):
+                await _r.set_civ_output_ant(on)
+            case SetAfMute(on=on, receiver=rx):
+                await _r.set_af_mute(on, receiver=rx)
+                if self._radio_state:
+                    target = self._radio_state.sub if rx != 0 else self._radio_state.main
+                    target.af_mute = on
+                    self.bump_revision()
+            case SetTuningStep(step=step):
+                await _r.set_tuning_step(step)
+                if self._radio_state:
+                    self._radio_state.tuning_step = step
+                    self.bump_revision()
+            case SetXfcStatus(on=on):
+                await _r.set_xfc_status(on)
+            case SetTxFreqMonitor(on=on):
+                await _r.set_tx_freq_monitor(on)
+                if self._radio_state:
+                    self._radio_state.tx_freq_monitor = on
+                    self.bump_revision()
+            case SetUtcOffset(hours=hours, minutes=minutes, is_negative=is_negative):
+                await _r.set_utc_offset(hours, minutes, is_negative)
+            case QuickSplit():
+                await _r.quick_split()
+            case QuickDualWatch():
+                await _r.quick_dual_watch()
 
     # Fast: meters (polled on even cycles)
     # wfview: Priority=Highest, queue interval 25ms for LAN (HasFDComms)
