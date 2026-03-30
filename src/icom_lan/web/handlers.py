@@ -125,6 +125,12 @@ from .radio_poller import (
     MemoryClear,
     SetMemoryContents,
     SetBsr,
+    SetDataOffModInput,
+    SetData1ModInput,
+    SetData2ModInput,
+    SetData3ModInput,
+    SetAudioPeakFilter,
+    SetDigiselShift,
 )
 from .runtime_helpers import (
     build_public_state_payload,
@@ -281,6 +287,19 @@ class ControlHandler:
             "memory_clear",
             "set_memory_contents",
             "set_bsr",
+            "get_acc1_mod_level",
+            "get_usb_mod_level",
+            "get_lan_mod_level",
+            "get_data_off_mod_input",
+            "set_data_off_mod_input",
+            "get_data1_mod_input",
+            "set_data1_mod_input",
+            "get_data2_mod_input",
+            "set_data2_mod_input",
+            "get_data3_mod_input",
+            "set_data3_mod_input",
+            "set_audio_peak_filter",
+            "set_digisel_shift",
         ]
     )
 
@@ -807,6 +826,25 @@ class ControlHandler:
                 raise RuntimeError("radio does not support this command")
             value = await self._radio.get_dash_ratio()
             return {"value": value}
+        if name in ("get_acc1_mod_level", "get_usb_mod_level", "get_lan_mod_level"):
+            if self._radio is None:
+                raise RuntimeError("radio connection not available")
+            if not isinstance(self._radio, AdvancedControlCapable):
+                raise RuntimeError("radio does not support this command")
+            level = await getattr(self._radio, name)()
+            return {"level": level}
+        if name in (
+            "get_data_off_mod_input",
+            "get_data1_mod_input",
+            "get_data2_mod_input",
+            "get_data3_mod_input",
+        ):
+            if self._radio is None:
+                raise RuntimeError("radio connection not available")
+            if not isinstance(self._radio, AdvancedControlCapable):
+                raise RuntimeError("radio does not support this command")
+            source = await getattr(self._radio, name)()
+            return {"source": source}
         if name == "set_tuner_status":
             if "value" not in params:
                 raise ValueError("missing required 'value' parameter")
@@ -1399,6 +1437,36 @@ class ControlHandler:
                 bsr = BandStackRegister(**params)
                 q.put(SetBsr(bsr))
                 return {"band": bsr.band, "register": bsr.register}
+            case "set_data_off_mod_input":
+                source = int(params["source"])
+                q.put(SetDataOffModInput(source))
+                return {"source": source}
+            case "set_data1_mod_input":
+                source = int(params["source"])
+                q.put(SetData1ModInput(source))
+                return {"source": source}
+            case "set_data2_mod_input":
+                source = int(params["source"])
+                q.put(SetData2ModInput(source))
+                return {"source": source}
+            case "set_data3_mod_input":
+                source = int(params["source"])
+                q.put(SetData3ModInput(source))
+                return {"source": source}
+            case "set_audio_peak_filter":
+                on = bool(params.get("on", False))
+                rx = int(params.get("receiver", 0))
+                self._ensure_capability("apf", "set_audio_peak_filter")
+                self._ensure_receiver_supported(rx)
+                q.put(SetAudioPeakFilter(on, receiver=rx))
+                return {"on": on, "receiver": rx}
+            case "set_digisel_shift":
+                level = int(params["level"])
+                rx = int(params.get("receiver", 0))
+                self._ensure_capability("digisel", "set_digisel_shift")
+                self._ensure_receiver_supported(rx)
+                q.put(SetDigiselShift(level, receiver=rx))
+                return {"level": level, "receiver": rx}
             case _:
                 raise ValueError(f"unhandled command: {name!r}")
 

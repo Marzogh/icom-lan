@@ -636,6 +636,38 @@ class SetBsr:
     bsr: Any  # BandStackRegister dataclass
 
 
+@dataclass(frozen=True, slots=True)
+class SetDataOffModInput:
+    source: int
+
+
+@dataclass(frozen=True, slots=True)
+class SetData1ModInput:
+    source: int
+
+
+@dataclass(frozen=True, slots=True)
+class SetData2ModInput:
+    source: int
+
+
+@dataclass(frozen=True, slots=True)
+class SetData3ModInput:
+    source: int
+
+
+@dataclass(frozen=True, slots=True)
+class SetAudioPeakFilter:
+    on: bool
+    receiver: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class SetDigiselShift:
+    level: int
+    receiver: int = 0
+
+
 Command = (
     SetFreq
     | SetMode
@@ -731,6 +763,12 @@ Command = (
     | MemoryClear
     | SetMemoryContents
     | SetBsr
+    | SetDataOffModInput
+    | SetData1ModInput
+    | SetData2ModInput
+    | SetData3ModInput
+    | SetAudioPeakFilter
+    | SetDigiselShift
 )
 
 
@@ -1999,6 +2037,26 @@ class RadioPoller:
             case SetBsr(bsr=bsr):
                 if isinstance(radio, MemoryCapable):
                     await radio.set_bsr(bsr)
+            case SetDataOffModInput(source=source):
+                if isinstance(radio, AdvancedControlCapable):
+                    await radio.set_data_off_mod_input(source)
+            case SetData1ModInput(source=source):
+                if isinstance(radio, AdvancedControlCapable):
+                    await radio.set_data1_mod_input(source)
+            case SetData2ModInput(source=source):
+                if isinstance(radio, AdvancedControlCapable):
+                    await radio.set_data2_mod_input(source)
+            case SetData3ModInput(source=source):
+                if isinstance(radio, AdvancedControlCapable):
+                    await radio.set_data3_mod_input(source)
+            case SetAudioPeakFilter(on=on, receiver=rx):
+                self._ensure_receiver_supported(rx, operation="set_audio_peak_filter")
+                if isinstance(radio, AdvancedControlCapable):
+                    await radio.set_audio_peak_filter(int(on), receiver=rx)
+            case SetDigiselShift(level=level, receiver=rx):
+                self._ensure_receiver_supported(rx, operation="set_digisel_shift")
+                if isinstance(radio, AdvancedControlCapable):
+                    await radio.set_digisel_shift(level, receiver=rx)
 
     # Fast: meters (polled on even cycles)
     # wfview: Priority=Highest, queue interval 25ms for LAN (HasFDComms)
