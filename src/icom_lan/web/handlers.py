@@ -261,6 +261,10 @@ class ControlHandler:
             "set_main_sub_tracking",
             "set_ssb_tx_bw",
             "set_manual_notch_width",
+            "send_cw_text",
+            "stop_cw_text",
+            "get_break_in_delay",
+            "get_dash_ratio",
             "set_break_in_delay",
             "set_vox_gain",
             "set_anti_vox_gain",
@@ -772,6 +776,37 @@ class ControlHandler:
             status = await self._radio.get_tuner_status()
             label = {0: "OFF", 1: "ON", 2: "TUNING"}.get(status, "UNKNOWN")
             return {"status": status, "label": label}
+        if name == "send_cw_text":
+            if self._radio is None:
+                raise RuntimeError("radio connection not available")
+            if not isinstance(self._radio, AdvancedControlCapable):
+                raise RuntimeError("radio does not support this command")
+            text = str(params.get("text", ""))
+            if len(text) > 30:
+                raise ValueError(f"CW text too long: max 30 characters, got {len(text)}")
+            await self._radio.send_cw_text(text)
+            return {"text": text}
+        if name == "stop_cw_text":
+            if self._radio is None:
+                raise RuntimeError("radio connection not available")
+            if not isinstance(self._radio, AdvancedControlCapable):
+                raise RuntimeError("radio does not support this command")
+            await self._radio.stop_cw_text()
+            return {}
+        if name == "get_break_in_delay":
+            if self._radio is None:
+                raise RuntimeError("radio connection not available")
+            if not isinstance(self._radio, AdvancedControlCapable):
+                raise RuntimeError("radio does not support this command")
+            level = await self._radio.get_break_in_delay()
+            return {"level": level}
+        if name == "get_dash_ratio":
+            if self._radio is None:
+                raise RuntimeError("radio connection not available")
+            if not isinstance(self._radio, AdvancedControlCapable):
+                raise RuntimeError("radio does not support this command")
+            value = await self._radio.get_dash_ratio()
+            return {"value": value}
         if name == "set_tuner_status":
             if "value" not in params:
                 raise ValueError("missing required 'value' parameter")

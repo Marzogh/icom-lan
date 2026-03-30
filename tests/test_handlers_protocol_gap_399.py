@@ -61,6 +61,7 @@ def _capable_radio() -> SimpleNamespace:
         set_scope_fixed_edge=AsyncMock(),
         # AdvancedControlCapable attrs
         send_cw_text=AsyncMock(),
+        stop_cw_text=AsyncMock(),
         set_attenuator=AsyncMock(),
         set_attenuator_level=AsyncMock(),
         get_attenuator_level=AsyncMock(return_value=0),

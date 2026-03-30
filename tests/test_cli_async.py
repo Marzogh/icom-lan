@@ -62,6 +62,7 @@ def _add_capability_protocols(radio: MagicMock) -> MagicMock:
     radio.set_scope_fixed_edge = AsyncMock()
     # AdvancedControlCapable
     radio.send_cw_text = AsyncMock()
+    radio.stop_cw_text = AsyncMock()
     radio.set_attenuator = AsyncMock()
     radio.set_attenuator_level = AsyncMock()
     radio.get_attenuator_level = AsyncMock(return_value=0)

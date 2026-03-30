@@ -961,6 +961,7 @@ class RadioPoller:
                 ("filter_width", 0x1A, 0x03),
                 ("pbt", 0x14, 0x07),  # PBT Inner
                 ("pbt", 0x14, 0x08),  # PBT Outer
+                ("squelch", 0x15, 0x01),  # S-meter squelch status
             ]
             for cap, cmd_byte, sub_byte in _PER_RX_QUERIES:
                 if not self._supports_capability(cap):
@@ -979,7 +980,6 @@ class RadioPoller:
                     queries.append((cmd_byte, sub_byte, None))
             if self._profile.model == "IC-7610":
                 for cmd_byte, sub_byte in (
-                    (0x15, 0x01),  # S-meter squelch status
                     (0x16, 0x12),  # AGC mode
                     (0x16, 0x32),  # Audio peak filter
                     (0x16, 0x41),  # Auto notch

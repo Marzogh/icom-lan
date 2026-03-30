@@ -128,6 +128,7 @@ def _capable_radio() -> SimpleNamespace:
         set_scope_fixed_edge=AsyncMock(),
         # AdvancedControlCapable protocol attrs
         send_cw_text=AsyncMock(),
+        stop_cw_text=AsyncMock(),
         set_attenuator=AsyncMock(),
         set_attenuator_level=AsyncMock(),
         get_attenuator_level=AsyncMock(return_value=0),
@@ -1327,6 +1328,92 @@ async def test_set_tuner_status_missing_value() -> None:
     handler = _control_handler(radio=radio)
     with pytest.raises(ValueError, match="missing required 'value' parameter"):
         await handler._enqueue_command("set_tuner_status", {})
+
+
+@pytest.mark.asyncio
+async def test_send_cw_text_calls_radio_method() -> None:
+    """send_cw_text invokes radio.send_cw_text() and returns the text."""
+    radio = _capable_radio()
+    radio.send_cw_text = AsyncMock()
+    handler = _control_handler(radio=radio)
+    result = await handler._enqueue_command("send_cw_text", {"text": "CQ CQ DE KN4KYD"})
+    assert result == {"text": "CQ CQ DE KN4KYD"}
+    radio.send_cw_text.assert_awaited_once_with("CQ CQ DE KN4KYD")
+
+
+@pytest.mark.asyncio
+async def test_send_cw_text_too_long_raises() -> None:
+    """send_cw_text raises ValueError when text exceeds 30 characters."""
+    radio = _capable_radio()
+    handler = _control_handler(radio=radio)
+    long_text = "A" * 31
+    with pytest.raises(ValueError, match="CW text too long"):
+        await handler._enqueue_command("send_cw_text", {"text": long_text})
+
+
+@pytest.mark.asyncio
+async def test_send_cw_text_no_radio_raises() -> None:
+    """send_cw_text raises when radio is not connected."""
+    handler = _control_handler(radio=None)
+    with pytest.raises(RuntimeError, match="radio connection not available"):
+        await handler._enqueue_command("send_cw_text", {"text": "CQ"})
+
+
+@pytest.mark.asyncio
+async def test_stop_cw_text_calls_radio_method() -> None:
+    """stop_cw_text invokes radio.stop_cw_text() and returns empty dict."""
+    radio = _capable_radio()
+    radio.stop_cw_text = AsyncMock()
+    handler = _control_handler(radio=radio)
+    result = await handler._enqueue_command("stop_cw_text", {})
+    assert result == {}
+    radio.stop_cw_text.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_stop_cw_text_no_radio_raises() -> None:
+    """stop_cw_text raises when radio is not connected."""
+    handler = _control_handler(radio=None)
+    with pytest.raises(RuntimeError, match="radio connection not available"):
+        await handler._enqueue_command("stop_cw_text", {})
+
+
+@pytest.mark.asyncio
+async def test_get_break_in_delay_returns_level() -> None:
+    """get_break_in_delay reads from radio and returns level."""
+    radio = _capable_radio()
+    radio.get_break_in_delay = AsyncMock(return_value=128)
+    handler = _control_handler(radio=radio)
+    result = await handler._enqueue_command("get_break_in_delay", {})
+    assert result == {"level": 128}
+    radio.get_break_in_delay.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_get_break_in_delay_no_radio_raises() -> None:
+    """get_break_in_delay raises when radio is not connected."""
+    handler = _control_handler(radio=None)
+    with pytest.raises(RuntimeError, match="radio connection not available"):
+        await handler._enqueue_command("get_break_in_delay", {})
+
+
+@pytest.mark.asyncio
+async def test_get_dash_ratio_returns_value() -> None:
+    """get_dash_ratio reads from radio and returns value."""
+    radio = _capable_radio()
+    radio.get_dash_ratio = AsyncMock(return_value=30)
+    handler = _control_handler(radio=radio)
+    result = await handler._enqueue_command("get_dash_ratio", {})
+    assert result == {"value": 30}
+    radio.get_dash_ratio.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_get_dash_ratio_no_radio_raises() -> None:
+    """get_dash_ratio raises when radio is not connected."""
+    handler = _control_handler(radio=None)
+    with pytest.raises(RuntimeError, match="radio connection not available"):
+        await handler._enqueue_command("get_dash_ratio", {})
 
 
 @pytest.mark.asyncio
