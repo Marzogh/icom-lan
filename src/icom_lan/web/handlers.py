@@ -119,6 +119,12 @@ from .radio_poller import (
     SetRepeaterTone,
     SetRepeaterTsql,
     SetRxAntenna,
+    SetMemoryMode,
+    MemoryWrite,
+    MemoryToVfo,
+    MemoryClear,
+    SetMemoryContents,
+    SetBsr,
 )
 from .runtime_helpers import (
     build_public_state_payload,
@@ -130,7 +136,7 @@ from .websocket import WS_OP_BINARY, WS_OP_TEXT, WebSocketConnection
 if TYPE_CHECKING:
     from ..radio_protocol import Radio
 
-from ..radio_protocol import AdvancedControlCapable, LevelsCapable, PowerControlCapable
+from ..radio_protocol import AdvancedControlCapable, LevelsCapable, MemoryCapable, PowerControlCapable
 
 __all__ = [
     "HIGH_WATERMARK",
@@ -265,6 +271,12 @@ class ControlHandler:
             "set_repeater_tone",
             "set_repeater_tsql",
             "set_rx_antenna",
+            "set_memory_mode",
+            "memory_write",
+            "memory_to_vfo",
+            "memory_clear",
+            "set_memory_contents",
+            "set_bsr",
         ]
     )
 
@@ -1291,6 +1303,67 @@ class ControlHandler:
                 self._ensure_capability("rx_antenna", "set_rx_antenna")
                 q.put(SetRxAntenna(antenna, on))
                 return {"antenna": antenna, "on": on}
+            case "set_memory_mode":
+                if not isinstance(self._radio, MemoryCapable):
+                    raise ValueError(
+                        "command set_memory_mode is not supported by this radio "
+                        "(missing MemoryCapable)"
+                    )
+                channel = int(params["channel"])
+                if not 1 <= channel <= 101:
+                    raise ValueError(f"channel must be 1-101, got {channel}")
+                q.put(SetMemoryMode(channel))
+                return {"channel": channel}
+            case "memory_write":
+                if not isinstance(self._radio, MemoryCapable):
+                    raise ValueError(
+                        "command memory_write is not supported by this radio "
+                        "(missing MemoryCapable)"
+                    )
+                q.put(MemoryWrite())
+                return {}
+            case "memory_to_vfo":
+                if not isinstance(self._radio, MemoryCapable):
+                    raise ValueError(
+                        "command memory_to_vfo is not supported by this radio "
+                        "(missing MemoryCapable)"
+                    )
+                channel = int(params["channel"])
+                if not 1 <= channel <= 101:
+                    raise ValueError(f"channel must be 1-101, got {channel}")
+                q.put(MemoryToVfo(channel))
+                return {"channel": channel}
+            case "memory_clear":
+                if not isinstance(self._radio, MemoryCapable):
+                    raise ValueError(
+                        "command memory_clear is not supported by this radio "
+                        "(missing MemoryCapable)"
+                    )
+                channel = int(params["channel"])
+                if not 1 <= channel <= 101:
+                    raise ValueError(f"channel must be 1-101, got {channel}")
+                q.put(MemoryClear(channel))
+                return {"channel": channel}
+            case "set_memory_contents":
+                if not isinstance(self._radio, MemoryCapable):
+                    raise ValueError(
+                        "command set_memory_contents is not supported by this radio "
+                        "(missing MemoryCapable)"
+                    )
+                from ..types import MemoryChannel
+                mem = MemoryChannel(**params)
+                q.put(SetMemoryContents(mem))
+                return {"channel": mem.channel}
+            case "set_bsr":
+                if not isinstance(self._radio, MemoryCapable):
+                    raise ValueError(
+                        "command set_bsr is not supported by this radio "
+                        "(missing MemoryCapable)"
+                    )
+                from ..types import BandStackRegister
+                bsr = BandStackRegister(**params)
+                q.put(SetBsr(bsr))
+                return {"band": bsr.band, "register": bsr.register}
             case _:
                 raise ValueError(f"unhandled command: {name!r}")
 

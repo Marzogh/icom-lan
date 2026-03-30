@@ -461,7 +461,7 @@ get_antenna = [0x12]                      # Sub: 0x00=ANT1, 0x01=ANT2; Data: 0/1
 set_antenna = [0x12]
 get_rx_antenna = [0x16, 0x53]             # RX-I/O connector 0=OFF, 1=ON
 set_rx_antenna = [0x16, 0x53]
-get_civ_output_ant = [0x1C, 0x04]         # NOT_IMPLEMENTED — CI-V output for antenna switching
+get_civ_output_ant = [0x1C, 0x04]
 set_civ_output_ant = [0x1C, 0x04]
 
 # ── Audio / AF ──
@@ -636,13 +636,12 @@ set_ref_adjust = [0x1A, 0x05, 0x00, 0x70]
 get_bsr = [0x1A, 0x01]                    # Read BSR contents
 set_bsr = [0x1A, 0x01]                    # Write BSR contents
 
-# ── Memory ── (NOT_IMPLEMENTED)
-# get_memory_contents = [0x1A, 0x00]
-# set_memory_contents = [0x1A, 0x00]
-# set_memory_mode = [0x08]
-# memory_write = [0x09]
-# memory_to_vfo = [0x0A]
-# memory_clear = [0x0B]
+# ── Memory ──
+set_memory_mode = [0x08]
+memory_write = [0x09]
+memory_to_vfo = [0x0A]
+memory_clear = [0x0B]
+set_memory_contents = [0x1A, 0x00]
 
 # ── Menu Settings (0x1A 0x05 ...) ──
 # These are SET menu items with model-specific sub-addresses.
@@ -681,8 +680,8 @@ get_nb_width = [0x1A, 0x05, 0x02, 0x91]
 set_nb_width = [0x1A, 0x05, 0x02, 0x91]
 get_dash_ratio = [0x1A, 0x05, 0x02, 0x28]
 set_dash_ratio = [0x1A, 0x05, 0x02, 0x28]
-get_vox_delay = [0x1A, 0x05, 0x02, 0x92]     # NOT_IMPLEMENTED — 0-20 (0.0-2.0 sec)
-set_vox_delay = [0x1A, 0x05, 0x02, 0x92]     # NOT_IMPLEMENTED — 0-20 (0.0-2.0 sec)
+get_vox_delay = [0x1A, 0x05, 0x02, 0x92]
+set_vox_delay = [0x1A, 0x05, 0x02, 0x92]
 
 [protocol]
 type = "civ"

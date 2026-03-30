@@ -61,6 +61,7 @@ __all__ = [
     "PowerControlCapable",
     "StateNotifyCapable",
     "TransceiverStatusCapable",
+    "MemoryCapable",
 ]
 
 
@@ -791,4 +792,39 @@ class TransceiverStatusCapable(Protocol):
 
     async def set_tx_freq_monitor(self, on: bool) -> None:
         """Set TX frequency monitor on/off status."""
+        ...
+
+
+@runtime_checkable
+class MemoryCapable(Protocol):
+    """Radio supports memory channel operations.
+
+    Covers memory mode selection, VFO-to-memory write, memory-to-VFO recall,
+    memory clear, full memory channel programming, and band stacking register
+    write.  Read-back methods are omitted because the IC-7610 (and many Icom
+    radios) do not support GET variants for these commands.
+    """
+
+    async def set_memory_mode(self, channel: int) -> None:
+        """Select a memory channel (1-101)."""
+        ...
+
+    async def memory_write(self) -> None:
+        """Write the current VFO state to the selected memory channel."""
+        ...
+
+    async def memory_to_vfo(self, channel: int) -> None:
+        """Load a memory channel into the VFO (1-101)."""
+        ...
+
+    async def memory_clear(self, channel: int) -> None:
+        """Clear a memory channel (1-101)."""
+        ...
+
+    async def set_memory_contents(self, mem: "MemoryChannel") -> None:
+        """Write full channel data to a memory channel."""
+        ...
+
+    async def set_bsr(self, bsr: "BandStackRegister") -> None:
+        """Write a band stacking register entry."""
         ...

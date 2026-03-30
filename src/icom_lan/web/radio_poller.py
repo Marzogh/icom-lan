@@ -606,6 +606,36 @@ class SetRxAntenna:
     on: bool
 
 
+@dataclass(frozen=True, slots=True)
+class SetMemoryMode:
+    channel: int
+
+
+@dataclass(frozen=True, slots=True)
+class MemoryWrite:
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class MemoryToVfo:
+    channel: int
+
+
+@dataclass(frozen=True, slots=True)
+class MemoryClear:
+    channel: int
+
+
+@dataclass(frozen=True, slots=True)
+class SetMemoryContents:
+    mem: Any  # MemoryChannel dataclass
+
+
+@dataclass(frozen=True, slots=True)
+class SetBsr:
+    bsr: Any  # BandStackRegister dataclass
+
+
 Command = (
     SetFreq
     | SetMode
@@ -695,6 +725,12 @@ Command = (
     | SetRepeaterTone
     | SetRepeaterTsql
     | SetRxAntenna
+    | SetMemoryMode
+    | MemoryWrite
+    | MemoryToVfo
+    | MemoryClear
+    | SetMemoryContents
+    | SetBsr
 )
 
 
@@ -1109,6 +1145,7 @@ class RadioPoller:
             AdvancedControlCapable,
             DualReceiverCapable,
             LevelsCapable,
+            MemoryCapable,
             PowerControlCapable,
             ScopeCapable,
         )
@@ -1924,6 +1961,24 @@ class RadioPoller:
                     else:
                         await radio.set_rx_antenna_ant2(on)
                 self.bump_revision()
+            case SetMemoryMode(channel=channel):
+                if isinstance(radio, MemoryCapable):
+                    await radio.set_memory_mode(channel)
+            case MemoryWrite():
+                if isinstance(radio, MemoryCapable):
+                    await radio.memory_write()
+            case MemoryToVfo(channel=channel):
+                if isinstance(radio, MemoryCapable):
+                    await radio.memory_to_vfo(channel)
+            case MemoryClear(channel=channel):
+                if isinstance(radio, MemoryCapable):
+                    await radio.memory_clear(channel)
+            case SetMemoryContents(mem=mem):
+                if isinstance(radio, MemoryCapable):
+                    await radio.set_memory_contents(mem)
+            case SetBsr(bsr=bsr):
+                if isinstance(radio, MemoryCapable):
+                    await radio.set_bsr(bsr)
 
     # Fast: meters (polled on even cycles)
     # wfview: Priority=Highest, queue interval 25ms for LAN (HasFDComms)

@@ -1176,3 +1176,23 @@ class YaesuCatRadio:
 
     async def scan_stop(self) -> None:
         raise NotImplementedError("Scan not supported on this radio")
+
+    # -- Memory (not supported on Yaesu) ----------------------------------------
+
+    async def set_memory_mode(self, channel: int) -> None:
+        raise NotImplementedError("Memory mode not supported on this radio")
+
+    async def memory_write(self) -> None:
+        raise NotImplementedError("Memory write not supported on this radio")
+
+    async def memory_to_vfo(self, channel: int) -> None:
+        raise NotImplementedError("Memory to VFO not supported on this radio")
+
+    async def memory_clear(self, channel: int) -> None:
+        raise NotImplementedError("Memory clear not supported on this radio")
+
+    async def set_memory_contents(self, mem: "MemoryChannel") -> None:
+        raise NotImplementedError("Memory contents not supported on this radio")
+
+    async def set_bsr(self, bsr: "BandStackRegister") -> None:
+        raise NotImplementedError("Band stack register not supported on this radio")
