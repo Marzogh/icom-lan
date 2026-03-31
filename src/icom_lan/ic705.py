@@ -1,54 +1,20 @@
-"""IC-705 convenience helpers for data and packet-mode workflows."""
+"""IC-705 convenience helpers for data and packet-mode workflows.
+
+These functions are thin wrappers around the generic :func:`apply_profile`
+system with IC-705-specific defaults pre-filled.  They exist for backward
+compatibility; new code should use :func:`apply_profile` directly.
+"""
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Any
 
+from .profiles_runtime import OperatingProfile, apply_profile
 from .types import ScopeCompletionPolicy
 
 
-class Ic705DataProfileCapable(Protocol):
-    """Minimal radio surface required by the IC-705 data-profile helpers."""
-
-    async def snapshot_state(self) -> dict[str, object]: ...
-
-    async def restore_state(self, state: dict[str, object]) -> None: ...
-
-    async def set_vox(self, on: bool) -> None: ...
-
-    async def set_vfo(self, vfo: str = "A") -> None: ...
-
-    async def set_split_mode(self, on: bool) -> None: ...
-
-    async def set_freq(self, freq_hz: int) -> None: ...
-
-    async def set_mode(self, mode: str, filter_width: int | None = None) -> None: ...
-
-    async def set_data_mode(self, on: int | bool, receiver: int = 0) -> None: ...
-
-    async def set_data_off_mod_input(self, source: int) -> None: ...
-
-    async def set_data1_mod_input(self, source: int) -> None: ...
-
-    async def vfo_equalize(self) -> None: ...
-
-    async def set_squelch(self, level: int, receiver: int = 0) -> None: ...
-
-    async def enable_scope(
-        self,
-        *,
-        output: bool = True,
-        policy: ScopeCompletionPolicy | str = ScopeCompletionPolicy.VERIFY,
-        timeout: float = 5.0,
-    ) -> None: ...
-
-    async def set_scope_mode(self, mode: int) -> None: ...
-
-    async def set_scope_span(self, span: int) -> None: ...
-
-
 async def prepare_ic705_data_profile(
-    radio: Ic705DataProfileCapable,
+    radio: Any,
     *,
     frequency_hz: int,
     mode: str = "FM",
@@ -79,48 +45,36 @@ async def prepare_ic705_data_profile(
         Snapshot from :meth:`snapshot_state` suitable for
         :func:`restore_ic705_data_profile`.
     """
-
-    snapshot = await radio.snapshot_state()
-
-    if disable_vox:
-        await radio.set_vox(False)
-    await radio.set_vfo("A")
-    await radio.set_split_mode(False)
-    await radio.set_freq(int(frequency_hz))
-    await radio.set_mode(mode)
-    await radio.set_data_mode(True)
-    if data_off_mod_input is not None:
-        await radio.set_data_off_mod_input(int(data_off_mod_input))
-    if data1_mod_input is not None:
-        await radio.set_data1_mod_input(int(data1_mod_input))
-    await radio.vfo_equalize()
-    if squelch_level is not None:
-        await radio.set_squelch(int(squelch_level))
-    if enable_scope:
-        await radio.enable_scope(
-            output=scope_output,
-            policy=scope_policy,
-            timeout=scope_timeout,
-        )
-        if scope_mode is not None:
-            await radio.set_scope_mode(int(scope_mode))
-        if scope_span is not None:
-            await radio.set_scope_span(int(scope_span))
-    await radio.set_vfo("A")
-    return snapshot
+    profile = OperatingProfile(
+        frequency_hz=int(frequency_hz),
+        mode=mode,
+        vox=False if disable_vox else None,
+        split=False,
+        vfo="A",
+        data_mode=True,
+        data_off_mod_input=int(data_off_mod_input) if data_off_mod_input is not None else None,
+        data1_mod_input=int(data1_mod_input) if data1_mod_input is not None else None,
+        squelch_level=int(squelch_level) if squelch_level is not None else None,
+        equalize_vfo=True,
+        scope_enabled=True if enable_scope else None,
+        scope_mode=int(scope_mode) if (enable_scope and scope_mode is not None) else None,
+        scope_span=int(scope_span) if (enable_scope and scope_span is not None) else None,
+        scope_output=scope_output,
+        scope_policy=scope_policy,
+        scope_timeout=scope_timeout,
+    )
+    return await apply_profile(radio, profile)
 
 
 async def restore_ic705_data_profile(
-    radio: Ic705DataProfileCapable,
+    radio: Any,
     snapshot: dict[str, object],
 ) -> None:
     """Restore a snapshot returned by :func:`prepare_ic705_data_profile`."""
-
     await radio.restore_state(snapshot)
 
 
 __all__ = [
-    "Ic705DataProfileCapable",
     "prepare_ic705_data_profile",
     "restore_ic705_data_profile",
 ]

@@ -265,6 +265,60 @@ The main entry point is **`create_radio(config)`** returning a **`Radio`** (see 
 | `radio_addr` | `0x98` | — | CI-V address |
 | `timeout` | `5.0` | — | Timeout (seconds) |
 
+## Radio Profiles
+
+Radio profiles let you describe the **desired radio state** declaratively — set only the fields you want to change. `apply_profile` inspects the radio for each capability and silently skips unsupported settings, so the same profile works across different Icom radios.
+
+### API Usage
+
+```python
+from icom_lan import OperatingProfile, apply_profile, PRESETS
+
+async with create_radio(config) as radio:
+    # Custom profile
+    profile = OperatingProfile(
+        frequency_hz=145_500_000,
+        mode="FM",
+        data_mode=True,
+        vox=False,
+    )
+    snapshot = await apply_profile(radio, profile)
+    # ... operate ...
+    await radio.restore_state(snapshot)
+
+    # Using built-in presets
+    snapshot = await apply_profile(radio, PRESETS.ft8_20m)
+```
+
+### Built-in Presets
+
+| Preset | Freq | Mode | Notes |
+|--------|------|------|-------|
+| `PRESETS.aprs_vhf` | 145.500 MHz | FM | DATA mode on, VOX off |
+| `PRESETS.ft8_20m` | 14.074 MHz | USB | DATA mode on, VOX off |
+| `PRESETS.cw_contest` | — | — | VOX off, split off |
+| `PRESETS.ssb_40m` | 7.040 MHz | LSB | — |
+
+### Creating Custom Presets
+
+```python
+my_sota_profile = OperatingProfile(
+    frequency_hz=144_200_000,
+    mode="FM",
+    squelch_level=0,
+    vox=False,
+)
+snapshot = await apply_profile(radio, my_sota_profile)
+```
+
+### How It Works Internally
+
+Each `OperatingProfile` field maps to a setter method on the radio (e.g. `frequency_hz` → `set_freq`, `vox` → `set_vox`). `apply_profile` checks `hasattr(radio, setter_name)` for each field — if the radio lacks a setter, the field is skipped with a `DEBUG` log. Fields set to `None` mean "don't change"; `False` means "explicitly disable".
+
+### Backward Compatibility
+
+`prepare_ic705_data_profile()` still works but now delegates to `apply_profile` internally.
+
 ## How It Works
 
 The library implements the Icom proprietary LAN protocol:
