@@ -1773,8 +1773,21 @@ class AudioBroadcaster:
             self._clients[client_id] = queue
             if ws is not None:
                 self._client_ws[client_id] = ws
-            if self._subscription is None and self._radio:
-                await self._start_relay()
+            # Start relay if no active subscription, or if relay task died
+            relay_alive = (
+                self._relay_task is not None and not self._relay_task.done()
+            )
+            if self._subscription is None or not relay_alive:
+                # Clean up stale subscription/task if needed
+                if self._subscription is not None and not relay_alive:
+                    logger.info("audio-broadcaster: relay task dead, restarting")
+                    if self._relay_task is not None:
+                        self._relay_task.cancel()
+                        self._relay_task = None
+                    self._subscription.stop()
+                    self._subscription = None
+                if self._radio:
+                    await self._start_relay()
         logger.info("audio-broadcaster: client added (total=%d)", len(self._clients))
         return queue
 
