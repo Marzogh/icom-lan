@@ -369,3 +369,40 @@ class TestConnectSessionRejection:
                 await radio.connect()
 
         assert mt.disconnected is True
+
+    @pytest.mark.asyncio
+    async def test_connect_raises_on_persistent_civ_port_zero_without_error_flag(self) -> None:
+        """civ_port=0 after all retries (no 0xFFFFFFFF flag) also raises ConnectionError."""
+        radio = IcomRadio("192.168.1.100", username="u", password="p")
+        mt = ConnectMockTransport()
+        radio._ctrl_transport = mt
+
+        async def _zero_status() -> int:
+            # No error flag — just persistent civ_port=0
+            radio._last_status_error = 0
+            return 0
+
+        with (
+            patch.object(radio._control_phase, "_status_retry_pause", return_value=0.0),
+            patch.object(
+                radio._control_phase,
+                "_wait_for_packet",
+                new=AsyncMock(return_value=_build_login_response()),
+            ),
+            patch.object(radio._control_phase, "_send_token_ack", new=AsyncMock()),
+            patch.object(
+                radio._control_phase,
+                "_receive_guid",
+                new=AsyncMock(return_value=b"\x00" * 16),
+            ),
+            patch.object(radio._control_phase, "_send_conninfo", new=AsyncMock()),
+            patch.object(
+                radio._control_phase,
+                "_receive_civ_port",
+                new=AsyncMock(side_effect=_zero_status),
+            ),
+        ):
+            with pytest.raises(ConnectionError, match="rejected session allocation"):
+                await radio.connect()
+
+        assert mt.disconnected is True

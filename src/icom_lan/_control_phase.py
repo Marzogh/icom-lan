@@ -140,6 +140,15 @@ class ControlPhaseRuntime:
                 )
                 h._civ_port = civ_port
             elif civ_port == 0:
+                # Fail fast on immediate session rejection (no retries needed).
+                if getattr(h, "_last_status_error", 0) == 0xFFFFFFFF:
+                    await h._ctrl_transport.disconnect()
+                    h._conn_state = RadioConnectionState.DISCONNECTED
+                    raise ConnectionError(
+                        f"Radio rejected session allocation (civ_port=0, "
+                        f"error=0x{h._last_status_error:08X}). "
+                        "A previous session may still be active. Wait 30-60s and retry."
+                    )
                 retry_pause = self._status_retry_pause()
                 logger.warning(
                     "Status returned civ_port=0 — radio session not ready. "
@@ -159,15 +168,13 @@ class ControlPhaseRuntime:
                     except asyncio.TimeoutError:
                         pass
                 else:
-                    if getattr(h, "_last_status_error", 0) == 0xFFFFFFFF:
-                        await h._ctrl_transport.disconnect()
-                        h._conn_state = RadioConnectionState.DISCONNECTED
-                        raise ConnectionError(
-                            "Radio rejected session allocation (status error=0xFFFFFFFF, civ_port=0)"
-                        )
-                    logger.warning(
-                        "Radio still returns civ_port=0 after retries, using default %d",
-                        h._civ_port,
+                    await h._ctrl_transport.disconnect()
+                    h._conn_state = RadioConnectionState.DISCONNECTED
+                    error_val = getattr(h, "_last_status_error", 0)
+                    raise ConnectionError(
+                        f"Radio rejected session allocation (civ_port=0, "
+                        f"error=0x{error_val:08X}) after retries. "
+                        "A previous session may still be active. Wait 30-60s and retry."
                     )
         except asyncio.TimeoutError:
             logger.debug("No status packet received, using default ports")

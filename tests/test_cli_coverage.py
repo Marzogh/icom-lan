@@ -186,6 +186,7 @@ async def test_run_dispatches_non_audio_commands(
     _, radio = _mock_radio_ctx()
     with (
         patch("icom_lan.cli.create_radio", return_value=radio),
+        patch("icom_lan.cli.check_ports_available"),
         patch(f"icom_lan.cli.{handler_name}", new_callable=AsyncMock) as handler,
     ):
         handler.return_value = 7
@@ -218,6 +219,7 @@ async def test_run_web_uses_serial_backend_factory_config() -> None:
     _, radio = _mock_radio_ctx()
     with (
         patch("icom_lan.cli.create_radio", return_value=radio) as create_radio,
+        patch("icom_lan.cli.check_ports_available"),
         patch("icom_lan.cli._cmd_web", new_callable=AsyncMock) as cmd_web,
     ):
         cmd_web.return_value = 0

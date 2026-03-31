@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from icom_lan.cli import _build_backend_config, _build_parser, _parse_frequency, main
+from icom_lan.cli import _build_backend_config, _build_parser, _parse_frequency, check_ports_available, main
 from icom_lan.backends.config import LanBackendConfig, SerialBackendConfig
 
 
@@ -638,3 +638,71 @@ class TestListAudioDevices:
         data = json_module.loads(captured.out.strip())
         assert data[0]["name"] == "IC-7610 USB Audio"
         assert data[0]["index"] == 0
+
+
+class TestCheckPortsAvailable:
+    def test_free_port_does_not_raise(self):
+        import socket
+
+        # Find a free port dynamically.
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("", 0))
+            port = s.getsockname()[1]
+        # Port is free now — should not raise.
+        check_ports_available([port])
+
+    def test_occupied_port_raises_runtime_error(self):
+        import socket
+
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.bind(("", 0))
+            occupied_port = s.getsockname()[1]
+            with pytest.raises(RuntimeError, match=f"Port {occupied_port} already in use"):
+                check_ports_available([occupied_port])
+
+    def test_error_message_includes_port_number(self):
+        import socket
+
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.bind(("", 0))
+            port = s.getsockname()[1]
+            try:
+                check_ports_available([port])
+            except RuntimeError as exc:
+                assert str(port) in str(exc)
+            else:
+                pytest.fail("Expected RuntimeError")
+
+    def test_empty_list_does_not_raise(self):
+        check_ports_available([])
+
+    def test_web_command_preflight_blocks_on_occupied_port(self, capsys):
+        """_run() exits 1 with error before connecting to radio when port is occupied."""
+        import asyncio
+        import socket
+
+        from icom_lan.cli import _run
+
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.bind(("", 0))
+            occupied_port = s.getsockname()[1]
+
+            args = _build_parser().parse_args([
+                "--host", "192.168.1.100", "web",
+                "--port", str(occupied_port),
+            ])
+
+            mock_radio = MagicMock()
+            mock_radio.__aenter__ = AsyncMock(return_value=mock_radio)
+            mock_radio.__aexit__ = AsyncMock(return_value=False)
+            with patch("icom_lan.cli.create_radio", return_value=mock_radio):
+                result = asyncio.run(_run(args))
+
+        # Radio should never have connected — port check exits before async with.
+        mock_radio.__aenter__.assert_not_called()
+        assert result == 1
+        captured = capsys.readouterr()
+        assert str(occupied_port) in captured.err

@@ -20,7 +20,7 @@ Usage:
     icom-lan discover
 """
 
-__all__ = ["main"]
+__all__ = ["main", "check_ports_available"]
 
 import argparse
 import asyncio
@@ -752,6 +752,45 @@ def _resolve_model(
     return radio_addr, matched.model
 
 
+def _find_port_pid(port: int) -> str | None:
+    """Return PID string using *port*, or None if not determinable."""
+    try:
+        import subprocess
+
+        result = subprocess.run(
+            ["lsof", "-ti", f":{port}"],
+            capture_output=True,
+            text=True,
+            timeout=2.0,
+        )
+        pid = result.stdout.strip().splitlines()[0] if result.stdout.strip() else ""
+        return pid if pid else None
+    except Exception:
+        return None
+
+
+def check_ports_available(ports: list[int]) -> None:
+    """Check that each port can be bound; raise RuntimeError with details if not.
+
+    Args:
+        ports: List of TCP port numbers to check.
+
+    Raises:
+        RuntimeError: If any port is already in use, with PID info when available.
+    """
+    import socket as _sock
+
+    for port in ports:
+        with _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM) as s:
+            s.setsockopt(_sock.SOL_SOCKET, _sock.SO_REUSEADDR, 0)
+            try:
+                s.bind(("", port))
+            except OSError:
+                pid = _find_port_pid(port)
+                pid_info = f" (PID {pid})" if pid else ""
+                raise RuntimeError(f"Port {port} already in use{pid_info}")
+
+
 def _build_backend_config(
     args: argparse.Namespace,
 ) -> LanBackendConfig | SerialBackendConfig:
@@ -847,6 +886,16 @@ async def _run(args: argparse.Namespace) -> int:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
     radio = create_radio(config)
+
+    if args.command == "web":
+        ports_to_check: list[int] = [args.web_port]
+        if getattr(args, "web_rigctld", False):
+            ports_to_check.append(getattr(args, "web_rigctld_port", 4532))
+        try:
+            check_ports_available(ports_to_check)
+        except RuntimeError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
 
     try:
         async with radio:
