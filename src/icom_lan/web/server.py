@@ -157,6 +157,9 @@ class WebConfig:
     dx_cluster_port: int = 0
     dx_callsign: str = ""
     auth_token: str = ""  # empty = no auth required
+    tls_cert: str = ""  # path to cert PEM (empty = auto self-signed)
+    tls_key: str = ""  # path to key PEM (empty = auto self-signed)
+    tls: bool = False  # enable TLS (HTTPS with auto self-signed cert)
 
 
 class ConnectionManager:
@@ -823,13 +826,24 @@ class WebServer:
         except Exception:
             logger.debug("eibi: no cache to load at startup")
 
+        ssl_ctx = None
+        if self._config.tls:
+            from .tls import build_ssl_context
+
+            ssl_ctx = build_ssl_context(
+                cert_path=self._config.tls_cert or None,
+                key_path=self._config.tls_key or None,
+            )
+
         self._server = await asyncio.start_server(
             self._accept_client,
             host=self._config.host,
             port=self._config.port,
+            ssl=ssl_ctx,
         )
         addr = self._server.sockets[0].getsockname()
-        logger.info("web server listening on %s:%d", addr[0], addr[1])
+        scheme = "https" if ssl_ctx else "http"
+        logger.info("web server listening on %s://%s:%d", scheme, addr[0], addr[1])
         if self._radio is not None:
             from ..radio_protocol import StateNotifyCapable
 

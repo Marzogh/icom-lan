@@ -619,6 +619,27 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="TOKEN",
         help="Bearer token for API authentication (empty = no auth)",
     )
+    web_p.add_argument(
+        "--tls-cert",
+        dest="tls_cert",
+        default="",
+        metavar="PATH",
+        help="Path to TLS certificate PEM file (empty = auto self-signed)",
+    )
+    web_p.add_argument(
+        "--tls-key",
+        dest="tls_key",
+        default="",
+        metavar="PATH",
+        help="Path to TLS private key PEM file (empty = auto self-signed)",
+    )
+    web_p.add_argument(
+        "--tls",
+        dest="tls",
+        action="store_true",
+        default=False,
+        help="Enable HTTPS with auto-generated self-signed certificate (needed for LAN TX audio)",
+    )
 
     # proxy
     proxy_p = sub.add_parser(
@@ -2025,6 +2046,16 @@ async def _cmd_web(radio: Radio, args: argparse.Namespace) -> int:
     if auth_token:
         config_kwargs["auth_token"] = auth_token
 
+    tls_cert = getattr(args, "tls_cert", "")
+    tls_key = getattr(args, "tls_key", "")
+    use_tls = getattr(args, "tls", False)
+    if tls_cert:
+        config_kwargs["tls_cert"] = tls_cert
+    if tls_key:
+        config_kwargs["tls_key"] = tls_key
+    if use_tls or tls_cert:
+        config_kwargs["tls"] = True
+
     config_kwargs["radio_model"] = getattr(radio, "model", "IC-7610")
     config = WebConfig(**config_kwargs)
     server = WebServer(radio, config)
@@ -2032,7 +2063,8 @@ async def _cmd_web(radio: Radio, args: argparse.Namespace) -> int:
         print(
             f"DX cluster: {dx_cluster} (callsign: {config_kwargs.get('dx_callsign', '')})"
         )
-    print(f"Web UI listening on http://{args.web_host}:{args.web_port}/")
+    scheme = "https" if config_kwargs.get("tls") else "http"
+    print(f"Web UI listening on {scheme}://{args.web_host}:{args.web_port}/")
 
     # Start audio bridge if requested
     bridge_device = getattr(args, "web_bridge", None)
