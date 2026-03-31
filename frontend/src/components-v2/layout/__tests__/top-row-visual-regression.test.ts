@@ -28,6 +28,7 @@ vi.mock('$lib/stores/capabilities.svelte', () => ({
   hasSpectrum: vi.fn(() => false),
   hasAnyScope: vi.fn(() => false),
   isAudioFftScope: vi.fn(() => false),
+  hasAudioFft: vi.fn(() => false),
   getScopeSource: vi.fn(() => null),
   hasCapability: vi.fn(() => false),
   getKeyboardConfig: vi.fn(() => null),

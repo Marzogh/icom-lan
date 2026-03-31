@@ -1,12 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
   pbtRawToHz,
-  computePbtOverlay,
-  generateGridLabels,
-  computeSpectrumLine,
-  computeNotchX,
-  type GridLabel,
-  type PbtOverlay,
+  resetSmoothing,
+  renderAudioSpectrum,
+  type SpectrumState,
 } from '../audio-spectrum-renderer';
 
 // ── pbtRawToHz ───────────────────────────────────────────────────────────────
@@ -17,22 +14,18 @@ describe('pbtRawToHz', () => {
   });
 
   it('returns positive Hz for values > 128', () => {
-    // (200 - 128) * (1200/128) = 72 * 9.375 = 675
     expect(pbtRawToHz(200)).toBe(675);
   });
 
   it('returns negative Hz for values < 128', () => {
-    // (56 - 128) * (1200/128) = -72 * 9.375 = -675
     expect(pbtRawToHz(56)).toBe(-675);
   });
 
   it('returns max Hz at raw=255', () => {
-    // (255 - 128) * (1200/128) = 127 * 9.375 = 1190.625 → rounded to 1191
     expect(pbtRawToHz(255)).toBe(1191);
   });
 
   it('returns -max Hz at raw=0', () => {
-    // (0 - 128) * (1200/128) = -128 * 9.375 = -1200
     expect(pbtRawToHz(0)).toBe(-1200);
   });
 
@@ -42,167 +35,115 @@ describe('pbtRawToHz', () => {
   });
 });
 
-// ── computePbtOverlay ────────────────────────────────────────────────────────
+// ── resetSmoothing ───────────────────────────────────────────────────────────
 
-describe('computePbtOverlay', () => {
-  it('returns centered trapezoids when PBT is at center (128/128)', () => {
-    const pbt = computePbtOverlay(128, 128, 2400, 48000);
-    // filterWidth=2400, bandwidth=48000, halfBw=24000
-    // halfFilter=1200, shift=0
-    // innerLeft = (-1200 + 0) / 24000 * 0.5 + 0.5 = -0.025 + 0.5 = 0.475
-    // innerRight = (1200 + 0) / 24000 * 0.5 + 0.5 = 0.025 + 0.5 = 0.525
-    expect(pbt.inner.leftX).toBeCloseTo(0.475, 3);
-    expect(pbt.inner.rightX).toBeCloseTo(0.525, 3);
-    expect(pbt.outer.leftX).toBeCloseTo(0.475, 3);
-    expect(pbt.outer.rightX).toBeCloseTo(0.525, 3);
+describe('resetSmoothing', () => {
+  it('does not throw', () => {
+    expect(() => resetSmoothing()).not.toThrow();
   });
 
-  it('shifts inner trapezoid when pbtInner > 128', () => {
-    const pbt = computePbtOverlay(200, 128, 2400, 48000);
-    // innerHz = (200-128) * (1200/128) = 675
-    // innerLeft = (-1200 + 675) / 24000 * 0.5 + 0.5 = -525/24000*0.5 + 0.5
-    expect(pbt.inner.leftX).toBeGreaterThan(pbt.outer.leftX);
-    expect(pbt.inner.rightX).toBeGreaterThan(pbt.outer.rightX);
-  });
-
-  it('intersection is narrower than both when PBTs diverge', () => {
-    // Inner shifted right, outer shifted left → intersection is small
-    const pbt = computePbtOverlay(200, 56, 2400, 48000);
-    const innerWidth = pbt.inner.rightX - pbt.inner.leftX;
-    const intWidth = pbt.intersection.rightX - pbt.intersection.leftX;
-    expect(intWidth).toBeLessThan(innerWidth);
-  });
-
-  it('intersection collapses to zero when PBTs don\'t overlap', () => {
-    // Extreme PBT values with narrow filter: inner far right, outer far left
-    const pbt = computePbtOverlay(255, 0, 500, 48000);
-    const intWidth = pbt.intersection.rightX - pbt.intersection.leftX;
-    expect(intWidth).toBeCloseTo(0, 1);
-  });
-
-  it('has slope width of 0.03', () => {
-    const pbt = computePbtOverlay(128, 128, 2400, 48000);
-    expect(pbt.inner.slopeWidth).toBe(0.03);
-    expect(pbt.outer.slopeWidth).toBe(0.03);
+  it('can be called multiple times', () => {
+    resetSmoothing();
+    resetSmoothing();
   });
 });
 
-// ── generateGridLabels ───────────────────────────────────────────────────────
+// ── renderAudioSpectrum ──────────────────────────────────────────────────────
 
-describe('generateGridLabels', () => {
-  it('always includes center label at 0.5', () => {
-    const labels = generateGridLabels(4800);
-    const center = labels.find(l => l.text === '0');
-    expect(center).toBeDefined();
-    expect(center!.xFrac).toBe(0.5);
+describe('renderAudioSpectrum', () => {
+  function mockCtx(): CanvasRenderingContext2D {
+    const noop = () => {};
+    return {
+      clearRect: noop,
+      fillRect: noop,
+      fillText: noop,
+      beginPath: noop,
+      moveTo: noop,
+      lineTo: noop,
+      closePath: noop,
+      stroke: noop,
+      fill: noop,
+      clip: noop,
+      save: noop,
+      restore: noop,
+      quadraticCurveTo: noop,
+      createLinearGradient: () => ({ addColorStop: noop }),
+      set fillStyle(_: any) {},
+      set strokeStyle(_: any) {},
+      set lineWidth(_: any) {},
+      set font(_: any) {},
+      set textAlign(_: any) {},
+    } as unknown as CanvasRenderingContext2D;
+  }
+
+  const baseState: SpectrumState = {
+    pixels: new Uint8Array(100).fill(40),
+    bandwidth: 3600,
+    filterWidth: 2400,
+    filterWidthMax: 3600,
+    pbtInner: 128,
+    pbtOuter: 128,
+    manualNotch: false,
+    notchFreq: 128,
+    contour: 0,
+    contourFreq: 128,
+  };
+
+  it('renders without throwing for valid state', () => {
+    resetSmoothing();
+    expect(() => renderAudioSpectrum(mockCtx(), 400, 160, baseState)).not.toThrow();
   });
 
-  it('generates symmetric labels around center', () => {
-    const labels = generateGridLabels(4800);
-    const positive = labels.filter(l => l.xFrac > 0.5);
-    const negative = labels.filter(l => l.xFrac < 0.5);
-    expect(positive.length).toBe(negative.length);
-    expect(positive.length).toBeGreaterThan(0);
+  it('renders without throwing for null pixels', () => {
+    resetSmoothing();
+    const state = { ...baseState, pixels: null };
+    expect(() => renderAudioSpectrum(mockCtx(), 400, 160, state)).not.toThrow();
   });
 
-  it('formats kHz labels for large bandwidths', () => {
-    const labels = generateGridLabels(48000);
-    const hasK = labels.some(l => l.text.includes('k'));
-    expect(hasK).toBe(true);
+  it('renders without throwing for empty pixels', () => {
+    resetSmoothing();
+    const state = { ...baseState, pixels: new Uint8Array(0) };
+    expect(() => renderAudioSpectrum(mockCtx(), 400, 160, state)).not.toThrow();
   });
 
-  it('formats Hz labels for small bandwidths', () => {
-    const labels = generateGridLabels(1000);
-    // With 500 Hz half-bandwidth, step should be 100 or 200
-    const nonCenter = labels.filter(l => l.text !== '0');
-    for (const l of nonCenter) {
-      // Should not have 'k' suffix for such small bandwidth
-      expect(l.text.includes('k')).toBe(false);
-    }
+  it('renders with PBT active', () => {
+    resetSmoothing();
+    const state = { ...baseState, pbtInner: 200, pbtOuter: 56 };
+    expect(() => renderAudioSpectrum(mockCtx(), 400, 160, state)).not.toThrow();
   });
 
-  it('labels are sorted by xFrac ascending', () => {
-    const labels = generateGridLabels(10000);
-    for (let i = 1; i < labels.length; i++) {
-      expect(labels[i].xFrac).toBeGreaterThanOrEqual(labels[i - 1].xFrac);
-    }
+  it('renders with manual notch', () => {
+    resetSmoothing();
+    const state = { ...baseState, manualNotch: true, notchFreq: 100 };
+    expect(() => renderAudioSpectrum(mockCtx(), 400, 160, state)).not.toThrow();
   });
 
-  it('all xFrac values are in [0, 1]', () => {
-    const labels = generateGridLabels(3600);
-    for (const l of labels) {
-      expect(l.xFrac).toBeGreaterThanOrEqual(0);
-      expect(l.xFrac).toBeLessThanOrEqual(1);
-    }
-  });
-});
-
-// ── computeSpectrumLine ──────────────────────────────────────────────────────
-
-describe('computeSpectrumLine', () => {
-  it('returns one point per pixel of canvas width', () => {
-    const pixels = new Uint8Array(100);
-    const points = computeSpectrumLine(pixels, 200, 100);
-    expect(points.length).toBe(200);
+  it('renders with contour active', () => {
+    resetSmoothing();
+    const state = { ...baseState, contour: 128, contourFreq: 100 };
+    expect(() => renderAudioSpectrum(mockCtx(), 400, 160, state)).not.toThrow();
   });
 
-  it('returns empty array for empty pixel data', () => {
-    const points = computeSpectrumLine(new Uint8Array(0), 200, 100);
-    expect(points.length).toBe(0);
+  it('handles very small canvas', () => {
+    resetSmoothing();
+    expect(() => renderAudioSpectrum(mockCtx(), 10, 10, baseState)).not.toThrow();
   });
 
-  it('maps zero amplitude to bottom of usable area', () => {
-    const pixels = new Uint8Array(10); // all zeros
-    const height = 100;
-    const usableH = height - 16; // GRID_MARGIN_BOTTOM = 16
-    const points = computeSpectrumLine(pixels, 10, height);
-    for (const p of points) {
-      expect(p.y).toBe(usableH); // bottom
-    }
+  it('handles max amplitude pixels', () => {
+    resetSmoothing();
+    const state = { ...baseState, pixels: new Uint8Array(100).fill(160) };
+    expect(() => renderAudioSpectrum(mockCtx(), 400, 160, state)).not.toThrow();
   });
 
-  it('maps max amplitude to top', () => {
-    const pixels = new Uint8Array(10).fill(160); // max amplitude
-    const points = computeSpectrumLine(pixels, 10, 100);
-    for (const p of points) {
-      expect(p.y).toBe(0); // top
-    }
+  it('handles narrow filter', () => {
+    resetSmoothing();
+    const state = { ...baseState, filterWidth: 200, filterWidthMax: 3600 };
+    expect(() => renderAudioSpectrum(mockCtx(), 400, 160, state)).not.toThrow();
   });
 
-  it('x coordinates span canvas width', () => {
-    const pixels = new Uint8Array(50);
-    const points = computeSpectrumLine(pixels, 300, 100);
-    expect(points[0].x).toBe(0);
-    expect(points[points.length - 1].x).toBe(299);
-  });
-
-  it('applies gain multiplier', () => {
-    const pixels = new Uint8Array([40]); // 40/160 = 0.25 normally
-    const noGain = computeSpectrumLine(pixels, 1, 100);
-    const withGain = computeSpectrumLine(pixels, 1, 100, 2);
-    // With gain=2: min(40*2, 160)/160 = 80/160 = 0.5
-    expect(withGain[0].y).toBeLessThan(noGain[0].y); // higher amplitude = lower y
-  });
-});
-
-// ── computeNotchX ────────────────────────────────────────────────────────────
-
-describe('computeNotchX', () => {
-  it('returns 0.5 for center notch (128)', () => {
-    expect(computeNotchX(128, 48000)).toBeCloseTo(128 / 255, 3);
-  });
-
-  it('returns ~0 for notch at frequency 0', () => {
-    expect(computeNotchX(0, 48000)).toBe(0);
-  });
-
-  it('returns ~1 for notch at frequency 255', () => {
-    expect(computeNotchX(255, 48000)).toBe(1);
-  });
-
-  it('is proportional to raw frequency', () => {
-    const x64 = computeNotchX(64, 48000);
-    const x192 = computeNotchX(192, 48000);
-    expect(x192 - 0.5).toBeCloseTo(0.5 - x64, 1);
+  it('handles wide bandwidth', () => {
+    resetSmoothing();
+    const state = { ...baseState, bandwidth: 48000 };
+    expect(() => renderAudioSpectrum(mockCtx(), 400, 160, state)).not.toThrow();
   });
 });
