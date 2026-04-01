@@ -62,7 +62,7 @@ class RigctldRouting(Protocol):
 
 _YAESU_DUMP_STATE: list[str] = [
     "0",  # protocol version
-    "2028",  # rig model (generic — TODO: read from config)
+    "2028",  # TODO(#441): read rig model from TOML config
     "1",  # ITU region
     "30000.000000 56000000.000000 0x1ff -1 -1 0x3 0xf",
     "0 0 0 0 0 0 0",
@@ -230,9 +230,6 @@ class YaesuRouting:
             return RigctldResponse(values=[str(int(await radio.get_split()))])
         if func == "AGC":
             return RigctldResponse(values=[str(int(await radio.get_agc() > 0))])
-        if func == "MON":
-            return RigctldResponse(values=[str(int(await radio.get_monitor_on()))])
-
         return _err(HamlibError.EINVAL)
 
     async def set_func(self, func: str, on: bool) -> RigctldResponse:
@@ -261,9 +258,6 @@ class YaesuRouting:
             return _ok()
         if func == "AGC":
             await radio.set_agc(1 if on else 0)
-            return _ok()
-        if func == "MON":
-            await radio.set_monitor_on(on)
             return _ok()
 
         return _err(HamlibError.EINVAL)

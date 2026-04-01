@@ -624,8 +624,19 @@ async def test_get_processor(connected_radio):
 
 
 
-# Monitor (ML) tests removed — FTX-1 does not support ML command via CAT (returns ?;)
-# See rigs/ftx1.toml: monitor commented out, capability disabled in commit 39e3dc1
+# Monitor (ML) — FTX-1 does not support ML command via CAT (returns ?;)
+
+
+@pytest.mark.asyncio
+async def test_get_monitor_on_raises_not_implemented(connected_radio):
+    with pytest.raises(NotImplementedError, match="Monitor not supported"):
+        await connected_radio.get_monitor_on()
+
+
+@pytest.mark.asyncio
+async def test_set_monitor_on_raises_not_implemented(connected_radio):
+    with pytest.raises(NotImplementedError, match="Monitor not supported"):
+        await connected_radio.set_monitor_on(True)
 
 
 # ---------------------------------------------------------------------------
@@ -1061,6 +1072,13 @@ async def test_read_meter_vd(connected_radio):
     val = await connected_radio.get_vd_meter()
     assert val == 5
     connected_radio._transport.query.assert_called_once_with("RM2;")
+
+
+@pytest.mark.asyncio
+async def test_read_meter_malformed_response_raises(connected_radio):
+    connected_radio._transport.query = AsyncMock(return_value="RM00")
+    with pytest.raises(ValueError, match="Malformed RM meter response"):
+        await connected_radio.get_comp_meter()
 
 
 @pytest.mark.asyncio

@@ -597,6 +597,8 @@ class YaesuCatRadio:
         raw = await self._transport.query(f"RM{meter_type};")
         # Response: "RM{type}{main:03d}{sub:03d}" (transport strips trailing ;)
         body = raw[2:]  # strip "RM"
+        if len(body) < 7:
+            raise ValueError(f"Malformed RM meter response: {raw!r}")
         main_val = int(body[1:4])
         sub_val = int(body[4:7])
         return main_val, sub_val
@@ -619,6 +621,8 @@ class YaesuCatRadio:
     async def get_swr(self) -> float:
         """Get SWR as a ratio (1.0–9.9).
 
+        TODO(#440): Replace linear mapping with calibration table from TOML.
+        Current mapping is approximate — needs hardware calibration.
         Linear mapping: raw 0 → 1.0, raw 255 → 9.9.
         """
         main, _ = await self._read_meter(3)
@@ -627,7 +631,11 @@ class YaesuCatRadio:
         return 1.0 + (main / 255.0) * 8.9
 
     async def get_rf_power(self) -> int:
-        """Get current TX power in watts (MetersCapable compat)."""
+        """Get configured TX power in watts.
+
+        Note: Returns the SET power level, not measured output.
+        FTX-1 does not provide a separate TX power meter via RM.
+        """
         _, watts = await self.get_power()
         return watts
 
@@ -888,14 +896,12 @@ class YaesuCatRadio:
         await self._write("set_processor_level", drive=drive, level=level)
 
     async def get_monitor_on(self) -> bool:
-        """Get monitor ON/OFF state (ML0)."""
-        result = await self._query("get_monitor_on")
-        return bool(result["level"] != 0)
+        """Get monitor ON/OFF state — not supported on FTX-1."""
+        raise NotImplementedError("Monitor not supported on this radio")
 
     async def set_monitor_on(self, state: bool) -> None:
-        """Set monitor ON/OFF.  ML is a single 0-255 value; 0=off, >0=on."""
-        # ON → set to a reasonable default (50); OFF → 0
-        await self._write("set_monitor_on", level=50 if state else 0)
+        """Set monitor ON/OFF — not supported on FTX-1."""
+        raise NotImplementedError("Monitor not supported on this radio")
 
     async def get_monitor_level(self) -> int:
         """Get monitor level (0–100, ML1)."""
@@ -1147,6 +1153,9 @@ class YaesuCatRadio:
 
     async def send_cw_text(self, text: str) -> None:
         """Send CW text via keyer (KY command), split into 24-character chunks.
+
+        Uses ``send_cw(" ", text)`` — the space is the P1 type parameter
+        (keyboard input), not a separator.  Wire format: ``KY {text};``.
 
         Args:
             text: CW text to send (A-Z, 0-9, punctuation).

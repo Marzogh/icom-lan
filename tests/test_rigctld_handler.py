@@ -1931,10 +1931,8 @@ async def test_yaesu_get_func_agc(
 async def test_yaesu_get_func_mon(
     yaesu_handler: RigctldHandler, yaesu_radio: AsyncMock
 ) -> None:
-    yaesu_radio.get_monitor_on.return_value = True
     resp = await yaesu_handler.execute(get_cmd("get_func", "MON"))
-    assert resp.ok
-    assert resp.values == ["1"]
+    assert resp.error == HamlibError.EINVAL
 
 
 @pytest.mark.asyncio
@@ -2034,8 +2032,7 @@ async def test_yaesu_set_func_mon(
     yaesu_handler: RigctldHandler, yaesu_radio: AsyncMock
 ) -> None:
     resp = await yaesu_handler.execute(set_cmd("set_func", "MON", "1"))
-    assert resp.ok
-    yaesu_radio.set_monitor_on.assert_awaited_once_with(True)
+    assert resp.error == HamlibError.EINVAL
 
 
 @pytest.mark.asyncio

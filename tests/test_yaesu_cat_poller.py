@@ -50,7 +50,6 @@ def make_radio(
     radio.get_clarifier = AsyncMock(return_value=clarifier)
     radio.get_clarifier_freq = AsyncMock(return_value=clarifier_freq)
     radio.get_manual_notch = AsyncMock(return_value=manual_notch)
-    radio.get_manual_notch_width = AsyncMock(side_effect=NotImplementedError("not supported"))
     radio.get_narrow = AsyncMock(return_value=narrow)
     radio.get_vfo_select = AsyncMock(return_value=vfo_select)
     return radio

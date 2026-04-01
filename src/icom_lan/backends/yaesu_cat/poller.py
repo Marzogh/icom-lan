@@ -655,11 +655,6 @@ class YaesuCatPoller:
         except Exception:
             logger.debug("YaesuCatPoller: get_manual_notch failed", exc_info=True)
 
-        try:
-            state.main.manual_notch_width = await radio.get_manual_notch_width()
-        except Exception:
-            logger.debug("YaesuCatPoller: get_manual_notch_width failed", exc_info=True)
-
         # -- Narrow filter mode --
         try:
             state.main.narrow = await radio.get_narrow()
