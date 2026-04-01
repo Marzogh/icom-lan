@@ -87,6 +87,8 @@ features = [
     "tuning_step",
     "band_edge",
     "xfc",
+    # System
+    "system_settings",
 ]
 
 # ── Parameterized Capabilities ───────────────────────────────────

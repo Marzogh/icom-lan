@@ -23,6 +23,7 @@ __all__ = [
     "CAP_AGC",
     "CAP_POWER_CONTROL", "CAP_DIAL_LOCK", "CAP_SCAN", "CAP_BSR", "CAP_MAIN_SUB_TRACKING",
     "CAP_TUNING_STEP", "CAP_BAND_EDGE", "CAP_XFC",
+    "CAP_SYSTEM_SETTINGS",
 ]
 
 # ---------------------------------------------------------------------------
@@ -109,6 +110,7 @@ CAP_MAIN_SUB_TRACKING = "main_sub_tracking"
 CAP_TUNING_STEP = "tuning_step"
 CAP_BAND_EDGE = "band_edge"
 CAP_XFC = "xfc"
+CAP_SYSTEM_SETTINGS = "system_settings"
 
 # ---------------------------------------------------------------------------
 # Master set — rig_loader rejects any TOML tag not listed here.
@@ -182,5 +184,6 @@ KNOWN_CAPABILITIES: frozenset[str] = frozenset(
         CAP_TUNING_STEP,
         CAP_BAND_EDGE,
         CAP_XFC,
+        CAP_SYSTEM_SETTINGS,
     }
 )

@@ -114,12 +114,14 @@ class TestProfileParity:
                 "tuning_step",
                 "band_edge",
                 "xfc",
+                # System
+                "system_settings",
             }
         )
         assert profile.capabilities == expected
 
     def test_capabilities_count(self, profile):
-        assert len(profile.capabilities) == 46
+        assert len(profile.capabilities) == 47
 
     def test_cmd29_routes_exact(self, profile):
         expected = frozenset(
