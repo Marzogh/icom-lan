@@ -634,4 +634,42 @@ class YaesuCatPoller:
         except Exception:
             logger.debug("YaesuCatPoller: get_if_shift failed", exc_info=True)
 
+        # -- Clarifier (RIT/XIT) --
+        try:
+            rx_clar, tx_clar = await radio.get_clarifier()
+            state.rit_on = rx_clar
+            state.rit_tx = tx_clar
+        except Exception:
+            logger.debug("YaesuCatPoller: get_clarifier failed", exc_info=True)
+
+        try:
+            state.rit_freq = await radio.get_clarifier_freq()
+        except Exception:
+            logger.debug("YaesuCatPoller: get_clarifier_freq failed", exc_info=True)
+
+        # -- Manual notch state + freq --
+        try:
+            notch_on, notch_freq = await radio.get_manual_notch()
+            state.main.manual_notch = notch_on
+            state.main.manual_notch_freq = notch_freq
+        except Exception:
+            logger.debug("YaesuCatPoller: get_manual_notch failed", exc_info=True)
+
+        try:
+            state.main.manual_notch_width = await radio.get_manual_notch_width()
+        except Exception:
+            logger.debug("YaesuCatPoller: get_manual_notch_width failed", exc_info=True)
+
+        # -- Narrow filter mode --
+        try:
+            state.main.narrow = await radio.get_narrow()
+        except Exception:
+            logger.debug("YaesuCatPoller: get_narrow failed", exc_info=True)
+
+        # -- VFO select --
+        try:
+            state.vfo_select = await radio.get_vfo_select()
+        except Exception:
+            logger.debug("YaesuCatPoller: get_vfo_select failed", exc_info=True)
+
         self._callback(state)

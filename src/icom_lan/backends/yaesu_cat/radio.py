@@ -589,6 +589,48 @@ class YaesuCatRadio:
             self._state.sub.s_meter = raw
         return raw
 
+    # -- RM meters (COMP, ID, VDD, SWR) ------------------------------------
+
+    async def _read_meter(self, meter_type: int) -> tuple[int, int]:
+        """Read RM{type}; meter. Returns (main, sub) raw values 0–255."""
+        self._require_connected()
+        raw = await self._transport.query(f"RM{meter_type};")
+        # Response: "RM{type}{main:03d}{sub:03d}" (transport strips trailing ;)
+        body = raw[2:]  # strip "RM"
+        main_val = int(body[1:4])
+        sub_val = int(body[4:7])
+        return main_val, sub_val
+
+    async def get_comp_meter(self) -> int:
+        """Get COMP (ALC/compression) meter reading (0–255)."""
+        main, _ = await self._read_meter(0)
+        return main
+
+    async def get_id_meter(self) -> int:
+        """Get ID (current drain) meter reading (0–255)."""
+        main, _ = await self._read_meter(1)
+        return main
+
+    async def get_vd_meter(self) -> int:
+        """Get VDD (voltage) meter reading (0–255)."""
+        main, _ = await self._read_meter(2)
+        return main
+
+    async def get_swr(self) -> float:
+        """Get SWR as a ratio (1.0–9.9).
+
+        Linear mapping: raw 0 → 1.0, raw 255 → 9.9.
+        """
+        main, _ = await self._read_meter(3)
+        if main == 0:
+            return 1.0
+        return 1.0 + (main / 255.0) * 8.9
+
+    async def get_rf_power(self) -> int:
+        """Get current TX power in watts (MetersCapable compat)."""
+        _, watts = await self.get_power()
+        return watts
+
     # -- D1: RX Audio Controls ----------------------------------------------
 
     async def get_af_level(self, receiver: int = 0) -> int:
@@ -1072,6 +1114,53 @@ class YaesuCatRadio:
     async def set_key_speed(self, speed: int) -> None:
         """Set CW keyer speed in WPM (KS)."""
         await self._write("set_keyer_speed", wpm=speed)
+
+    # -- AdvancedControlCapable aliases ----------------------------------------
+
+    async def get_cw_pitch(self) -> int:
+        """Alias for AdvancedControlCapable compatibility."""
+        return await self.get_key_pitch()
+
+    async def set_cw_pitch(self, freq: int) -> None:
+        """Alias for AdvancedControlCapable compatibility."""
+        await self.set_key_pitch(freq)
+
+    async def get_dial_lock(self) -> bool:
+        """Alias for AdvancedControlCapable compatibility."""
+        return await self.get_lock()
+
+    async def set_dial_lock(self, on: bool) -> None:
+        """Alias for AdvancedControlCapable compatibility."""
+        await self.set_lock(on)
+
+    async def set_compressor(self, on: bool) -> None:
+        """Alias for AdvancedControlCapable compatibility."""
+        await self.set_processor(on)
+
+    async def get_tuner_status(self) -> int:
+        """AdvancedControlCapable alias. Returns tuner state (0=OFF, 1=ON, 2=tuning)."""
+        return await self.get_tuner()
+
+    async def set_tuner_status(self, value: int) -> None:
+        """AdvancedControlCapable alias."""
+        await self.set_tuner(value)
+
+    async def send_cw_text(self, text: str) -> None:
+        """Send CW text via keyer (KY command), split into 24-character chunks.
+
+        Args:
+            text: CW text to send (A-Z, 0-9, punctuation).
+        """
+        if not text:
+            await self.send_cw(" ", "")
+            return
+        chunk_size = 24
+        for i in range(0, len(text), chunk_size):
+            await self.send_cw(" ", text[i : i + chunk_size])
+
+    async def stop_cw_text(self) -> None:
+        """Stop CW sending by clearing the keyer buffer."""
+        await self.send_cw(" ", "")
 
     # -- APF / Twin Peak (not supported on Yaesu) -----------------------------
 

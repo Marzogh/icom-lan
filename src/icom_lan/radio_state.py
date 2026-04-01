@@ -54,6 +54,9 @@ class ReceiverState:
     af_mute: bool = False
     contour: int = 0  # 0=off, >0=on (S-DX / contour DSP)
     if_shift: int = 0  # signed Hz, e.g. -1200..+1200
+    narrow: bool = False
+    manual_notch_freq: int = 0  # 0-255
+    manual_notch_width: int = 0  # 0-255
     repeater_tone: bool = False
     repeater_tsql: bool = False
     tone_freq: int = 0  # centihz, e.g. 8850 = 88.50 Hz
@@ -122,6 +125,7 @@ class RadioState:
     dial_lock: bool = False
     drive_gain: int = 0  # 0-255
     monitor_gain: int = 0  # 0-255
+    vfo_select: int = 0  # 0=VFO-A/MAIN, 1=VFO-B/SUB
     vox_on: bool = False
     vox_gain: int = 0  # 0-255
     anti_vox_gain: int = 0  # 0-255
@@ -166,6 +170,7 @@ class RadioState:
             "dial_lock": self.dial_lock,
             "drive_gain": self.drive_gain,
             "monitor_gain": self.monitor_gain,
+            "vfo_select": self.vfo_select,
             "vox_on": self.vox_on,
             "vox_gain": self.vox_gain,
             "anti_vox_gain": self.anti_vox_gain,

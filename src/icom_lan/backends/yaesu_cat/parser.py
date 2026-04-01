@@ -86,6 +86,8 @@ _ALLOWED_PLACEHOLDERS: frozenset[str] = frozenset(
         "src",
         "func",
         "val",
+        "main",
+        "sub",
     }
 )
 
@@ -128,6 +130,8 @@ _PLACEHOLDER_REGEX: dict[str, tuple[str, Any]] = {
     "val": (r"(?P<val>.)", str),
     "val:04d": (r"(?P<val>\d{4})", int),
     "mem": (r"(?P<mem>.)", str),
+    "main:03d": (r"(?P<main>\d{3})", int),
+    "sub:03d": (r"(?P<sub>\d{3})", int),
 }
 
 

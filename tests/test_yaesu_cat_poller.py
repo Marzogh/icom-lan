@@ -29,6 +29,11 @@ def make_radio(
     af_level: int = 128,
     rf_gain: int = 200,
     squelch: int = 0,
+    clarifier: tuple[bool, bool] = (False, False),
+    clarifier_freq: int = 0,
+    manual_notch: tuple[bool, int] = (False, 0),
+    narrow: bool = False,
+    vfo_select: int = 0,
 ) -> MagicMock:
     """Return a mock YaesuCatRadio with sensible defaults."""
     radio = MagicMock()
@@ -42,6 +47,12 @@ def make_radio(
     radio.get_af_level = AsyncMock(return_value=af_level)
     radio.get_rf_gain = AsyncMock(return_value=rf_gain)
     radio.get_squelch = AsyncMock(return_value=squelch)
+    radio.get_clarifier = AsyncMock(return_value=clarifier)
+    radio.get_clarifier_freq = AsyncMock(return_value=clarifier_freq)
+    radio.get_manual_notch = AsyncMock(return_value=manual_notch)
+    radio.get_manual_notch_width = AsyncMock(side_effect=NotImplementedError("not supported"))
+    radio.get_narrow = AsyncMock(return_value=narrow)
+    radio.get_vfo_select = AsyncMock(return_value=vfo_select)
     return radio
 
 

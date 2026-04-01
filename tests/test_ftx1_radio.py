@@ -935,3 +935,159 @@ async def test_set_nr_off_sends_level_zero(connected_radio):
     connected_radio._state.main.nr_level = 7
     await connected_radio.set_nr(False)
     connected_radio._transport.write.assert_called_once_with("RL000;")
+
+
+# ---------------------------------------------------------------------------
+# AdvancedControlCapable aliases
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_cw_pitch_delegates_to_get_key_pitch(connected_radio):
+    connected_radio._transport.query = AsyncMock(return_value="KP25")
+    assert await connected_radio.get_cw_pitch() == 25
+    connected_radio._transport.query.assert_called_once_with("KP;")
+
+
+@pytest.mark.asyncio
+async def test_set_cw_pitch_delegates_to_set_key_pitch(connected_radio):
+    connected_radio._transport.write = AsyncMock()
+    await connected_radio.set_cw_pitch(30)
+    connected_radio._transport.write.assert_called_once_with("KP30;")
+
+
+@pytest.mark.asyncio
+async def test_get_dial_lock_delegates_to_get_lock(connected_radio):
+    connected_radio._transport.query = AsyncMock(return_value="LK1")
+    assert await connected_radio.get_dial_lock() is True
+    connected_radio._transport.query.assert_called_once_with("LK;")
+
+
+@pytest.mark.asyncio
+async def test_set_dial_lock_delegates_to_set_lock(connected_radio):
+    connected_radio._transport.write = AsyncMock()
+    await connected_radio.set_dial_lock(True)
+    connected_radio._transport.write.assert_called_once_with("LK1;")
+
+
+@pytest.mark.asyncio
+async def test_set_compressor_delegates_to_set_processor(connected_radio):
+    connected_radio._transport.write = AsyncMock()
+    await connected_radio.set_compressor(True)
+    connected_radio._transport.write.assert_called_once_with("PR01;")
+
+
+@pytest.mark.asyncio
+async def test_set_compressor_off_delegates_to_set_processor(connected_radio):
+    connected_radio._transport.write = AsyncMock()
+    await connected_radio.set_compressor(False)
+    connected_radio._transport.write.assert_called_once_with("PR00;")
+
+
+@pytest.mark.asyncio
+async def test_get_tuner_status_delegates_to_get_tuner(connected_radio):
+    connected_radio._transport.query = AsyncMock(return_value="AC001")
+    result = await connected_radio.get_tuner_status()
+    assert isinstance(result, int)
+
+
+@pytest.mark.asyncio
+async def test_set_tuner_status_delegates_to_set_tuner(connected_radio):
+    connected_radio._transport.write = AsyncMock()
+    await connected_radio.set_tuner_status(1)
+    connected_radio._transport.write.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_send_cw_text_sends_ky_command(connected_radio):
+    connected_radio._transport.write = AsyncMock()
+    await connected_radio.send_cw_text("CQ CQ DE W1AW")
+    connected_radio._transport.write.assert_called_once_with("KY CQ CQ DE W1AW;")
+
+
+@pytest.mark.asyncio
+async def test_send_cw_text_splits_long_text(connected_radio):
+    connected_radio._transport.write = AsyncMock()
+    text = "A" * 48  # two 24-char chunks
+    await connected_radio.send_cw_text(text)
+    assert connected_radio._transport.write.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_send_cw_text_empty_sends_ky_clear(connected_radio):
+    connected_radio._transport.write = AsyncMock()
+    await connected_radio.send_cw_text("")
+    connected_radio._transport.write.assert_called_once_with("KY ;")
+
+
+@pytest.mark.asyncio
+async def test_stop_cw_text_sends_ky_clear(connected_radio):
+    connected_radio._transport.write = AsyncMock()
+    await connected_radio.stop_cw_text()
+    connected_radio._transport.write.assert_called_once_with("KY ;")
+
+
+# ---------------------------------------------------------------------------
+# RM Meters (COMP, ID, VDD, SWR)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_read_meter_comp_zero(connected_radio):
+    connected_radio._transport.query = AsyncMock(return_value="RM0000000")
+    val = await connected_radio.get_comp_meter()
+    assert val == 0
+    connected_radio._transport.query.assert_called_once_with("RM0;")
+
+
+@pytest.mark.asyncio
+async def test_read_meter_comp_fifty(connected_radio):
+    connected_radio._transport.query = AsyncMock(return_value="RM0050000")
+    val = await connected_radio.get_comp_meter()
+    assert val == 50
+
+
+@pytest.mark.asyncio
+async def test_read_meter_id(connected_radio):
+    connected_radio._transport.query = AsyncMock(return_value="RM1003000")
+    val = await connected_radio.get_id_meter()
+    assert val == 3
+    connected_radio._transport.query.assert_called_once_with("RM1;")
+
+
+@pytest.mark.asyncio
+async def test_read_meter_vd(connected_radio):
+    connected_radio._transport.query = AsyncMock(return_value="RM2005000")
+    val = await connected_radio.get_vd_meter()
+    assert val == 5
+    connected_radio._transport.query.assert_called_once_with("RM2;")
+
+
+@pytest.mark.asyncio
+async def test_get_swr_zero_returns_one(connected_radio):
+    connected_radio._transport.query = AsyncMock(return_value="RM3000000")
+    swr = await connected_radio.get_swr()
+    assert swr == 1.0
+    connected_radio._transport.query.assert_called_once_with("RM3;")
+
+
+@pytest.mark.asyncio
+async def test_get_swr_mid_value(connected_radio):
+    connected_radio._transport.query = AsyncMock(return_value="RM3120000")
+    swr = await connected_radio.get_swr()
+    expected = 1.0 + (120 / 255.0) * 8.9
+    assert abs(swr - expected) < 0.01
+
+
+@pytest.mark.asyncio
+async def test_get_swr_max(connected_radio):
+    connected_radio._transport.query = AsyncMock(return_value="RM3255000")
+    swr = await connected_radio.get_swr()
+    assert abs(swr - 9.9) < 0.01
+
+
+@pytest.mark.asyncio
+async def test_get_rf_power_delegates_to_get_power(connected_radio):
+    connected_radio._transport.query = AsyncMock(return_value="PC2005")
+    watts = await connected_radio.get_rf_power()
+    assert watts == 5

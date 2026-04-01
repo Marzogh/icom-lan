@@ -173,6 +173,7 @@ def test_to_dict_structure() -> None:
         "dial_lock",
         "drive_gain",
         "monitor_gain",
+        "vfo_select",
         "vox_on",
         "vox_gain",
         "anti_vox_gain",
@@ -233,6 +234,9 @@ def test_to_dict_main_keys() -> None:
         "repeater_tsql",
         "tone_freq",
         "tsql_freq",
+        "manual_notch_freq",
+        "manual_notch_width",
+        "narrow",
     }
     assert set(main.keys()) == expected_keys
 
