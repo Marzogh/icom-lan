@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 from . import __version__  # noqa: E402
 from .audio import AudioStats  # noqa: E402
-from .backends.config import LanBackendConfig, SerialBackendConfig  # noqa: E402
+from .backends.config import LanBackendConfig, SerialBackendConfig, YaesuCatBackendConfig  # noqa: E402
 from .backends.factory import create_radio  # noqa: E402
 from .capabilities import (  # noqa: E402
     CAP_AF_LEVEL,
@@ -139,9 +139,9 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--backend",
-        choices=["lan", "serial"],
+        choices=["lan", "serial", "yaesu-cat"],
         default="lan",
-        help="Backend type: lan (default) or serial (USB CI-V + audio)",
+        help="Backend type: lan (default), serial (USB CI-V + audio), or yaesu-cat",
     )
     p.add_argument(
         "--serial-port",
@@ -150,13 +150,14 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="PATH",
         help="Serial device path for --backend serial (default: $ICOM_SERIAL_DEVICE)",
     )
+    _baud_env = _get_env("ICOM_SERIAL_BAUDRATE", "")
     p.add_argument(
         "--serial-baud",
         dest="serial_baud",
         type=int,
-        default=int(_get_env("ICOM_SERIAL_BAUDRATE", "115200")),
+        default=int(_baud_env) if _baud_env else None,
         metavar="BAUD",
-        help="Serial baud rate for --backend serial (default: $ICOM_SERIAL_BAUDRATE or 115200)",
+        help="Serial baud rate (default: $ICOM_SERIAL_BAUDRATE, or 115200 for serial / 38400 for yaesu-cat)",
     )
     p.add_argument(
         "--serial-ptt-mode",
@@ -821,10 +822,24 @@ def check_ports_available(ports: list[int]) -> None:
 
 def _build_backend_config(
     args: argparse.Namespace,
-) -> LanBackendConfig | SerialBackendConfig:
+) -> LanBackendConfig | SerialBackendConfig | YaesuCatBackendConfig:
     """Build typed backend config from parsed CLI args."""
     radio_addr, model_name = _resolve_model(args)
     backend = getattr(args, "backend", "lan")
+    if backend == "yaesu-cat":
+        device = getattr(args, "serial_port", "")
+        if not device:
+            raise ValueError(
+                "Yaesu CAT backend requires --serial-port (or $ICOM_SERIAL_DEVICE).\n"
+                "  Example: icom-lan --backend yaesu-cat --serial-port /dev/tty.usbserial-FTX1 status"
+            )
+        return YaesuCatBackendConfig(
+            device=device,
+            baudrate=getattr(args, "serial_baud", None) or 38400,
+            model=model_name,
+            rx_device=getattr(args, "rx_device", None) or None,
+            tx_device=getattr(args, "tx_device", None) or None,
+        )
     if backend == "serial":
         device = getattr(args, "serial_port", "")
         if not device:
@@ -834,7 +849,7 @@ def _build_backend_config(
             )
         return SerialBackendConfig(
             device=device,
-            baudrate=getattr(args, "serial_baud", 115200),
+            baudrate=getattr(args, "serial_baud", None) or 115200,
             timeout=args.timeout,
             radio_addr=radio_addr,
             model=model_name,

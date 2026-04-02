@@ -93,6 +93,36 @@ class SerialBackendConfig:
             raise ValueError("allow_low_baud_scope must be a bool.")
 
 
-BackendConfig = LanBackendConfig | SerialBackendConfig
+@dataclass(frozen=True, slots=True)
+class YaesuCatBackendConfig:
+    """Configuration for Yaesu CAT serial backend."""
 
-__all__ = ["BackendConfig", "LanBackendConfig", "SerialBackendConfig"]
+    backend: Literal["yaesu-cat"] = "yaesu-cat"
+    device: str = ""
+    baudrate: int = 38400
+    audio_sample_rate: int = 48000
+    rx_device: str | None = None
+    tx_device: str | None = None
+    model: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.device.strip():
+            raise ValueError("Yaesu CAT backend requires non-empty device path.")
+        if self.baudrate <= 0:
+            raise ValueError("baudrate must be > 0.")
+        if self.audio_sample_rate <= 0:
+            raise ValueError("audio_sample_rate must be > 0.")
+        if self.rx_device is not None and not self.rx_device.strip():
+            raise ValueError("rx_device override must be a non-empty string.")
+        if self.tx_device is not None and not self.tx_device.strip():
+            raise ValueError("tx_device override must be a non-empty string.")
+
+
+BackendConfig = LanBackendConfig | SerialBackendConfig | YaesuCatBackendConfig
+
+__all__ = [
+    "BackendConfig",
+    "LanBackendConfig",
+    "SerialBackendConfig",
+    "YaesuCatBackendConfig",
+]

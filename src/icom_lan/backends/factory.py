@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from ..radio import IcomRadio  # noqa: TID251
 from ..radio_protocol import Radio
-from .config import BackendConfig, LanBackendConfig, SerialBackendConfig
+from .config import BackendConfig, LanBackendConfig, SerialBackendConfig, YaesuCatBackendConfig
 from .ic7300.serial import Ic7300SerialRadio
 from .ic705.serial import Ic705SerialRadio
 from .ic9700.serial import Ic9700SerialRadio
@@ -36,6 +36,14 @@ def create_radio(config: BackendConfig) -> Radio:
             cache_ttl_s=config.cache_ttl_s,
             profile=config.profile,
             model=config.model,
+        )
+    if isinstance(config, YaesuCatBackendConfig):
+        return YaesuCatRadio(
+            device=config.device,
+            baudrate=config.baudrate,
+            rx_device=config.rx_device,
+            tx_device=config.tx_device,
+            audio_sample_rate=config.audio_sample_rate,
         )
     if isinstance(config, SerialBackendConfig):
         # Route to model-specific serial backend
@@ -84,12 +92,12 @@ def create_radio(config: BackendConfig) -> Radio:
         )
 
     backend = getattr(config, "backend", None)
-    if backend in {"lan", "serial"}:
+    if backend in {"lan", "serial", "yaesu-cat"}:
         raise TypeError(
             "Unsupported config instance for backend "
             f"{backend!r}; use typed backend config dataclasses."
         )
-    raise ValueError("Unsupported backend. Expected backend 'lan' or 'serial'.")
+    raise ValueError("Unsupported backend. Expected backend 'lan', 'serial', or 'yaesu-cat'.")
 
 
 __all__ = ["create_radio"]

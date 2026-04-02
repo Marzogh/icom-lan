@@ -371,7 +371,7 @@ class TestBackendArgs:
     def test_serial_baud_default(self):
         p = _build_parser()
         args = p.parse_args(["status"])
-        assert args.serial_baud == 115200
+        assert args.serial_baud is None  # resolved per-backend in _build_backend_config
 
     def test_serial_baud_override(self):
         p = _build_parser()
