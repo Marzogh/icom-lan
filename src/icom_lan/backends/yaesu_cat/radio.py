@@ -403,6 +403,10 @@ class YaesuCatRadio:
             and spec.write is not None
         )
 
+    def supports_command(self, command: str) -> bool:
+        """Check if a command is defined in the rig profile."""
+        return self.has_command(command)
+
     def _default_nb_level(self) -> int:
         """Default NB level for turning on when current level is 0."""
         ctrl = (self._config.controls or {}).get("nb", {})

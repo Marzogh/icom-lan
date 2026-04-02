@@ -189,6 +189,14 @@ class Radio(Protocol):
         """
         ...
 
+    def supports_command(self, command: str) -> bool:
+        """Check if this radio supports a specific command.
+
+        For TOML-profile-driven backends (Yaesu), checks the command map.
+        For hardcoded backends (Icom LAN), returns True for known commands.
+        """
+        ...
+
 
 # ---------------------------------------------------------------------------
 # Optional capability Protocols

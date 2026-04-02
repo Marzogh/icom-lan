@@ -371,6 +371,140 @@ class Icom7610CoreRadio:
     WATCHDOG_CHECK_INTERVAL = 0.5
     _WATCHDOG_HEALTH_LOG_INTERVAL = 30.0
 
+    # All public commands supported by Icom CI-V backends.
+    _KNOWN_COMMANDS: frozenset[str] = frozenset({
+        # Frequency / mode / data
+        "get_freq", "set_freq", "get_mode", "set_mode",
+        "get_data_mode", "set_data_mode", "get_mode_enum", "get_mode_info",
+        # TX
+        "set_ptt",
+        # Filter / DSP
+        "get_filter", "set_filter", "get_filter_shape", "set_filter_shape",
+        "set_nb", "get_nb", "set_nr", "get_nr",
+        "set_digisel", "get_digisel", "set_ip_plus", "get_ip_plus",
+        "set_agc", "get_agc",
+        "get_auto_notch", "set_auto_notch",
+        "get_manual_notch", "set_manual_notch",
+        "get_manual_notch_width", "set_manual_notch_width",
+        "get_audio_peak_filter", "set_audio_peak_filter",
+        "get_twin_peak_filter", "set_twin_peak_filter",
+        # Levels
+        "set_af_level", "get_af_level", "set_rf_gain", "get_rf_gain",
+        "set_squelch",
+        "get_nr_level", "set_nr_level", "get_nb_level", "set_nb_level",
+        "get_mic_gain", "set_mic_gain", "get_drive_gain", "set_drive_gain",
+        "get_compressor_level", "set_compressor_level",
+        "get_monitor_gain", "set_monitor_gain",
+        "get_vox_gain", "set_vox_gain", "get_anti_vox_gain", "set_anti_vox_gain",
+        "get_apf_type_level", "set_apf_type_level",
+        "get_pbt_inner", "set_pbt_inner", "get_pbt_outer", "set_pbt_outer",
+        "get_cw_pitch", "set_cw_pitch",
+        "get_notch_filter", "set_notch_filter",
+        "get_ref_adjust", "set_ref_adjust",
+        "get_digisel_shift", "set_digisel_shift",
+        "get_nb_depth", "set_nb_depth", "get_nb_width", "set_nb_width",
+        "get_dash_ratio", "set_dash_ratio",
+        "get_break_in_delay", "set_break_in_delay",
+        "get_vox_delay", "set_vox_delay",
+        "get_af_mute", "set_af_mute",
+        "get_agc_time_constant", "set_agc_time_constant",
+        # Meters
+        "get_s_meter", "get_swr", "get_alc", "get_rf_power", "set_rf_power",
+        "get_power_meter", "get_comp_meter", "get_vd_meter", "get_id_meter",
+        "get_s_meter_sql_status", "get_overflow_status",
+        # CW
+        "send_cw_text", "stop_cw_text",
+        "get_key_speed", "set_key_speed",
+        "get_break_in", "set_break_in",
+        # Attenuator / preamp
+        "get_attenuator", "set_attenuator",
+        "get_attenuator_level", "set_attenuator_level",
+        "get_preamp", "set_preamp",
+        # Antenna
+        "get_antenna_1", "set_antenna_1", "get_antenna_2", "set_antenna_2",
+        "get_rx_antenna_ant1", "set_rx_antenna_ant1",
+        "get_rx_antenna_ant2", "set_rx_antenna_ant2",
+        # Toggles
+        "get_compressor", "set_compressor",
+        "get_monitor", "set_monitor",
+        "get_vox", "set_vox",
+        "get_dial_lock", "set_dial_lock",
+        "get_dual_watch", "set_dual_watch",
+        # VFO / split / scan
+        "set_vfo", "vfo_equalize", "vfo_exchange",
+        "set_split_mode",
+        "get_tuning_step", "set_tuning_step",
+        "scan_start", "scan_stop",
+        # Repeater tone
+        "get_repeater_tone", "set_repeater_tone",
+        "get_repeater_tsql", "set_repeater_tsql",
+        "get_tone_freq", "set_tone_freq",
+        "get_tsql_freq", "set_tsql_freq",
+        # RIT / XIT
+        "get_rit_frequency", "set_rit_frequency",
+        "get_rit_status", "set_rit_status",
+        "get_rit_tx_status", "set_rit_tx_status",
+        "get_tx_freq_monitor", "set_tx_freq_monitor",
+        # Tuner
+        "get_tuner_status", "set_tuner_status",
+        "get_xfc_status", "set_xfc_status",
+        # Mod levels / input
+        "get_acc1_mod_level", "set_acc1_mod_level",
+        "get_usb_mod_level", "set_usb_mod_level",
+        "get_lan_mod_level", "set_lan_mod_level",
+        "get_data_off_mod_input", "set_data_off_mod_input",
+        "get_data1_mod_input", "set_data1_mod_input",
+        "get_data2_mod_input", "set_data2_mod_input",
+        "get_data3_mod_input", "set_data3_mod_input",
+        # System
+        "get_system_date", "set_system_date",
+        "get_system_time", "set_system_time",
+        "get_utc_offset", "set_utc_offset",
+        "get_civ_transceive", "set_civ_transceive",
+        "get_civ_output_ant", "set_civ_output_ant",
+        "get_powerstat", "set_powerstat",
+        "get_transceiver_id", "get_speech",
+        "get_band_edge_freq", "get_various_squelch",
+        "set_band",
+        # SSB TX bandwidth
+        "get_ssb_tx_bandwidth", "set_ssb_tx_bandwidth",
+        # Dual receiver
+        "get_main_sub_tracking", "set_main_sub_tracking",
+        # Memory
+        "get_memory_mode", "set_memory_mode",
+        "memory_write", "memory_to_vfo", "memory_clear",
+        "get_memory_contents", "set_memory_contents",
+        "get_bsr", "set_bsr",
+        # Scope
+        "enable_scope", "disable_scope",
+        "get_scope_receiver", "set_scope_receiver",
+        "get_scope_dual", "set_scope_dual",
+        "get_scope_mode", "set_scope_mode",
+        "get_scope_span", "set_scope_span",
+        "get_scope_edge", "set_scope_edge",
+        "get_scope_hold", "set_scope_hold",
+        "get_scope_ref", "set_scope_ref",
+        "get_scope_speed", "set_scope_speed",
+        "get_scope_during_tx", "set_scope_during_tx",
+        "get_scope_center_type", "set_scope_center_type",
+        "get_scope_vbw", "set_scope_vbw",
+        "get_scope_fixed_edge", "set_scope_fixed_edge",
+        "get_scope_rbw", "set_scope_rbw",
+        "capture_scope_frame", "capture_scope_frames",
+        # Audio
+        "start_audio_rx_opus", "stop_audio_rx_opus",
+        "start_audio_rx_pcm", "stop_audio_rx_pcm",
+        "start_audio_tx_opus", "stop_audio_tx_opus",
+        "start_audio_tx_pcm", "stop_audio_tx_pcm",
+        "push_audio_tx_opus", "push_audio_tx_pcm",
+        # CI-V raw
+        "send_civ",
+    })
+
+    def supports_command(self, command: str) -> bool:
+        """Check if this radio supports a specific command."""
+        return command in self._KNOWN_COMMANDS
+
     def _stop_token_renewal(self) -> None:
         """Delegate to control-phase runtime."""
         self._control_phase._stop_token_renewal()
