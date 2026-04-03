@@ -422,6 +422,20 @@ function _applyOptimistic(name: string, params: Record<string, unknown>): void {
         patchRadioState({ active: isSub ? 'SUB' : 'MAIN' });
       }
       break;
+
+    case 'set_antenna_1':
+      // IC-7610: 0x12 0x00 selects ANT1 and the data byte encodes RX-ANT.
+      patchRadioState({ txAntenna: 1, rxAntenna1: !!params.on });
+      break;
+    case 'set_antenna_2':
+      patchRadioState({ txAntenna: 2, rxAntenna2: !!params.on });
+      break;
+    case 'set_rx_antenna_ant1':
+      if (typeof params.on === 'boolean') patchRadioState({ txAntenna: 1, rxAntenna1: params.on });
+      break;
+    case 'set_rx_antenna_ant2':
+      if (typeof params.on === 'boolean') patchRadioState({ txAntenna: 2, rxAntenna2: params.on });
+      break;
   }
 }
 

@@ -1168,6 +1168,12 @@ class RadioPoller:
             (0x14, 0x16),  # VOX gain
             (0x14, 0x17),  # Anti-VOX gain
         ]
+        # NOTE: Antenna status (0x12) is NOT polled.
+        # CI-V 0x12 sub-commands are SET-only on IC-7610 (0x12 0x00 = select
+        # ANT1, 0x12 0x01 = select ANT2).  Polling them would toggle the
+        # antenna every cycle.  State is tracked via:
+        #   1) CI-V Transceive broadcasts (radio pushes 0x12 on change)
+        #   2) Optimistic updates from our own SET commands
         if not self._profile.supports_cmd29(0x16, 0x12):
             _COMMON_FEATURE_QUERIES.insert(0, (0x16, 0x12))  # AGC mode
         # For serial: ALC/comp/VD/Id meters move to slow state queries
@@ -1899,20 +1905,20 @@ class RadioPoller:
                     self._on_state_event("vfo_changed", {"vfo": vfo})
             case VfoSwap():
                 if CAP_DUAL_RX in self._caps:
-                    await radio.vfo_exchange()  # type: ignore[union-attr]
+                    await radio.vfo_exchange()
                 # After swap, active VFO stays same but freqs are exchanged
                 if self._on_state_event:
                     self._on_state_event("vfo_swapped", {})
             case VfoEqualize():
                 if CAP_DUAL_RX in self._caps:
-                    await radio.vfo_equalize()  # type: ignore[union-attr]
+                    await radio.vfo_equalize()
             case EnableScope(policy=policy):
                 if CAP_SCOPE in self._caps:
-                    await radio.enable_scope(policy=policy)  # type: ignore[union-attr]
+                    await radio.enable_scope(policy=policy)
                     logger.info("radio-poller: scope enabled")
             case DisableScope():
                 if CAP_SCOPE in self._caps:
-                    await radio.disable_scope()  # type: ignore[union-attr]
+                    await radio.disable_scope()
                     logger.info("radio-poller: scope disabled")
             case SwitchScopeReceiver(receiver=receiver):
                 # Fire-and-forget scope receiver select (0x27 0x12)
@@ -1984,17 +1990,38 @@ class RadioPoller:
                     self.bump_revision()
                     logger.info("radio-poller: power %s", "ON" if on else "OFF")
             case SetAntenna1(on=on):
+                # IC-7610: 0x12 0x00 selects ANT1, data byte encodes RX-ANT OFF/ON.
                 if CAP_ANTENNA in self._caps:
                     await radio.set_antenna_1(on)
+                    if self._radio_state is not None:
+                        self._radio_state.tx_antenna = 1
+                        self._radio_state.rx_antenna_1 = on
+                    self.bump_revision()
             case SetAntenna2(on=on):
                 if CAP_ANTENNA in self._caps:
                     await radio.set_antenna_2(on)
+                    if self._radio_state is not None:
+                        self._radio_state.tx_antenna = 2
+                        self._radio_state.rx_antenna_2 = on
+                    self.bump_revision()
             case SetRxAntennaAnt1(on=on):
-                if CAP_RX_ANTENNA in self._caps:
+                # IC-7610 RX-ANT is encoded as data byte on 0x12 0x00.
+                # WARNING: This selects ANT1 as TX.
+                if CAP_ANTENNA in self._caps:
                     await radio.set_rx_antenna_ant1(on)
+                    if self._radio_state is not None:
+                        self._radio_state.tx_antenna = 1
+                        self._radio_state.rx_antenna_1 = on
+                    self.bump_revision()
             case SetRxAntennaAnt2(on=on):
-                if CAP_RX_ANTENNA in self._caps:
+                # IC-7610 RX-ANT is encoded as data byte on 0x12 0x01.
+                # WARNING: This selects ANT2 as TX.
+                if CAP_ANTENNA in self._caps:
                     await radio.set_rx_antenna_ant2(on)
+                    if self._radio_state is not None:
+                        self._radio_state.tx_antenna = 2
+                        self._radio_state.rx_antenna_2 = on
+                    self.bump_revision()
             case SetSystemDate(year=year, month=month, day=day):
                 if CAP_SYSTEM_SETTINGS in self._caps:
                     await radio.set_system_date(year, month, day)

@@ -563,6 +563,38 @@ export function makeBandHandlers() {
   };
 }
 
+/* ── Antenna Handlers ────────────────────────────────────────── */
+
+export function makeAntennaHandlers() {
+  return {
+    onSelectAnt1: () => {
+      // Preserve current RX-ANT state when switching TX antenna.
+      const rxOn = (getRadioState() as any)?.rxAntenna1 ?? false;
+      patchRadioState({ txAntenna: 1 });
+      cmd('set_antenna_1', { on: rxOn });
+    },
+    onSelectAnt2: () => {
+      const rxOn = (getRadioState() as any)?.rxAntenna2 ?? false;
+      patchRadioState({ txAntenna: 2 });
+      cmd('set_antenna_2', { on: rxOn });
+    },
+    onToggleRxAnt: () => {
+      // RX-ANT is encoded as data byte of 0x12 0x00/0x01 and is tied to the current TX ANT.
+      const s = getRadioState() as any;
+      const tx = (s?.txAntenna ?? 1) as number;
+      const current = tx === 2 ? (s?.rxAntenna2 ?? false) : (s?.rxAntenna1 ?? false);
+      const next = !current;
+      if (tx === 2) {
+        patchRadioState({ txAntenna: 2, rxAntenna2: next });
+        cmd('set_rx_antenna_ant2', { on: next });
+      } else {
+        patchRadioState({ txAntenna: 1, rxAntenna1: next });
+        cmd('set_rx_antenna_ant1', { on: next });
+      }
+    },
+  };
+}
+
 /* ── Meter Handlers ──────────────────────────────────────────── */
 
 export function makeMeterHandlers() {

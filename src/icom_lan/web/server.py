@@ -31,7 +31,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from .. import __version__
 from ..radio_state import RadioState
-from ..capabilities import CAP_AUDIO, CAP_POWER_CONTROL, CAP_SCOPE
+from ..capabilities import CAP_AUDIO, CAP_SCOPE
 from ..audio_fft_scope import AudioFftScope
 from ._delta_encoder import DeltaEncoder
 from .dx_cluster import DXClusterClient, SpotBuffer
@@ -939,7 +939,7 @@ class WebServer:
             )
 
         self._audio_bridge = AudioBridge(
-            self._radio,  # type: ignore[arg-type]
+            self._radio,
             device_name=device_name,
             tx_device_name=tx_device_name,
             tx_enabled=tx_enabled,
@@ -1366,6 +1366,7 @@ class WebServer:
                     "preLabels": profile.pre_labels,
                     "agcModes": list(profile.agc_modes) if profile.agc_modes else None,
                     "agcLabels": profile.agc_labels,
+                    "antennas": profile.antenna_tx_count,
                     "dataModeCount": profile.data_mode_count,
                     "dataModeLabels": profile.data_mode_labels,
                     "keyboard": _serialize_keyboard_config(profile),
@@ -1496,6 +1497,7 @@ class WebServer:
                     "channels": 1,
                     "codecs": ["opus"],
                 },
+                "antennas": profile.antenna_tx_count,
                 **({"controls": profile.controls} if profile.controls else {}),
                 "txBands": [
                     {"name": b.name, "start": b.start, "end": b.end}
@@ -1851,7 +1853,7 @@ class WebServer:
                         logger.warning("power-on: reconnect failed: %s", conn_err)
                         # Try anyway — some radios accept CI-V on stale transport
                 is_on = power_state == "on"
-                await radio.set_powerstat(is_on)  # type: ignore[union-attr]
+                await radio.set_powerstat(is_on)
                 # Optimistic state update: radio won't respond to polls when off
                 if self._radio_state is not None:
                     self._radio_state.power_on = is_on

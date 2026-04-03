@@ -6,6 +6,7 @@
   import FilterPanel from '../panels/FilterPanel.svelte';
   import AgcPanel from '../panels/AgcPanel.svelte';
   import RitXitPanel from '../panels/RitXitPanel.svelte';
+  import AntennaPanel from '../panels/AntennaPanel.svelte';
   import BandSelector from '../controls/BandSelector.svelte';
   import CollapsiblePanel from '../controls/CollapsiblePanel.svelte';
   import {
@@ -15,6 +16,7 @@
     toAgcProps,
     toRitXitProps,
     toBandSelectorProps,
+    toAntennaProps,
   } from '../wiring/state-adapter';
   import {
     makeRfFrontEndHandlers,
@@ -24,6 +26,7 @@
     makeRitXitHandlers,
     makeBandHandlers,
     makePresetHandlers,
+    makeAntennaHandlers,
   } from '../wiring/command-bus';
 
   // Reactive state + capabilities
@@ -37,6 +40,7 @@
   let agc = $derived(toAgcProps(radioState, caps));
   let ritXit = $derived(toRitXitProps(radioState, caps));
   let band = $derived(toBandSelectorProps(radioState));
+  let antenna = $derived(toAntennaProps(radioState, caps));
   // Command handlers via command-bus
   const rfHandlers = makeRfFrontEndHandlers();
   const modeHandlers = makeModeHandlers();
@@ -45,6 +49,7 @@
   const ritXitHandlers = makeRitXitHandlers();
   const bandHandlers = makeBandHandlers();
   const presetHandlers = makePresetHandlers();
+  const antennaHandlers = makeAntennaHandlers();
 </script>
 
 <aside class="left-sidebar">
@@ -134,6 +139,20 @@
       onPresetSelect={presetHandlers.onPresetSelect}
     />
   </CollapsiblePanel>
+
+  {#if antenna.antennaCount > 1}
+    <CollapsiblePanel title="ANTENNA" panelId="antenna" dataPanel="antenna">
+      <AntennaPanel
+        txAntenna={antenna.txAntenna}
+        rxAnt={antenna.rxAnt}
+        antennaCount={antenna.antennaCount}
+        hasRxAntenna={antenna.hasRxAntenna}
+        onSelectAnt1={antennaHandlers.onSelectAnt1}
+        onSelectAnt2={antennaHandlers.onSelectAnt2}
+        onToggleRxAnt={antennaHandlers.onToggleRxAnt}
+      />
+    </CollapsiblePanel>
+  {/if}
 </aside>
 
 <style>
