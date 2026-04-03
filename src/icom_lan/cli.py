@@ -50,9 +50,7 @@ from .capabilities import (  # noqa: E402
     CAP_METERS,
     CAP_POWER_CONTROL,
     CAP_PREAMP,
-    CAP_RF_GAIN,
     CAP_SCOPE,
-    CAP_SQUELCH,
     CAP_SYSTEM_SETTINGS,
     CAP_TUNER,
 )
@@ -2081,6 +2079,7 @@ async def _cmd_web(radio: Radio, args: argparse.Namespace) -> int:
     config_kwargs["radio_model"] = getattr(radio, "model", "IC-7610")
     config = WebConfig(**config_kwargs)
     server = WebServer(radio, config)
+
     if dx_cluster:
         print(
             f"DX cluster: {dx_cluster} (callsign: {config_kwargs.get('dx_callsign', '')})"

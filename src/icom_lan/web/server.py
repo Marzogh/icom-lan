@@ -33,6 +33,7 @@ from .. import __version__
 from ..radio_state import RadioState
 from ..capabilities import CAP_AUDIO, CAP_SCOPE
 from ..audio_fft_scope import AudioFftScope
+from ..startup_checks import assert_radio_startup_ready
 from ._delta_encoder import DeltaEncoder
 from .dx_cluster import DXClusterClient, SpotBuffer
 from .handlers import AudioBroadcaster, AudioHandler, ControlHandler, ScopeHandler
@@ -344,6 +345,11 @@ class WebServer:
     def _radio_ready(self) -> bool:
         """Backend view of radio readiness (CI-V healthy)."""
         return radio_ready(self._radio)
+
+    async def ensure_startup_ready(self, timeout: float = 5.0) -> None:
+        """Assert that the attached radio is ready before exposing the server."""
+        _ = timeout
+        assert_radio_startup_ready(self._radio, component="web startup")
 
     def _set_scope_data_callback(self, callback: Any) -> None:
         """Set the scope data callback on the radio if it supports it."""
@@ -832,6 +838,8 @@ class WebServer:
                 cert_path=self._config.tls_cert or None,
                 key_path=self._config.tls_key or None,
             )
+
+        assert_radio_startup_ready(self._radio, component="web startup")
 
         self._server = await asyncio.start_server(
             self._accept_client,
