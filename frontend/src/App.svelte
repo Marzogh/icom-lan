@@ -1,13 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { fetchCapabilities, startPolling } from './lib/transport/http-client';
+  import { fetchCapabilities, startPolling, setPollingMultiplier } from './lib/transport/http-client';
   import { connect, sendRaw } from './lib/transport/ws-client';
+  import { initBatteryMonitor } from './lib/utils/battery';
   import { setCapabilities } from './lib/stores/capabilities.svelte';
   import { setRadioState } from './lib/stores/radio.svelte';
   import { initUiVersion, getUiVersion } from './lib/stores/ui-version.svelte';
   import AppShell from './components/layout/AppShell.svelte';
   import RadioLayoutV2 from './components-v2/layout/RadioLayout.svelte';
   import ControlButtonDemo from './components-v2/controls/ControlButtonDemo.svelte';
+  import { initMediaSession, destroyMediaSession } from './lib/media/media-session';
   import './app.css';
 
   let backendError = $state<string | null>(null);
@@ -27,9 +29,16 @@
     // Initialize UI version from URL param or localStorage
     initUiVersion();
 
+    initMediaSession();
+
     const stopPolling = startPolling((state) => {
       setRadioState(state);
     }, 1000);
+
+    let cleanupBattery: (() => void) | null = null;
+    initBatteryMonitor((multiplier) => {
+      setPollingMultiplier(multiplier);
+    }).then(cleanup => { cleanupBattery = cleanup; });
 
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -57,6 +66,8 @@
     })();
 
     return () => {
+      destroyMediaSession();
+      cleanupBattery?.();
       stopPolling();
       if (retryTimer) clearTimeout(retryTimer);
     };

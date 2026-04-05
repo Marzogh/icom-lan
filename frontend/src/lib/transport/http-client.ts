@@ -5,6 +5,12 @@ import { markStateUpdated, setHttpConnected, setRadioStatus, setReconnecting } f
 
 const BASE = '/api/v1';
 
+let pollingMultiplier = 1;
+
+export function setPollingMultiplier(m: number): void {
+  pollingMultiplier = Math.max(1, Math.round(m));
+}
+
 let lastStateEtag: string | null = null;
 
 function getStoredToken(): string | null {
@@ -74,6 +80,11 @@ export async function fetchInfo(): Promise<InfoResponse> {
  */
 const HTTP_ERROR_THRESHOLD = 3;
 
+/** Clear the cached ETag so the next poll forces a fresh 200 response. */
+export function clearEtag(): void {
+  lastStateEtag = null;
+}
+
 export function startPolling(
   callback: (state: ServerState) => void,
   intervalMs = 200,
@@ -116,7 +127,7 @@ export function startPolling(
       }
     }
     if (running) {
-      timer = setTimeout(tick, intervalMs);
+      timer = setTimeout(tick, intervalMs * pollingMultiplier);
     }
   }
 
