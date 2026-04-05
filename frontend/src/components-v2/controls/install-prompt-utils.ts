@@ -26,7 +26,8 @@ export function isStandalone(): boolean {
   // iOS standalone check
   if ((navigator as any).standalone === true) return true;
   // Standard display-mode check
-  if (window.matchMedia('(display-mode: standalone)').matches) return true;
+  if (typeof window.matchMedia === 'function' &&
+      window.matchMedia('(display-mode: standalone)').matches) return true;
   return false;
 }
 
