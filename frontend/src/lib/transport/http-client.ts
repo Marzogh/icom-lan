@@ -5,6 +5,12 @@ import { markStateUpdated, setHttpConnected, setRadioStatus, setReconnecting } f
 
 const BASE = '/api/v1';
 
+let pollingMultiplier = 1;
+
+export function setPollingMultiplier(m: number): void {
+  pollingMultiplier = Math.max(1, Math.round(m));
+}
+
 let lastStateEtag: string | null = null;
 
 function getStoredToken(): string | null {
@@ -121,7 +127,7 @@ export function startPolling(
       }
     }
     if (running) {
-      timer = setTimeout(tick, intervalMs);
+      timer = setTimeout(tick, intervalMs * pollingMultiplier);
     }
   }
 
