@@ -37,6 +37,11 @@
     startY = e.clientY;
     pulling = true;
     pullDistance = 0;
+
+    // Capture so we still get pointermove/up even if finger drifts outside
+    if (wrapper?.setPointerCapture) {
+      wrapper.setPointerCapture(e.pointerId);
+    }
   }
 
   function onPointerMove(e: PointerEvent) {
@@ -114,7 +119,7 @@
   .pull-to-refresh-wrapper {
     position: relative;
     overscroll-behavior: contain;
-    touch-action: pan-y;
+    touch-action: pan-x;
   }
 
   .pull-indicator {
