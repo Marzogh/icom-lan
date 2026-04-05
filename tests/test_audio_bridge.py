@@ -15,6 +15,7 @@ from icom_lan.audio_bridge import (
     FRAME_MS,
     SAMPLE_RATE,
     SAMPLES_PER_FRAME,
+    derive_bridge_label,
     find_loopback_device,
     list_audio_devices,
 )
@@ -415,6 +416,38 @@ def test_latency_buffer_capped_at_100():
 
 
 # ---------------------------------------------------------------------------
+# derive_bridge_label
+# ---------------------------------------------------------------------------
+
+
+def test_derive_label_explicit():
+    """Explicit label is returned as-is."""
+    radio = MagicMock()
+    radio.model = "IC-7610"
+    assert derive_bridge_label(radio, "my-label") == "my-label"
+
+
+def test_derive_label_from_model():
+    """Label includes radio model when no explicit label given."""
+    radio = MagicMock()
+    radio.model = "IC-7610"
+    assert derive_bridge_label(radio, None) == "icom-lan (IC-7610)"
+
+
+def test_derive_label_no_model():
+    """Falls back to 'icom-lan' when model is unavailable."""
+    radio = MagicMock(spec=[])  # no .model attribute
+    assert derive_bridge_label(radio, None) == "icom-lan"
+
+
+def test_derive_label_empty_model():
+    """Empty model string falls back to 'icom-lan'."""
+    radio = MagicMock()
+    radio.model = ""
+    assert derive_bridge_label(radio, None) == "icom-lan"
+
+
+# ---------------------------------------------------------------------------
 # Label parameter
 # ---------------------------------------------------------------------------
 
@@ -433,7 +466,14 @@ def test_bridge_label_custom():
     assert bridge.label == "icom-lan (IC-7610)"
 
 
-def test_bridge_label_in_log_messages(caplog):
+def test_bridge_label_in_stats():
+    """Stats dict includes label field."""
+    radio = MagicMock()
+    bridge = AudioBridge(radio, label="icom-lan (IC-905)")
+    assert bridge.stats["label"] == "icom-lan (IC-905)"
+
+
+async def test_bridge_label_in_log_messages(caplog):
     """Label appears in log messages instead of hardcoded 'audio-bridge'."""
     import logging
 
@@ -441,14 +481,7 @@ def test_bridge_label_in_log_messages(caplog):
     bridge = AudioBridge(radio, label="icom-lan (IC-905)")
 
     with caplog.at_level(logging.WARNING):
-        # Trigger the "already running" warning by setting _running=True
         bridge._running = True
-        import asyncio
-
-        loop = asyncio.new_event_loop()
-        try:
-            loop.run_until_complete(bridge.start())
-        finally:
-            loop.close()
+        await bridge.start()
 
     assert "icom-lan (IC-905): already running" in caplog.text

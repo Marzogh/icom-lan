@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["AudioBridge", "find_loopback_device"]
+__all__ = ["AudioBridge", "derive_bridge_label", "find_loopback_device"]
 
 # Audio format constants — must match radio PCM settings
 SAMPLE_RATE = 48000
@@ -44,6 +44,22 @@ FRAME_MS = 20
 SAMPLES_PER_FRAME = SAMPLE_RATE * FRAME_MS // 1000  # 960
 BYTES_PER_SAMPLE = 2  # s16le
 FRAME_BYTES = SAMPLES_PER_FRAME * CHANNELS * BYTES_PER_SAMPLE  # 1920
+
+
+def derive_bridge_label(radio: Any, explicit: str | None = None) -> str:
+    """Derive a descriptive bridge label.
+
+    Args:
+        radio: Radio instance (used to read ``.model`` when *explicit* is not set).
+        explicit: Caller-supplied label. Returned as-is when truthy.
+
+    Returns:
+        ``"icom-lan (<model>)"`` when the model is known, otherwise ``"icom-lan"``.
+    """
+    if explicit:
+        return explicit
+    model = getattr(radio, "model", None)
+    return f"icom-lan ({model})" if isinstance(model, str) and model else "icom-lan"
 
 
 def find_loopback_device(name: str | None = None) -> dict[str, Any] | None:
@@ -187,6 +203,7 @@ class AudioBridge:
         )
         return {
             "running": self._running,
+            "label": self._label,
             "rx_frames": self._rx_frames,
             "tx_frames": self._tx_frames,
             "rx_drops": self._rx_drops,

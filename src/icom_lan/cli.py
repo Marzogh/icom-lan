@@ -1935,7 +1935,7 @@ async def _cmd_scope(radio: Radio, args: argparse.Namespace) -> int:
 
 async def _cmd_audio_bridge(radio: Radio, args: argparse.Namespace) -> int:
     """Bridge radio audio to a virtual audio device."""
-    from .audio_bridge import AudioBridge, list_audio_devices
+    from .audio_bridge import AudioBridge, derive_bridge_label, list_audio_devices
 
     if not args.list_devices and CAP_AUDIO not in radio.capabilities:
         print(
@@ -1967,14 +1967,7 @@ async def _cmd_audio_bridge(radio: Radio, args: argparse.Namespace) -> int:
     if CAP_AUDIO not in radio.capabilities:
         print("Error: audio bridge requires a radio that supports audio.", file=sys.stderr)
         return 1
-    # Derive label from CLI arg or radio model
-    bridge_label = getattr(args, "bridge_label", None)
-    if bridge_label is None:
-        model = getattr(radio, "model", None)
-        if isinstance(model, str) and model:
-            bridge_label = f"icom-lan ({model})"
-        else:
-            bridge_label = "icom-lan"
+    bridge_label = derive_bridge_label(radio, getattr(args, "bridge_label", None))
 
     try:
         bridge = AudioBridge(

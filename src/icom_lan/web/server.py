@@ -936,7 +936,7 @@ class WebServer:
             tx_enabled: Whether to bridge TX (device → radio).
             label: Descriptive label for log messages. If ``None``, derived from radio model.
         """
-        from ..audio_bridge import AudioBridge
+        from ..audio_bridge import AudioBridge, derive_bridge_label
 
         if self._audio_bridge is not None and self._audio_bridge.running:
             logger.warning("audio-bridge: already running")
@@ -948,12 +948,7 @@ class WebServer:
                 "Audio bridge is unavailable: active radio does not support audio streaming."
             )
 
-        if label is None:
-            model = getattr(self._radio, "model", None)
-            if isinstance(model, str) and model:
-                label = f"icom-lan ({model})"
-            else:
-                label = "icom-lan"
+        label = derive_bridge_label(self._radio, label)
 
         self._audio_bridge = AudioBridge(
             self._radio,
