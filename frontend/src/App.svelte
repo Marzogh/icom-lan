@@ -8,6 +8,7 @@
   import AppShell from './components/layout/AppShell.svelte';
   import RadioLayoutV2 from './components-v2/layout/RadioLayout.svelte';
   import ControlButtonDemo from './components-v2/controls/ControlButtonDemo.svelte';
+  import { initMediaSession, destroyMediaSession } from './lib/media/media-session';
   import './app.css';
 
   let backendError = $state<string | null>(null);
@@ -26,6 +27,8 @@
 
     // Initialize UI version from URL param or localStorage
     initUiVersion();
+
+    initMediaSession();
 
     const stopPolling = startPolling((state) => {
       setRadioState(state);
@@ -57,6 +60,7 @@
     })();
 
     return () => {
+      destroyMediaSession();
       stopPolling();
       if (retryTimer) clearTimeout(retryTimer);
     };
