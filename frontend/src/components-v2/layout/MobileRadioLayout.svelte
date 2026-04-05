@@ -896,14 +896,7 @@
   </BottomSheet>
 
   <!-- ═══ MODE MODAL ═══ -->
-  {#if modeModalOpen}
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="m-sheet-backdrop" onclick={() => (modeModalOpen = false)}>
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div class="m-sheet m-sheet--compact" onclick={(e) => e.stopPropagation()}>
-        <div class="m-sheet-handle"></div>
-        <div class="m-sheet-title">ALL MODES</div>
-        <div class="m-sheet-content">
+  <BottomSheet bind:open={modeModalOpen} title="ALL MODES" compact>
           <div class="m-mode-grid">
             {#each mode.modes as m}
               <HardwareButton
@@ -931,20 +924,10 @@
               {/each}
             </div>
           {/if}
-        </div>
-      </div>
-    </div>
-  {/if}
+  </BottomSheet>
 
   <!-- ═══ FILTER MODAL ═══ -->
-  {#if filterModalOpen}
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="m-sheet-backdrop" onclick={() => (filterModalOpen = false)}>
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div class="m-sheet" onclick={(e) => e.stopPropagation()}>
-        <div class="m-sheet-handle"></div>
-        <div class="m-sheet-title">FILTER SETTINGS</div>
-        <div class="m-sheet-content">
+  <BottomSheet bind:open={filterModalOpen} title="FILTER SETTINGS">
           <FilterPanel
             currentMode={filter.currentMode}
             currentFilter={filter.currentFilter}
@@ -968,20 +951,10 @@
             onPbtOuterChange={filterHandlers.onPbtOuterChange}
             onPbtReset={filterHandlers.onPbtReset}
           />
-        </div>
-      </div>
-    </div>
-  {/if}
+  </BottomSheet>
 
   <!-- ═══ POWER MODAL ═══ -->
-  {#if powerModalOpen}
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="m-sheet-backdrop" onclick={() => (powerModalOpen = false)}>
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div class="m-sheet m-sheet--compact" onclick={(e) => e.stopPropagation()}>
-        <div class="m-sheet-handle"></div>
-        <div class="m-sheet-title">RF POWER</div>
-        <div class="m-sheet-content" style="padding: 12px;">
+  <BottomSheet bind:open={powerModalOpen} title="RF POWER" compact contentStyle="padding: 12px;">
           <ValueControl
             label="RF Power"
             value={tx.rfPower}
@@ -994,20 +967,10 @@
             onChange={txHandlers.onRfPowerChange}
             variant="hardware-illuminated"
           />
-        </div>
-      </div>
-    </div>
-  {/if}
+  </BottomSheet>
 
   <!-- ═══ TX SETTINGS MODAL ═══ -->
-  {#if txSettingsOpen}
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="m-sheet-backdrop" onclick={() => (txSettingsOpen = false)}>
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div class="m-sheet" onclick={(e) => e.stopPropagation()}>
-        <div class="m-sheet-handle"></div>
-        <div class="m-sheet-title">TX SETTINGS</div>
-        <div class="m-sheet-content">
+  <BottomSheet bind:open={txSettingsOpen} title="TX SETTINGS">
           <TxPanel
             txActive={tx.txActive}
             rfPower={tx.rfPower}
@@ -1031,10 +994,7 @@
             onMonLevelChange={txHandlers.onMonLevelChange}
             onDriveGainChange={txHandlers.onDriveGainChange}
           />
-        </div>
-      </div>
-    </div>
-  {/if}
+  </BottomSheet>
 </div>
 {/if}
 
@@ -1738,53 +1698,7 @@
     font-weight: 700;
   }
 
-  /* ── Bottom sheets ── */
-  .m-sheet-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 200;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(2px);
-  }
-
-  .m-sheet {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    max-height: 80vh;
-    background: var(--v2-bg-primary, #0f0f1a);
-    border-top: 1px solid var(--v2-border-panel, #333);
-    border-radius: 16px 16px 0 0;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    z-index: 201;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-
-  .m-sheet--compact {
-    max-height: 50vh;
-  }
-
-  .m-sheet-handle {
-    width: 36px;
-    height: 4px;
-    background: var(--v2-text-dim, #444);
-    border-radius: 2px;
-    margin: 10px auto 6px;
-  }
-
-  .m-sheet-title {
-    text-align: center;
-    font-family: 'Roboto Mono', monospace;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    color: var(--v2-text-secondary, #aaa);
-    padding: 0 0 8px;
-    border-bottom: 1px solid var(--v2-border-darker, #222);
-  }
-
+  /* ── Bottom sheet content overrides ── */
   .m-sheet-subtitle {
     font-family: 'Roboto Mono', monospace;
     font-size: 10px;
@@ -1795,14 +1709,7 @@
     text-transform: uppercase;
   }
 
-  .m-sheet-content {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    padding: 4px 0;
-  }
-
-  .m-sheet-content :global(.collapsible-panel) {
+  :global(.m-sheet-content .collapsible-panel) {
     border-radius: 0;
     border-left: none;
     border-right: none;
