@@ -44,7 +44,7 @@ def webrtc_available() -> bool:
     global _aiortc_checked, _aiortc_ok  # noqa: PLW0603
     if not _aiortc_checked:
         try:
-            import aiortc  # noqa: F401
+            import aiortc  # type: ignore[import-untyped]  # noqa: F401
 
             _aiortc_ok = True
         except ImportError:
@@ -98,7 +98,7 @@ async def handle_rtc_offer(
 
     # --- aiortc is available; create a peer connection ---
     try:
-        from aiortc import (  # type: ignore[import-untyped]
+        from aiortc import (  # type: ignore[import-untyped,unused-ignore]
             RTCPeerConnection,
             RTCSessionDescription,
         )
