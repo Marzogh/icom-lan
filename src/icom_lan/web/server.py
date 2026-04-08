@@ -37,6 +37,7 @@ from ..startup_checks import assert_radio_startup_ready
 from ._delta_encoder import DeltaEncoder
 from .dx_cluster import DXClusterClient, SpotBuffer
 from .handlers import AudioBroadcaster, AudioHandler, ControlHandler, ScopeHandler
+from .rtc import handle_rtc_offer, rtc_capability_info, webrtc_available
 from .radio_poller import CommandQueue, DisableScope, EnableScope, RadioPoller
 from .runtime_helpers import (
     build_public_state_payload,
@@ -1281,6 +1282,13 @@ class WebServer:
             )
             return
 
+        if path == "/api/v1/rtc/offer":
+            if method != "POST":
+                await _send_response(writer, 405, "Method Not Allowed", b"", {})
+                return
+            await self._handle_rtc_offer(writer, headers, reader)
+            return
+
         if method not in ("GET", "HEAD"):
             await _send_response(writer, 405, "Method Not Allowed", b"", {})
             return
@@ -1356,6 +1364,7 @@ class WebServer:
                     "hasDualReceiver": has_dual_rx,
                     "hasTuner": "tuner" in caps,
                     "hasCw": "cw" in caps,
+                    "hasWebrtc": webrtc_available() and "audio" in caps,
                     "maxReceivers": (
                         profile.receiver_count
                         if self._radio is not None
@@ -1511,6 +1520,7 @@ class WebServer:
                     "codecs": ["opus"],
                 },
                 "antennas": profile.antenna_tx_count,
+                "webrtc": rtc_capability_info(),
                 **({"controls": profile.controls} if profile.controls else {}),
                 "txBands": [
                     {"name": b.name, "start": b.start, "end": b.end}
@@ -1890,6 +1900,90 @@ class WebServer:
         body = json.dumps(resp, separators=(",", ":")).encode()
         await _send_response(
             writer, 200, "OK", body, {"Content-Type": "application/json"},
+        )
+
+    async def _handle_rtc_offer(
+        self,
+        writer: asyncio.StreamWriter,
+        headers: dict[str, str] | None,
+        reader: asyncio.StreamReader | None,
+    ) -> None:
+        """Handle POST /api/v1/rtc/offer — WebRTC SDP signaling."""
+        if not webrtc_available():
+            body = json.dumps(
+                {"status": "error", "code": "webrtc_unavailable",
+                 "message": "WebRTC backend unavailable; install icom-lan[webrtc]."},
+                separators=(",", ":"),
+            ).encode()
+            await _send_response(
+                writer, 501, "Not Implemented", body,
+                {"Content-Type": "application/json"},
+            )
+            return
+
+        # Read request body
+        body_bytes = b""
+        if reader is not None:
+            cl = int((headers or {}).get("content-length", "0"))
+            if cl > 0:
+                body_bytes = await asyncio.wait_for(
+                    reader.readexactly(cl), timeout=5.0,
+                )
+        if not body_bytes:
+            err = json.dumps(
+                {"status": "error", "code": "missing_body",
+                 "message": "JSON body with 'sdp' and 'type' required."},
+                separators=(",", ":"),
+            ).encode()
+            await _send_response(
+                writer, 400, "Bad Request", err,
+                {"Content-Type": "application/json"},
+            )
+            return
+
+        try:
+            payload = json.loads(body_bytes)
+        except (json.JSONDecodeError, ValueError):
+            err = json.dumps(
+                {"status": "error", "code": "invalid_json",
+                 "message": "Request body is not valid JSON."},
+                separators=(",", ":"),
+            ).encode()
+            await _send_response(
+                writer, 400, "Bad Request", err,
+                {"Content-Type": "application/json"},
+            )
+            return
+
+        sdp = payload.get("sdp")
+        offer_type = payload.get("type", "offer")
+        if not isinstance(sdp, str) or not sdp.strip():
+            err = json.dumps(
+                {"status": "error", "code": "missing_sdp",
+                 "message": "Field 'sdp' is required and must be a non-empty string."},
+                separators=(",", ":"),
+            ).encode()
+            await _send_response(
+                writer, 400, "Bad Request", err,
+                {"Content-Type": "application/json"},
+            )
+            return
+
+        result = await handle_rtc_offer(sdp, offer_type, self._radio)
+
+        if result.get("status") == "ok":
+            status_code, reason = 200, "OK"
+        elif result.get("code") == "audio_unavailable":
+            status_code, reason = 503, "Service Unavailable"
+        elif result.get("code") == "sdp_error":
+            status_code, reason = 400, "Bad Request"
+        else:
+            status_code, reason = 500, "Internal Server Error"
+
+        resp_body = json.dumps(result, separators=(",", ":")).encode()
+        await _send_response(
+            writer, status_code, reason, resp_body,
+            {"Content-Type": "application/json"},
         )
 
     async def _handle_bridge(
