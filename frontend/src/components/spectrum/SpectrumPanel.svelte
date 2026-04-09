@@ -17,7 +17,7 @@
   import { type DxSpot } from '../../lib/types/protocol';
   import { patchActiveReceiver, radio } from '../../lib/stores/radio.svelte';
   import { getFilterWidthHz } from '../../lib/utils/filter-width';
-  import { snapToStep } from '../../lib/stores/tuning.svelte';
+  import { snapToStep, tuneBy } from '../../lib/stores/tuning.svelte';
   import SpectrumToolbar from './SpectrumToolbar.svelte';
   import BandPlanOverlay from './BandPlanOverlay.svelte';
   import EiBiBrowser from './EiBiBrowser.svelte';
@@ -213,6 +213,13 @@
     sendCommand('set_freq', { freq, receiver });
   }
 
+  // --- Scroll-to-tune (mouse wheel on spectrum/waterfall) ---
+  function handleWheel(event: WheelEvent): void {
+    event.preventDefault();
+    const freq = tuneBy(event.deltaY > 0 ? -1 : 1);
+    if (freq > 0) handleTune(freq);
+  }
+
   // --- Drag-to-pan (grab and slide the spectrum window) ---
   //
   // All visual feedback comes from the radio: set_freq → radio retunes →
@@ -365,7 +372,7 @@
   onpointercancel={(e) => { stopPassbandResize(e); handleDragEnd(e); }}
 />
 
-<div class="spectrum-panel" class:fullscreen>
+<div class="spectrum-panel" class:fullscreen onwheel={handleWheel}>
   <SpectrumToolbar bind:enableAvg bind:enablePeakHold bind:refLevel bind:colorScheme bind:fullscreen bind:showBandPlan bind:hiddenLayers bind:showEiBi />
   <div class="spectrum-with-scales">
     <div class="db-scale">
