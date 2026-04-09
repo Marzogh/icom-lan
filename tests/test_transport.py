@@ -97,16 +97,18 @@ class _FakeLoop:
         *,
         remote_addr=None,
         local_addr=None,
+        sock=None,
     ):
         transport = _FakeDatagramTransport(self.sockname)
         protocol = protocol_factory()
         protocol.connection_made(transport)
-        self.calls.append(
-            {
-                "remote_addr": remote_addr,
-                "local_addr": local_addr,
-            }
-        )
+        call: dict[str, object] = {
+            "remote_addr": remote_addr,
+            "local_addr": local_addr,
+        }
+        if sock is not None:
+            call["sock"] = sock
+        self.calls.append(call)
         return transport, protocol
 
 
@@ -150,6 +152,31 @@ class TestConnectionState:
                 "local_addr": ("192.168.2.194", 50002),
             }
         ]
+
+    @pytest.mark.asyncio
+    async def test_connect_with_prebound_socket(self) -> None:
+        """When sock= is provided, the socket is connected and passed through."""
+        import socket as _socket
+
+        t = IcomTransport()
+        loop = _FakeLoop(("192.168.2.194", 50002))
+
+        sock = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM)
+        sock.bind(("127.0.0.1", 0))
+
+        with (
+            patch("icom_lan.transport.asyncio.get_event_loop", return_value=loop),
+            patch.object(t, "_discover", new=AsyncMock()),
+            patch.object(t, "_ready_handshake", new=AsyncMock()),
+        ):
+            await t.connect("192.168.2.1", 50001, sock=sock)
+
+        # Should use sock= path, not remote_addr/local_addr
+        assert len(loop.calls) == 1
+        call = loop.calls[0]
+        assert call["remote_addr"] is None
+        assert call["local_addr"] is None
+        assert call["sock"] is sock
 
     @pytest.mark.asyncio
     async def test_reconnect_binds_to_specific_local_host(self) -> None:

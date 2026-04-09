@@ -1787,6 +1787,7 @@ async def test_ensure_audio_transport_creates_transport(radio: IcomRadio) -> Non
         50001,
         local_host="192.168.2.194",
         local_port=0,
+        sock=None,
     )
 
 

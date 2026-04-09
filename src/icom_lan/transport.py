@@ -6,6 +6,7 @@ and retransmit requests using asyncio.DatagramProtocol.
 
 import asyncio
 import logging
+import socket
 import struct
 import time
 from collections import OrderedDict
@@ -133,6 +134,7 @@ class IcomTransport:
         *,
         local_host: str | None = None,
         local_port: int = 0,
+        sock: "socket.socket | None" = None,
     ) -> None:
         """Open UDP connection and perform discovery handshake.
 
@@ -148,20 +150,35 @@ class IcomTransport:
             local_port: Local UDP port to bind to (0 = random).
                 wfview binds CI-V/audio sockets to the same port sent in
                 conninfo so the radio knows where to send data.
+            sock: Pre-bound UDP socket to reuse.  When provided the socket
+                is connected to *(host, port)*, set non-blocking, and handed
+                directly to ``create_datagram_endpoint(sock=…)`` — this
+                eliminates the TOCTOU race between port reservation and
+                transport bind.  *local_host* / *local_port* are ignored
+                when *sock* is given.
 
         Raises:
             TimeoutError: If the radio does not respond to discovery.
         """
         self.state = ConnectionState.CONNECTING
         loop = asyncio.get_event_loop()
-        local_addr = None
-        if local_port or local_host:
-            local_addr = (local_host or "0.0.0.0", local_port)
-        await loop.create_datagram_endpoint(
-            lambda: _UdpProtocol(self),
-            remote_addr=(host, port),
-            local_addr=local_addr,
-        )
+        if sock is not None:
+            # Caller reserved this socket earlier; connect + hand off.
+            sock.connect((host, port))
+            sock.setblocking(False)
+            await loop.create_datagram_endpoint(
+                lambda: _UdpProtocol(self),
+                sock=sock,
+            )
+        else:
+            local_addr = None
+            if local_port or local_host:
+                local_addr = (local_host or "0.0.0.0", local_port)
+            await loop.create_datagram_endpoint(
+                lambda: _UdpProtocol(self),
+                remote_addr=(host, port),
+                local_addr=local_addr,
+            )
         # Generate local ID from local address info
         if self._udp_transport is not None:
             info = self._udp_transport.get_extra_info("sockname")

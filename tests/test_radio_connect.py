@@ -40,6 +40,7 @@ class ConnectMockTransport(MockTransport):
         *,
         local_host: str | None = None,
         local_port: int = 0,
+        sock: "object | None" = None,
     ) -> None:
         self.connected = True
         self.state = ConnectionState.CONNECTING

@@ -75,6 +75,18 @@ class ControlPhaseRuntime:
             probe.close()
         return local_host or "0.0.0.0"
 
+    def _close_pending_sockets(self) -> None:
+        """Close any pre-bound sockets that were not yet consumed by a transport."""
+        h = self._host
+        for attr in ("_civ_sock_pending", "_audio_sock_pending"):
+            sock = getattr(h, attr, None)
+            if sock is not None:
+                try:
+                    sock.close()
+                except OSError:
+                    pass
+                setattr(h, attr, None)
+
     async def connect(self) -> None:
         """Open connection to the radio and authenticate."""
         h = self._host
@@ -143,11 +155,12 @@ class ControlPhaseRuntime:
         _civ_sock = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM)
         _civ_sock.bind((local_bind_host, 0))
         _civ_local_port = _civ_sock.getsockname()[1]
-        _civ_sock.close()
         _audio_sock = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM)
         _audio_sock.bind((local_bind_host, 0))
         _audio_local_port = _audio_sock.getsockname()[1]
-        _audio_sock.close()
+        # Sockets are kept open until the transport consumes them,
+        # eliminating the TOCTOU race where another process could grab
+        # the port between close() and the transport bind.
         logger.debug(
             "Reserved local ports on %s: civ=%d, audio=%d",
             local_bind_host,
@@ -159,6 +172,8 @@ class ControlPhaseRuntime:
         h._audio_port = h._port + 2
         h._civ_local_port = _civ_local_port
         h._audio_local_port = _audio_local_port
+        h._civ_sock_pending = _civ_sock
+        h._audio_sock_pending = _audio_sock
         await self._send_conninfo(guid, _civ_local_port, _audio_local_port)
 
         try:
@@ -173,6 +188,7 @@ class ControlPhaseRuntime:
             elif civ_port == 0:
                 # Fail fast on immediate session rejection (no retries needed).
                 if getattr(h, "_last_status_error", 0) == 0xFFFFFFFF:
+                    self._close_pending_sockets()
                     await h._ctrl_transport.disconnect()
                     h._conn_state = RadioConnectionState.DISCONNECTED
                     raise ConnectionError(
@@ -199,6 +215,7 @@ class ControlPhaseRuntime:
                     except asyncio.TimeoutError:
                         pass
                 else:
+                    self._close_pending_sockets()
                     await h._ctrl_transport.disconnect()
                     h._conn_state = RadioConnectionState.DISCONNECTED
                     error_val = getattr(h, "_last_status_error", 0)
@@ -214,18 +231,24 @@ class ControlPhaseRuntime:
         from .transport import IcomTransport
 
         h._civ_transport = IcomTransport()
+        civ_sock = getattr(h, "_civ_sock_pending", None)
         try:
             await h._civ_transport.connect(
                 h._host,
                 h._civ_port,
                 local_host=getattr(h, "_local_bind_host", None),
                 local_port=h._civ_local_port,
+                sock=civ_sock,
             )
         except OSError as exc:
+            self._close_pending_sockets()
             await h._ctrl_transport.disconnect()
             raise ConnectionError(
                 f"Failed to connect CI-V port {h._civ_port}: {exc}"
             ) from exc
+        else:
+            # Socket consumed by asyncio — no longer ours to close.
+            h._civ_sock_pending = None
 
         h._civ_transport.start_ping_loop()
         h._civ_transport.start_retransmit_loop()

@@ -1756,18 +1756,29 @@ class CoreRadio:
             raise ConnectionError("Audio port not available")
 
         self._audio_transport = IcomTransport()
+        audio_sock = getattr(self, "_audio_sock_pending", None)
         try:
             await self._audio_transport.connect(
                 self._host,
                 self._audio_port,
                 local_host=getattr(self, "_local_bind_host", None),
                 local_port=getattr(self, "_audio_local_port", 0),
+                sock=audio_sock,
             )
         except OSError as exc:
+            if audio_sock is not None:
+                try:
+                    audio_sock.close()
+                except OSError:
+                    pass
+                self._audio_sock_pending = None
             self._audio_transport = None
             raise ConnectionError(
                 f"Failed to connect audio port {self._audio_port}: {exc}"
             ) from exc
+        else:
+            # Socket consumed by asyncio — no longer ours to close.
+            self._audio_sock_pending = None
 
         self._audio_transport.start_ping_loop()
         self._audio_transport.start_retransmit_loop()
