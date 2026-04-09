@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 
 from icom_lan.backends.config import (
@@ -99,18 +101,18 @@ class TestFactoryYaesuCat:
 
 
 class TestCliBuildBackendConfig:
-    def test_yaesu_cat_returns_correct_config(self):
+    async def test_yaesu_cat_returns_correct_config(self):
         p = _build_parser()
         args = p.parse_args(
             ["--backend", "yaesu-cat", "--serial-port", "/dev/ttyUSB0", "status"]
         )
-        cfg = _build_backend_config(args)
+        cfg = await _build_backend_config(args)
         assert isinstance(cfg, YaesuCatBackendConfig)
         assert cfg.backend == "yaesu-cat"
         assert cfg.device == "/dev/ttyUSB0"
         assert cfg.baudrate == 38400
 
-    def test_yaesu_cat_custom_baud(self):
+    async def test_yaesu_cat_custom_baud(self):
         p = _build_parser()
         args = p.parse_args(
             [
@@ -120,17 +122,18 @@ class TestCliBuildBackendConfig:
                 "status",
             ]
         )
-        cfg = _build_backend_config(args)
+        cfg = await _build_backend_config(args)
         assert isinstance(cfg, YaesuCatBackendConfig)
         assert cfg.baudrate == 9600
 
-    def test_yaesu_cat_requires_serial_port(self):
+    async def test_yaesu_cat_missing_port_triggers_discovery(self):
         p = _build_parser()
         args = p.parse_args(["--backend", "yaesu-cat", "status"])
-        with pytest.raises(ValueError, match="Yaesu CAT backend requires --serial-port"):
-            _build_backend_config(args)
+        with patch("icom_lan.discovery.discover_serial_radios", AsyncMock(return_value=[])):
+            with pytest.raises(SystemExit):
+                await _build_backend_config(args)
 
-    def test_serial_ftx1_backward_compat(self):
+    async def test_serial_ftx1_backward_compat(self):
         """--backend serial --model FTX-1 still returns SerialBackendConfig."""
         p = _build_parser()
         args = p.parse_args(
@@ -141,11 +144,11 @@ class TestCliBuildBackendConfig:
                 "status",
             ]
         )
-        cfg = _build_backend_config(args)
+        cfg = await _build_backend_config(args)
         assert isinstance(cfg, SerialBackendConfig)
         assert cfg.model == "FTX-1"
 
-    def test_yaesu_cat_passes_audio_devices(self):
+    async def test_yaesu_cat_passes_audio_devices(self):
         p = _build_parser()
         args = p.parse_args(
             [
@@ -156,7 +159,7 @@ class TestCliBuildBackendConfig:
                 "status",
             ]
         )
-        cfg = _build_backend_config(args)
+        cfg = await _build_backend_config(args)
         assert isinstance(cfg, YaesuCatBackendConfig)
         assert cfg.rx_device == "FTX-1 Audio"
         assert cfg.tx_device == "BlackHole 2ch"

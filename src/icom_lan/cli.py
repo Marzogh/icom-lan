@@ -65,6 +65,112 @@ def _get_env(name: str, default: str = "") -> str:
     return os.environ.get(name, default)
 
 
+# ---------------------------------------------------------------------------
+# Auto-discovery helpers
+# ---------------------------------------------------------------------------
+
+_DISCOVER_TIMEOUT = 3.0
+
+# Sentinel: host was NOT explicitly provided by user or env var.
+_HOST_NOT_SET = ""
+
+
+async def _auto_discover_lan(timeout: float = _DISCOVER_TIMEOUT) -> str:
+    """Run LAN discovery and return the host IP of the found radio.
+
+    Exits with an error message if zero or multiple radios are found
+    (multiple radios print a list so the user can pick).
+    """
+    from .discovery import discover_lan_radios
+
+    print(f"No --host specified, scanning LAN for radios ({timeout:.0f}s)...")
+    radios = await discover_lan_radios(timeout=timeout)
+    if len(radios) == 1:
+        host = str(radios[0]["host"])
+        print(f"  Found radio at {host}")
+        return host
+    if len(radios) == 0:
+        print(
+            "Error: no radios found on LAN.\n"
+            "  Check: radio powered on? LAN remote enabled? Same subnet?\n"
+            "  Or specify --host <IP> explicitly.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    # Multiple radios
+    print(f"  Found {len(radios)} radios — please specify one with --host:")
+    for i, r in enumerate(radios, 1):
+        print(f"    {i}. {r['host']}")
+    sys.exit(1)
+
+
+async def _auto_discover_serial() -> tuple[str, int | None]:
+    """Run serial discovery and return (device_path, baudrate | None).
+
+    Exits with an error message if zero or multiple radios are found.
+    """
+    from .discovery import discover_serial_radios
+
+    print("No --serial-port specified, scanning serial ports...")
+    radios = await discover_serial_radios()
+    if len(radios) == 1:
+        r = radios[0]
+        print(f"  Found {r.model} on {r.port} ({r.baudrate} baud)")
+        return r.port, r.baudrate
+    if len(radios) == 0:
+        print(
+            "Error: no radios found on serial ports.\n"
+            "  Check: radio connected via USB? Driver installed?\n"
+            "  Or specify --serial-port <PATH> explicitly.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    # Multiple
+    print(f"  Found {len(radios)} radios — please specify one with --serial-port:")
+    for i, r in enumerate(radios, 1):
+        print(f"    {i}. {r.model} on {r.port} ({r.baudrate} baud)")
+    sys.exit(1)
+
+
+# ---------------------------------------------------------------------------
+# Presets — named flag combinations for common scenarios
+# ---------------------------------------------------------------------------
+
+_PRESETS: dict[str, dict[str, object]] = {
+    "hamradio": {
+        "web_bridge": "auto",
+        "web_rigctld": True,
+    },
+    "digimode": {
+        "web_bridge": "auto",
+        "web_rigctld": True,
+        "wsjtx_compat": True,
+    },
+    "serial": {
+        "backend": "serial",
+    },
+    "headless": {
+        "web_rigctld": True,
+    },
+}
+
+
+def _apply_preset(args: argparse.Namespace, preset_name: str) -> None:
+    """Apply a preset's defaults to args. User-explicit flags are NOT overridden."""
+    if preset_name not in _PRESETS:
+        avail = ", ".join(sorted(_PRESETS))
+        print(f"Error: unknown preset {preset_name!r}. Available: {avail}", file=sys.stderr)
+        sys.exit(1)
+    for key, value in _PRESETS[preset_name].items():
+        # Only set if the user did not explicitly provide the flag.
+        # argparse sets defaults, so we can't distinguish perfectly —
+        # but for store_true booleans the default is False, and for
+        # optional args the default is None, so this heuristic works.
+        current = getattr(args, key, None)
+        if current is None or current is False:
+            setattr(args, key, value)
+
+
 class _DeprecatedPortAction(argparse.Action):
     """Deprecated --port alias — prints a warning and stores to control_port."""
 
@@ -86,6 +192,16 @@ def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="icom-lan",
         description="Control Icom transceivers over LAN",
+        epilog=(
+            "examples:\n"
+            "  icom-lan web                          # auto-discover radio, start web UI\n"
+            "  icom-lan web --host 192.168.55.40     # explicit radio IP\n"
+            "  icom-lan web --preset digimode        # bridge + rigctld + WSJT-X compat\n"
+            "  icom-lan web --bridge                 # web UI + audio bridge\n"
+            "  icom-lan serve                        # rigctld server only\n"
+            "  icom-lan discover                     # find radios on the network\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p.add_argument(
         "--version",
@@ -95,8 +211,8 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--host",
-        default=_get_env("ICOM_HOST", "192.168.1.100"),
-        help="Radio IP (default: $ICOM_HOST or 192.168.1.100)",
+        default=_get_env("ICOM_HOST", _HOST_NOT_SET),
+        help="Radio IP (default: $ICOM_HOST, or auto-discover if not set)",
     )
     p.add_argument(
         "--control-port",
@@ -138,8 +254,8 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--backend",
         choices=["lan", "serial", "yaesu-cat"],
-        default="lan",
-        help="Backend type: lan (default), serial (USB CI-V + audio), or yaesu-cat",
+        default=None,
+        help="Backend type: lan (default), serial, or yaesu-cat. Auto-inferred from --serial-port if set.",
     )
     p.add_argument(
         "--serial-port",
@@ -512,6 +628,13 @@ def _build_parser() -> argparse.ArgumentParser:
     # serve
     serve_p = sub.add_parser("serve", help="Start rigctld-compatible TCP server")
     serve_p.add_argument(
+        "--preset",
+        choices=list(_PRESETS),
+        default=None,
+        metavar="NAME",
+        help=f"Apply a named preset ({', '.join(_PRESETS)}). User flags override preset values.",
+    )
+    serve_p.add_argument(
         "--host",
         dest="serve_host",
         default="0.0.0.0",
@@ -575,6 +698,13 @@ def _build_parser() -> argparse.ArgumentParser:
 
     # web
     web_p = sub.add_parser("web", help="Start built-in HTTP + WebSocket web UI server")
+    web_p.add_argument(
+        "--preset",
+        choices=list(_PRESETS),
+        default=None,
+        metavar="NAME",
+        help=f"Apply a named preset ({', '.join(_PRESETS)}). User flags override preset values.",
+    )
     web_p.add_argument(
         "--host",
         dest="web_host",
@@ -868,19 +998,31 @@ def check_ports_available(ports: list[int]) -> None:
                 raise RuntimeError(f"Port {port} already in use{pid_info}")
 
 
-def _build_backend_config(
+async def _build_backend_config(
     args: argparse.Namespace,
 ) -> LanBackendConfig | SerialBackendConfig | YaesuCatBackendConfig:
-    """Build typed backend config from parsed CLI args."""
+    """Build typed backend config from parsed CLI args.
+
+    Runs auto-discovery when host / serial-port is not provided.
+    Infers backend type from --serial-port when --backend is not set.
+    """
     radio_addr, model_name = _resolve_model(args)
-    backend = getattr(args, "backend", "lan")
+
+    # Infer backend from context when not explicitly set.
+    backend = getattr(args, "backend", None)
+    serial_port = getattr(args, "serial_port", "")
+    if backend is None:
+        if serial_port:
+            backend = "serial"
+        else:
+            backend = "lan"
+
     if backend == "yaesu-cat":
-        device = getattr(args, "serial_port", "")
+        device = serial_port
         if not device:
-            raise ValueError(
-                "Yaesu CAT backend requires --serial-port (or $ICOM_SERIAL_DEVICE).\n"
-                "  Example: icom-lan --backend yaesu-cat --serial-port /dev/tty.usbserial-FTX1 status"
-            )
+            device, discovered_baud = await _auto_discover_serial()
+            if discovered_baud and not getattr(args, "serial_baud", None):
+                args.serial_baud = discovered_baud
         return YaesuCatBackendConfig(
             device=device,
             baudrate=getattr(args, "serial_baud", None) or 38400,
@@ -889,12 +1031,11 @@ def _build_backend_config(
             tx_device=getattr(args, "tx_device", None) or None,
         )
     if backend == "serial":
-        device = getattr(args, "serial_port", "")
+        device = serial_port
         if not device:
-            raise ValueError(
-                "Serial backend requires --serial-port (or $ICOM_SERIAL_DEVICE).\n"
-                "  Example: icom-lan --backend serial --serial-port /dev/tty.usbmodem-IC7610 status"
-            )
+            device, discovered_baud = await _auto_discover_serial()
+            if discovered_baud and not getattr(args, "serial_baud", None):
+                args.serial_baud = discovered_baud
         return SerialBackendConfig(
             device=device,
             baudrate=getattr(args, "serial_baud", None) or 115200,
@@ -905,8 +1046,12 @@ def _build_backend_config(
             tx_device=getattr(args, "tx_device", None) or None,
             ptt_mode=getattr(args, "serial_ptt_mode", "civ"),
         )
+    # LAN backend — auto-discover if host not set.
+    host = getattr(args, "host", _HOST_NOT_SET)
+    if not host or host == _HOST_NOT_SET:
+        host = await _auto_discover_lan(timeout=args.timeout)
     return LanBackendConfig(
-        host=args.host,
+        host=host,
         port=args.control_port,
         username=args.user,
         password=args.password,
@@ -971,8 +1116,13 @@ async def _run(args: argparse.Namespace) -> int:
     if args.command == "audio" and args.audio_command == "caps" and not wants_stats:
         return await _cmd_audio_caps(args)
 
+    # Apply preset before building config (so discovery sees preset-applied backend).
+    preset = getattr(args, "preset", None)
+    if preset:
+        _apply_preset(args, preset)
+
     try:
-        config = _build_backend_config(args)
+        config = await _build_backend_config(args)
     except ValueError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
@@ -2049,6 +2199,56 @@ async def _cmd_audio_bridge(radio: Radio, args: argparse.Namespace) -> int:
     return 0
 
 
+# ---------------------------------------------------------------------------
+# Startup banner & hints
+# ---------------------------------------------------------------------------
+
+
+def _detect_loopback_hint() -> str | None:
+    """Try to detect a loopback audio device; return a hint string or None."""
+    try:
+        from .audio_bridge import find_loopback_device
+
+        dev = find_loopback_device()
+        if dev:
+            return f"{dev} detected — use --bridge to enable audio bridge"
+    except Exception:
+        pass
+    return None
+
+
+def _print_startup_banner(
+    *,
+    radio: Radio,
+    web_url: str | None = None,
+    rigctld_addr: str | None = None,
+    bridge_info: str | None = None,
+    loopback_hint: str | None = None,
+    dx_cluster: str | None = None,
+) -> None:
+    """Print a structured startup summary."""
+    model = getattr(radio, "model", "Unknown")
+    host = getattr(radio, "host", "?")
+
+    lines = [
+        f"--- icom-lan v{__version__} ---",
+        f"  Radio:    {model} at {host}",
+    ]
+    if web_url:
+        lines.append(f"  Web UI:   {web_url}")
+    if rigctld_addr:
+        lines.append(f"  rigctld:  {rigctld_addr}")
+    if bridge_info:
+        lines.append(f"  Bridge:   {bridge_info}")
+    elif loopback_hint:
+        lines.append(f"  Bridge:   {loopback_hint}")
+    if dx_cluster:
+        lines.append(f"  DX:       {dx_cluster}")
+    lines.append("---")
+
+    print("\n".join(lines))
+
+
 async def _cmd_serve(radio: Radio, args: argparse.Namespace) -> int:
     import logging as _logging
 
@@ -2079,11 +2279,9 @@ async def _cmd_serve(radio: Radio, args: argparse.Namespace) -> int:
         wsjtx_compat=args.wsjtx_compat,
         command_rate_limit=getattr(args, "rate_limit", None),
     )
-    ro_str = "yes" if args.read_only else "no"
-    compat_str = "on" if args.wsjtx_compat else "off"
-    print(
-        f"Listening on {args.serve_host}:{args.serve_port} "
-        f"(read-only: {ro_str}, wsjtx-compat: {compat_str})"
+    _print_startup_banner(
+        radio=radio,
+        rigctld_addr=f"{args.serve_host}:{args.serve_port}",
     )
     try:
         await RigctldServer(radio, config).serve_forever()
@@ -2136,15 +2334,9 @@ async def _cmd_web(radio: Radio, args: argparse.Namespace) -> int:
     config = WebConfig(**config_kwargs)
     server = WebServer(radio, config)
 
-    if dx_cluster:
-        print(
-            f"DX cluster: {dx_cluster} (callsign: {config_kwargs.get('dx_callsign', '')})"
-        )
-    scheme = "https" if config_kwargs.get("tls") else "http"
-    print(f"Web UI listening on {scheme}://{args.web_host}:{args.web_port}/")
-
     # Start audio bridge if requested
     bridge_device = getattr(args, "web_bridge", None)
+    bridge_info: str | None = None
     if bridge_device is not None:
         device_name = None if bridge_device == "auto" else bridge_device
         tx_device_name = getattr(args, "web_bridge_tx_device", None)
@@ -2160,12 +2352,19 @@ async def _cmd_web(radio: Radio, args: argparse.Namespace) -> int:
                 retry_base_delay=getattr(args, "web_bridge_retry_delay", 1.0),
             )
             direction = "RX only" if rx_only else "RX+TX"
-            print(f"Audio bridge active ({direction})")
+            bridge_info = f"active ({direction})"
         except Exception as exc:
+            bridge_info = f"FAILED: {exc}"
             print(f"Warning: audio bridge failed: {exc}", file=sys.stderr)
+
+    # Detect loopback device availability for hint (only when bridge not requested)
+    loopback_hint: str | None = None
+    if bridge_device is None:
+        loopback_hint = _detect_loopback_hint()
 
     # Start rigctld if requested
     rigctld_server = None
+    rigctld_addr: str | None = None
     if getattr(args, "web_rigctld", False):
         from .rigctld.contract import RigctldConfig
         from .rigctld.server import RigctldServer
@@ -2177,7 +2376,19 @@ async def _cmd_web(radio: Radio, args: argparse.Namespace) -> int:
         )
         rigctld_server = RigctldServer(radio, rigctld_config)
         await rigctld_server.start()
-        print(f"rigctld listening on 0.0.0.0:{rigctld_port}")
+        rigctld_addr = f"0.0.0.0:{rigctld_port}"
+
+    scheme = "https" if config_kwargs.get("tls") else "http"
+    web_url = f"{scheme}://{args.web_host}:{args.web_port}/"
+    dx_info = dx_cluster if dx_cluster else None
+    _print_startup_banner(
+        radio=radio,
+        web_url=web_url,
+        rigctld_addr=rigctld_addr,
+        bridge_info=bridge_info,
+        loopback_hint=loopback_hint,
+        dx_cluster=dx_info,
+    )
 
     try:
         await server.serve_forever()

@@ -345,10 +345,10 @@ class TestPidFile:
 
 
 class TestBackendArgs:
-    def test_backend_default_is_lan(self):
+    def test_backend_default_is_none(self):
         p = _build_parser()
         args = p.parse_args(["status"])
-        assert args.backend == "lan"
+        assert args.backend is None
 
     def test_backend_lan_explicit(self):
         p = _build_parser()
@@ -427,44 +427,44 @@ class TestBackendArgs:
 
 
 class TestBuildBackendConfig:
-    def test_lan_default(self):
+    async def test_lan_default(self):
         p = _build_parser()
         args = p.parse_args(["--host", "192.168.1.1", "status"])
-        config = _build_backend_config(args)
+        config = await _build_backend_config(args)
         assert isinstance(config, LanBackendConfig)
         assert config.backend == "lan"
         assert config.host == "192.168.1.1"
         assert config.port == 50001
 
-    def test_lan_preserves_user_pass(self):
+    async def test_lan_preserves_user_pass(self):
         p = _build_parser()
         args = p.parse_args(
             ["--host", "10.0.0.1", "--user", "admin", "--pass", "secret", "status"]
         )
-        config = _build_backend_config(args)
+        config = await _build_backend_config(args)
         assert isinstance(config, LanBackendConfig)
         assert config.username == "admin"
         assert config.password == "secret"
 
-    def test_lan_custom_port(self):
+    async def test_lan_custom_port(self):
         p = _build_parser()
         args = p.parse_args(["--host", "10.0.0.1", "--control-port", "50010", "status"])
-        config = _build_backend_config(args)
+        config = await _build_backend_config(args)
         assert isinstance(config, LanBackendConfig)
         assert config.port == 50010
 
-    def test_serial_config_built(self):
+    async def test_serial_config_built(self):
         p = _build_parser()
         args = p.parse_args(
             ["--backend", "serial", "--serial-port", "/dev/tty.usb0", "status"]
         )
-        config = _build_backend_config(args)
+        config = await _build_backend_config(args)
         assert isinstance(config, SerialBackendConfig)
         assert config.backend == "serial"
         assert config.device == "/dev/tty.usb0"
         assert config.baudrate == 115200
 
-    def test_serial_baud_passed(self):
+    async def test_serial_baud_passed(self):
         p = _build_parser()
         args = p.parse_args(
             [
@@ -477,11 +477,11 @@ class TestBuildBackendConfig:
                 "status",
             ]
         )
-        config = _build_backend_config(args)
+        config = await _build_backend_config(args)
         assert isinstance(config, SerialBackendConfig)
         assert config.baudrate == 9600
 
-    def test_serial_rx_tx_device(self):
+    async def test_serial_rx_tx_device(self):
         p = _build_parser()
         args = p.parse_args(
             [
@@ -496,12 +496,12 @@ class TestBuildBackendConfig:
                 "status",
             ]
         )
-        config = _build_backend_config(args)
+        config = await _build_backend_config(args)
         assert isinstance(config, SerialBackendConfig)
         assert config.rx_device == "IC-7610 RX"
         assert config.tx_device == "IC-7610 TX"
 
-    def test_serial_ptt_mode_passed(self):
+    async def test_serial_ptt_mode_passed(self):
         p = _build_parser()
         args = p.parse_args(
             [
@@ -514,27 +514,105 @@ class TestBuildBackendConfig:
                 "status",
             ]
         )
-        config = _build_backend_config(args)
+        config = await _build_backend_config(args)
         assert isinstance(config, SerialBackendConfig)
         assert config.ptt_mode == "civ"
 
-    def test_serial_missing_port_raises_value_error(self):
+    async def test_serial_missing_port_triggers_discovery(self):
+        """When --backend serial is set without --serial-port, auto-discovery runs."""
         p = _build_parser()
         args = p.parse_args(["--backend", "serial", "status"])
-        with pytest.raises(ValueError, match="--serial-port"):
-            _build_backend_config(args)
+        # Discovery finds nothing → sys.exit(1)
+        with patch("icom_lan.discovery.discover_serial_radios", AsyncMock(return_value=[])):
+            with pytest.raises(SystemExit):
+                await _build_backend_config(args)
 
-    def test_serial_missing_port_error_mentions_env_var(self):
+    async def test_serial_inferred_from_serial_port(self):
+        """--serial-port without --backend infers serial backend."""
         p = _build_parser()
-        args = p.parse_args(["--backend", "serial", "status"])
-        with pytest.raises(ValueError, match="ICOM_SERIAL_DEVICE"):
-            _build_backend_config(args)
+        args = p.parse_args(["--serial-port", "/dev/tty.usb0", "status"])
+        config = await _build_backend_config(args)
+        assert isinstance(config, SerialBackendConfig)
+        assert config.device == "/dev/tty.usb0"
 
-    def test_serial_missing_port_error_shows_example(self):
+
+class TestAutoDiscovery:
+    """Tests for auto-discovery when --host / --serial-port not provided."""
+
+    async def test_lan_discovery_single_radio(self):
         p = _build_parser()
-        args = p.parse_args(["--backend", "serial", "status"])
-        with pytest.raises(ValueError, match="Example"):
-            _build_backend_config(args)
+        args = p.parse_args(["status"])
+        with patch(
+            "icom_lan.discovery.discover_lan_radios",
+            AsyncMock(return_value=[{"host": "10.0.0.42", "remote_id": 1}]),
+        ):
+            config = await _build_backend_config(args)
+        assert isinstance(config, LanBackendConfig)
+        assert config.host == "10.0.0.42"
+
+    async def test_lan_discovery_no_radios_exits(self):
+        p = _build_parser()
+        args = p.parse_args(["status"])
+        with patch(
+            "icom_lan.discovery.discover_lan_radios",
+            AsyncMock(return_value=[]),
+        ):
+            with pytest.raises(SystemExit):
+                await _build_backend_config(args)
+
+    async def test_lan_discovery_multiple_radios_exits(self):
+        p = _build_parser()
+        args = p.parse_args(["status"])
+        with patch(
+            "icom_lan.discovery.discover_lan_radios",
+            AsyncMock(return_value=[
+                {"host": "10.0.0.1", "remote_id": 1},
+                {"host": "10.0.0.2", "remote_id": 2},
+            ]),
+        ):
+            with pytest.raises(SystemExit):
+                await _build_backend_config(args)
+
+    async def test_explicit_host_skips_discovery(self):
+        p = _build_parser()
+        args = p.parse_args(["--host", "192.168.1.1", "status"])
+        # No mock needed — discovery should not be called.
+        config = await _build_backend_config(args)
+        assert config.host == "192.168.1.1"
+
+    async def test_backend_inferred_from_serial_port(self):
+        p = _build_parser()
+        args = p.parse_args(["--serial-port", "/dev/ttyUSB0", "status"])
+        config = await _build_backend_config(args)
+        assert isinstance(config, SerialBackendConfig)
+
+
+class TestPresets:
+    """Tests for --preset flag expansion."""
+
+    async def test_preset_digimode_enables_bridge_and_wsjtx(self):
+        from icom_lan.cli import _apply_preset
+        p = _build_parser()
+        args = p.parse_args(["--host", "1.2.3.4", "web"])
+        _apply_preset(args, "digimode")
+        assert args.web_bridge == "auto"
+        assert args.wsjtx_compat is True
+        assert args.web_rigctld is True
+
+    async def test_preset_does_not_override_explicit_flags(self):
+        from icom_lan.cli import _apply_preset
+        p = _build_parser()
+        args = p.parse_args(["--host", "1.2.3.4", "web", "--bridge", "MyDevice"])
+        _apply_preset(args, "digimode")
+        # User's explicit --bridge should NOT be overridden.
+        assert args.web_bridge == "MyDevice"
+
+    def test_unknown_preset_exits(self):
+        from icom_lan.cli import _apply_preset
+        p = _build_parser()
+        args = p.parse_args(["--host", "1.2.3.4", "web"])
+        with pytest.raises(SystemExit):
+            _apply_preset(args, "nonexistent")
 
 
 class TestBackendAwareDiscover:

@@ -738,7 +738,7 @@ async def test_cmd_serve_and_cmd_web_paths(
         )
         assert await _cmd_serve(radio, args) == 0
     assert audit_logger.addHandler.called
-    assert "Listening on 127.0.0.1:5555" in capsys.readouterr().out
+    assert "127.0.0.1:5555" in capsys.readouterr().out
 
     class FakeWebServer:
         def __init__(self, _radio, cfg):
