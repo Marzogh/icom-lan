@@ -1,22 +1,28 @@
 """Audio bridge — bidirectional PCM bridge between radio and a system audio device.
 
 Routes decoded PCM audio from the radio to a virtual audio output device
-(e.g. BlackHole) and captures PCM from the same device back to the radio
-for TX.  This allows applications like WSJT-X, fldigi, or JS8Call to
-use the radio without any special configuration — they simply select the
-virtual audio device as their sound card.
+and captures PCM from the same device back to the radio for TX.  This
+allows applications like WSJT-X, fldigi, or JS8Call to use the radio
+without any special configuration — they simply select the virtual audio
+device as their sound card.
 
 Architecture::
 
-    Radio ←(LAN/Opus)→ icom-lan ←(PCM)→ AudioBackend ←(CoreAudio)→ BlackHole ←→ WSJT-X
+    Radio ←(LAN/Opus)→ icom-lan ←(PCM)→ AudioBackend ←(PortAudio)→ Loopback device ←→ WSJT-X
+
+Supported loopback drivers:
+    - **macOS**: BlackHole (``brew install blackhole-2ch``) or Rogue Amoeba Loopback
+    - **Linux**: PipeWire loopback, PulseAudio null-sink, or ALSA snd-aloop
+    - **Windows**: VB-Cable (https://vb-audio.com/Cable/)
 
 Requirements:
     - ``sounddevice`` and ``numpy`` (``pip install icom-lan[bridge]``)
-    - A virtual audio loopback driver (e.g. BlackHole 2ch: ``brew install blackhole-2ch``)
+    - A virtual audio loopback driver (see above)
 
 Usage::
 
-    bridge = AudioBridge(radio, device_name="BlackHole 2ch")
+    bridge = AudioBridge(radio, device_name="BlackHole 2ch")  # macOS
+    bridge = AudioBridge(radio, device_name="VB-Cable")       # Windows
     await bridge.start()    # begins bidirectional audio flow
     ...
     await bridge.stop()     # clean shutdown
@@ -66,7 +72,17 @@ BYTES_PER_SAMPLE = 2  # s16le
 FRAME_BYTES = SAMPLES_PER_FRAME * CHANNELS * BYTES_PER_SAMPLE  # 1920
 
 # Virtual loopback device name candidates for auto-detection
-_LOOPBACK_CANDIDATES = ("BlackHole", "Loopback", "VB-Audio", "Virtual")
+_LOOPBACK_CANDIDATES = (
+    "BlackHole",    # macOS (brew install blackhole-2ch)
+    "Loopback",     # macOS (Rogue Amoeba) / Linux (generic)
+    "VB-Audio",     # Windows (VB-Cable)
+    "Virtual",      # generic virtual device
+    "pipewire",     # Linux (PipeWire loopback)
+    "PipeWire",     # Linux (PipeWire loopback, title case)
+    "null",         # Linux (PulseAudio null-sink)
+    "snd-aloop",    # Linux (ALSA loopback)
+    "JACK",         # Linux (JACK audio)
+)
 
 _INT16_MAX = 32767.0
 
@@ -350,10 +366,13 @@ class AudioBridge:
         """
         dev = _find_device_in_backend(self._backend, self._device_name)
         if dev is None:
-            searched = self._device_name or "BlackHole/Loopback/VB-Audio"
+            searched = self._device_name or "BlackHole/Loopback/VB-Cable/PipeWire"
             raise RuntimeError(
                 f"Virtual audio device not found (searched: {searched}). "
-                f"Install one, e.g.: brew install blackhole-2ch"
+                f"Install a loopback driver: "
+                f"macOS → brew install blackhole-2ch | "
+                f"Linux → pw-loopback or pactl load-module module-null-sink | "
+                f"Windows → vb-audio.com/Cable/"
             )
 
         dev_id = dev.id
