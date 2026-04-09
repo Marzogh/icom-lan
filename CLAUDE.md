@@ -118,6 +118,36 @@ use a lazy `_require_*()` helper that raises `ImportError` with an install hint 
 
 ---
 
+## LightRAG knowledge base (MCP)
+
+A LightRAG knowledge base is pre-configured as the `lightrag` MCP server in your Claude Code
+installation. Use it **before** writing any protocol-level or architectural code.
+
+```
+# Search before implementing
+mcp__lightrag__query_text(query="CI-V frequency set command IC-7610", mode="hybrid")
+mcp__lightrag__query_text(query="Command29 dual receiver routing", mode="hybrid")
+mcp__lightrag__query_text(query="audio codec negotiation PCM Opus", mode="hybrid")
+
+# Save durable decisions / postmortems after significant work
+mcp__lightrag__insert_text(text="[2026-04-09] AudioBackend protocol added: ...")
+```
+
+**When to query:**
+- Before changing transport / CI-V frame handling
+- Before adding a command that touches receiver routing
+- Before audio codec / bridge changes
+- When the issue references a prior bug or decision
+
+**When to save:**
+- Architectural decision made (and why)
+- Confirmed hardware bug / firmware limitation
+- Non-obvious protocol gotcha discovered during implementation
+
+API key and endpoint are configured in `~/.claude.json` — no credentials needed here.
+
+---
+
 ## Verification commands
 
 ```bash
