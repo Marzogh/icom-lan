@@ -269,6 +269,13 @@ Missing 3–5 pings = disconnect. **Do not remove or weaken the keep-alive loop.
 
 ---
 
+## Communication language
+
+- **User-facing messages** (chat replies, progress updates, questions, summaries) → **Russian**
+- **Code comments, docstrings, commit messages, docs, PR/issue text** → **English**
+
+---
+
 ## Git conventions
 
 ```
