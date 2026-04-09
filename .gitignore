@@ -35,6 +35,7 @@ node_modules/
 # Local config & tools
 config/
 .claude/
+!.claude/commands/
 .kombai/
 .firecrawl/
 .playwright-mcp/
