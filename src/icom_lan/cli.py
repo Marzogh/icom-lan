@@ -799,6 +799,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="rigctld TCP port (default: 4532)",
     )
     web_p.add_argument(
+        "--wsjtx-compat",
+        action="store_true",
+        default=False,
+        help="Enable WSJT-X compatibility pre-warm on embedded rigctld",
+    )
+    web_p.add_argument(
         "--auth-token",
         dest="auth_token",
         default="",
@@ -2373,6 +2379,7 @@ async def _cmd_web(radio: Radio, args: argparse.Namespace) -> int:
         rigctld_config = RigctldConfig(
             host="0.0.0.0",
             port=rigctld_port,
+            wsjtx_compat=getattr(args, "wsjtx_compat", False),
         )
         rigctld_server = RigctldServer(radio, rigctld_config)
         await rigctld_server.start()
