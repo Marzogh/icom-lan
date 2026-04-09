@@ -46,7 +46,6 @@ rigs/.backups/
 
 # Internal dev artifacts (AI agent workspace, plans, strategies)
 AGENTS.md
-CLAUDE.md
 ROADMAP_TESTING.md
 
 # Internal docs (development-only, not published)
