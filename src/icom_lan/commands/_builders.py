@@ -134,7 +134,7 @@ def _build_ctl_mem_set(
         from_addr,
         _CMD_CTL_MEM,
         sub=_SUB_CTL_MEM,
-        data=prefix + bcd_encode_value(value, byte_count=byte_count),
+        data=data,
     )
 
 

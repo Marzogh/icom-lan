@@ -699,4 +699,36 @@ __all__ = [
     # Backward-compat aliases
     "build_band_stack_get",
     "build_band_stack_set",
+    # Power/status
+    "get_powerstat",
+    "parse_powerstat",
+    "get_transceiver_id",
+    "get_xfc_status",
+    "set_xfc_status",
+    # VFO extras
+    "vfo_a_equals_b",
+    "vfo_swap",
+    "set_split",
+    # Memory
+    "build_memory_clear",
+    "build_memory_contents_get",
+    "build_memory_contents_set",
+    "build_memory_mode_get",
+    "build_memory_mode_set",
+    "build_memory_to_vfo",
+    "build_memory_write",
+    "parse_memory_mode_response",
+    "parse_memory_contents_response",
+    "parse_band_stack_response",
+    # Levels extras
+    "get_af_level",
+    "set_af_level",
+    "get_rf_gain",
+    "set_rf_gain",
+    "get_ip_plus",
+    "set_ip_plus",
+    "get_nb",
+    "set_nb",
+    "get_nr",
+    "set_nr",
 ]
