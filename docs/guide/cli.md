@@ -8,14 +8,14 @@ All commands accept these options:
 
 | Option | Env Var | Default | Description |
 |--------|---------|---------|-------------|
-| `--host` | `ICOM_HOST` | `192.168.1.100` | Radio IP address (LAN backend) |
+| `--host` | `ICOM_HOST` | auto-discover | Radio IP address (LAN backend). If omitted, discovers radio via UDP broadcast. |
 | `--control-port` | `ICOM_PORT` | `50001` | Radio UDP control port (`--port` is a deprecated alias) |
 | `--user` | `ICOM_USER` | `""` | Username (LAN backend) |
 | `--pass` | `ICOM_PASS` | `""` | Password (LAN backend) |
 | `--timeout` | — | `5.0` | Timeout in seconds |
 | `--json` | — | `false` | Emit JSON when supported by the selected command |
-| `--backend` | — | `lan` | Backend type: `lan`, `serial`, or `yaesu-cat` |
-| `--serial-port` | `ICOM_SERIAL_DEVICE` | — | Serial device path (`--backend serial` / `--backend yaesu-cat`) |
+| `--backend` | — | auto | Backend type: `lan`, `serial`, or `yaesu-cat`. Auto-inferred from `--serial-port` if set. |
+| `--serial-port` | `ICOM_SERIAL_DEVICE` | auto-discover | Serial device path. If omitted with `--backend serial`, discovers via USB scan. |
 | `--serial-baud` | `ICOM_SERIAL_BAUDRATE` | env or backend default | Serial baud (`115200` for `serial`, `38400` for `yaesu-cat` when env is unset) |
 | `--serial-ptt-mode` | `ICOM_SERIAL_PTT_MODE` | `civ` | Serial PTT mode (`civ` currently supported) |
 | `--rx-device` | `ICOM_USB_RX_DEVICE` | auto | USB audio RX device name (serial/CAT profiles with audio support) |
@@ -23,15 +23,51 @@ All commands accept these options:
 | `--list-audio-devices` | — | — | List USB audio devices and exit |
 | `--version` | — | — | Print version and exit |
 
-!!! tip "Use Environment Variables"
-    Set `ICOM_HOST`, `ICOM_USER`, and `ICOM_PASS` in your shell profile to avoid typing them every time.
+!!! tip "Zero-config startup"
+    If you have a single radio on the network, just run `icom-lan web` — it auto-discovers the radio via LAN broadcast. No `--host` needed.
+
+    For permanent setups, set environment variables in your shell profile:
 
     ```bash
     # ~/.bashrc or ~/.zshrc
-    export ICOM_HOST=192.168.1.100
+    export ICOM_HOST=192.168.55.40
     export ICOM_USER=myuser
     export ICOM_PASS=mypass
     ```
+
+## Auto-discovery
+
+When `--host` is omitted (LAN backend), icom-lan sends a UDP broadcast to find radios:
+
+- **1 radio found** → uses it automatically, prints the IP
+- **Multiple radios** → lists them, asks you to specify `--host`
+- **No radios** → error with troubleshooting hints
+
+Similarly, when `--backend serial` is set without `--serial-port`, serial ports are scanned automatically.
+
+The `--backend` flag is auto-inferred:
+
+- `--serial-port` provided → infers `--backend serial`
+- `ICOM_SERIAL_DEVICE` set → infers `--backend serial`
+- Otherwise → `lan` (default)
+
+## Presets
+
+Use `--preset` with `web` or `serve` commands for common scenarios:
+
+| Preset | What it enables |
+|--------|----------------|
+| `hamradio` | Audio bridge + rigctld |
+| `digimode` | Audio bridge + rigctld + WSJT-X compatibility |
+| `serial` | Serial backend (auto-detect port) |
+| `headless` | rigctld only (no web UI) |
+
+```bash
+icom-lan web --preset digimode          # Full digital mode setup
+icom-lan web --preset hamradio          # General ham radio setup
+```
+
+User-provided flags override preset values: `--preset digimode --bridge "MyDevice"` uses your device name.
 
 ## Backend Selection
 
@@ -41,24 +77,29 @@ icom-lan supports three backends: **LAN** (default), **serial** (USB CI-V), and
 ### LAN backend (default)
 
 ```bash
-# Connects over UDP to the radio's LAN interface
+# Auto-discover radio on LAN
 icom-lan status
+
+# Explicit IP
+icom-lan --host 192.168.55.40 status
 icom-lan --backend lan status
 ```
 
 ### Serial backend
 
 ```bash
-# Connects via USB CI-V serial port (IC-7610, USB cable required)
-icom-lan --backend serial --serial-port /dev/tty.usbmodem-IC7610 status
-icom-lan --backend serial --serial-port /dev/tty.usbmodem-IC7610 freq
+# Auto-discover serial port
+icom-lan --backend serial status
+
+# Explicit port (--backend serial is inferred)
+icom-lan --serial-port /dev/tty.usbmodem-IC7610 status
 ```
 
 Set via environment variable to avoid repeating:
 
 ```bash
 export ICOM_SERIAL_DEVICE=/dev/tty.usbmodem-IC7610
-icom-lan --backend serial status
+icom-lan status    # auto-infers --backend serial
 ```
 
 ### Yaesu CAT backend
@@ -68,9 +109,6 @@ icom-lan --backend serial status
 icom-lan --backend yaesu-cat --serial-port /dev/tty.usbserial-FTX1 status
 icom-lan --backend yaesu-cat --serial-port /dev/tty.usbserial-FTX1 freq
 ```
-
-`--serial-port` is required for both `serial` and `yaesu-cat` backends (or set
-`ICOM_SERIAL_DEVICE` in the environment).
 
 ### Serial baud defaults by backend
 
@@ -538,14 +576,18 @@ icom-lan proxy --radio 192.168.55.40 --listen 10.8.0.1 --port 50010
 Start the all-in-one server: Web UI + optional audio bridge + rigctld.
 
 ```bash
-# Web UI only
+# Web UI only (auto-discovers radio)
 icom-lan web
 
-# Bind to localhost only (development)
-icom-lan web --host 127.0.0.1
+# Use a preset for common scenarios
+icom-lan web --preset digimode          # Bridge + rigctld + WSJT-X compat
+icom-lan web --preset hamradio          # Bridge + rigctld
 
 # Web UI + audio bridge + rigctld (recommended for WSJT-X)
 icom-lan web --bridge "BlackHole 2ch"
+
+# Web UI + WSJT-X compatibility on embedded rigctld
+icom-lan web --bridge --wsjtx-compat
 
 # Web UI + bridge (RX only, no TX from virtual device)
 icom-lan web --bridge "BlackHole 2ch" --bridge-rx-only
@@ -701,6 +743,7 @@ icom-lan --model IC-7300 --backend serial --serial-port /dev/cu.usbserial-XXX st
 | `--rate-limit N` | `serve` | *(unlimited)* | Max commands per second per client; excess are dropped |
 | `--read-only` | `serve` | off | Reject all set (write) commands; allow reads only |
 | `--wsjtx-compat` | `serve` | off | Auto-enable DATA mode on first client connect (WSJT-X pre-warm) |
+| `--preset NAME` | `serve` | *(none)* | Apply a named preset: `hamradio`, `digimode`, `serial`, `headless` |
 
 ```bash
 # Log every command to a JSONL audit trail
@@ -756,6 +799,8 @@ icom-lan proxy --radio 192.168.1.100 --listen 10.8.0.1
 | `--bridge-label LABEL` | `web` | *(none)* | Descriptive label for audio bridge log messages |
 | `--no-rigctld` | `web` | off | Disable built-in rigctld server |
 | `--rigctld-port PORT` | `web` | `4532` | Rigctld listen port |
+| `--wsjtx-compat` | `web` | off | Enable WSJT-X compatibility pre-warm on embedded rigctld |
+| `--preset NAME` | `web` | *(none)* | Apply a named preset: `hamradio`, `digimode`, `serial`, `headless` |
 
 ```bash
 # Bidirectional bridge: RX from BlackHole 2ch, TX through BlackHole 16ch

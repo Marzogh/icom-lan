@@ -2,7 +2,7 @@
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-4264%20passed-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-4336%20passed-brightgreen.svg)](#testing)
 [![Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen.svg)](#testing)
 [![Type Safety](https://img.shields.io/badge/mypy-0%20errors-blue.svg)](#testing)
 
@@ -120,12 +120,13 @@ asyncio.run(main())
 ### CLI
 
 ```bash
-# Set credentials via environment
-export ICOM_HOST=192.168.1.100
+# Zero-config: auto-discovers radio on LAN
+icom-lan status
+
+# Or set credentials via environment
+export ICOM_HOST=192.168.55.40
 export ICOM_USER=myuser
 export ICOM_PASS=mypass
-
-# Radio status
 icom-lan status
 
 # Frequency (multiple input formats)
@@ -172,10 +173,15 @@ icom-lan proxy --radio 192.168.55.40 --port 50001
 # Discover radios on LAN + USB serial (unified, deduped)
 icom-lan discover
 
-# Built-in Web UI (spectrum, waterfall, controls, audio)
-icom-lan web                            # Start on 0.0.0.0:8080
+# Built-in Web UI (auto-discovers radio, starts on 0.0.0.0:8080)
+icom-lan web                            # Zero-config: discover + start
+icom-lan web --host 192.168.55.40       # Explicit radio IP
 icom-lan web --port 9090                # Custom port
 # Then open http://your-ip:8080 in a browser
+
+# Presets for common scenarios
+icom-lan web --preset digimode          # Bridge + rigctld + WSJT-X compat
+icom-lan web --preset hamradio          # Bridge + rigctld
 
 # Hamlib NET rigctld-compatible server (use with WSJT-X, JS8Call, fldigi)
 icom-lan serve                          # Listen on 0.0.0.0:4532

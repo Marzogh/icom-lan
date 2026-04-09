@@ -33,6 +33,9 @@ src/icom_lan/
 │
 ├── radio.py                 # Backward-compatible IcomRadio wrapper → delegates to factory
 ├── radios.py                # CoreRadio shared base (commands/state/CI-V routing)
+├── _scope_runtime.py        # ScopeRuntimeMixin (extracted from CoreRadio)
+├── _audio_runtime_mixin.py  # AudioRuntimeMixin (extracted from CoreRadio)
+├── _dual_rx_runtime.py      # DualRxRuntimeMixin (extracted from CoreRadio)
 │
 ├── backends/                # One subdirectory per model family
 │   ├── factory.py           #   create_radio() — routes by model string
@@ -46,7 +49,15 @@ src/icom_lan/
 ├── transport.py             # LAN UDP transport (auth, keep-alive, packet send/recv)
 ├── _control_phase.py        # Connection state machine (IDLE→AUTH→RUNNING→DISCONNECTED)
 ├── civ.py                   # CI-V frame encode/decode (BCD, struct, byte ops)
-├── commands.py              # CI-V command catalog — get/set per CI-V command
+├── commands/                # CI-V command catalog (split from monolith)
+│   ├── __init__.py          #   re-exports all 300+ symbols for backward compat
+│   ├── _frame.py            #   CI-V frame kernel: builders, parser, constants
+│   ├── _codec.py            #   BCD encode/decode helpers
+│   ├── _builders.py         #   shared builder templates
+│   ├── freq.py, mode.py, levels.py, meters.py, ptt.py, vfo.py,
+│   │   dsp.py, scope.py, cw.py, power.py, speech.py, system.py,
+│   │   tone.py, memory.py, antenna.py, config.py  # 16 leaf modules
+│   └── (layering: _frame ← _codec ← _builders ← leaves)
 ├── commander.py             # CI-V dispatcher / executor
 ├── command_map.py           # CI-V opcode → command class mapping
 ├── command_spec.py          # Command metadata (cmd29 support, receiver routing)
@@ -62,19 +73,28 @@ src/icom_lan/
 │   ├── backend.py           # AudioBackend protocol + PortAudioBackend + FakeAudioBackend
 │   ├── _macos_uid.py        # macOS CoreAudio UID lookup (ctypes, Darwin only)
 │   ├── usb_driver.py        # UsbAudioDriver — USB audio device management
-│   └── lan_stream.py        # LAN audio stream (PCM/Opus receive loop)
+│   ├── lan_stream.py        # LAN audio stream (PCM/Opus receive loop)
+│   ├── resample.py          # PcmResampler with anti-aliasing FIR filter
+│   ├── dsp.py               # NoiseGate, RmsNormalizer, Limiter, DspPipeline
+│   └── config.py            # AudioConfig with TOML load/save/merge_cli
 │
 ├── _audio_codecs.py         # ulaw/PCM codec tables (pure Python, no deps)
 ├── _audio_buffer_pool.py    # AudioBufferPool — lock-free reuse, reduces GC pressure
 ├── _audio_recovery.py       # AudioRecovery — reconnect / jitter handling
 ├── _audio_transcoder.py     # Audio format transcoding pipeline
 ├── audio_bridge.py          # AudioBridge — virtual device ↔ radio stream bridge
+├── _bridge_state.py         # BridgeState enum + BridgeStateChange dataclass
+├── _bridge_metrics.py       # BridgeMetrics dataclass with to_dict()
 ├── audio_bus.py             # AudioBus — multi-consumer audio distribution
 ├── audio_fft_scope.py       # Software FFT scope from audio stream
 │
 ├── web/                     # Web server (aiohttp-based)
 │   ├── server.py            #   startup / shutdown
-│   ├── handlers.py          #   REST API handlers
+│   ├── handlers/            #   REST API handlers (split from monolith)
+│   │   ├── __init__.py      #     re-exports ControlHandler, ScopeHandler, AudioBroadcaster, AudioHandler
+│   │   ├── control.py       #     ControlHandler (~1590 lines)
+│   │   ├── scope.py         #     ScopeHandler + HIGH_WATERMARK
+│   │   └── audio.py         #     AudioBroadcaster + AudioHandler
 │   ├── websocket.py         #   WebSocket push (state/audio/scope/dx events)
 │   ├── radio_poller.py      #   poller — periodic radio state polling
 │   ├── _delta_encoder.py    #   DeltaEncoder — partial state diff, 10–50× payload reduction
@@ -293,25 +313,45 @@ chore: short description            # tooling, deps
 
 ---
 
-## Current development focus (v0.14.x)
+## Completed epics (v0.14.x)
 
-**Epic #513 — AudioBackend abstraction + smarter audio bridge (Variant A)**
+**Epic #513 — AudioBackend abstraction + smarter audio bridge** ✅ closed
 
-| Issue | What | Status |
-|-------|------|--------|
-| #514 | AudioBackend protocol + PortAudioBackend + FakeAudioBackend | ✅ merged |
-| #515 | stable macOS CoreAudio device UID support | ✅ merged |
-| #516 | refactor UsbAudioDriver to use AudioBackend | ⏳ |
-| #517 | refactor AudioBridge to use AudioBackend | ⏳ |
-| #518 | bridge reconnect state machine | ⏳ |
-| #519 | sample-rate negotiation + optional resampling | ⏳ |
-| #520 | optional level normalization DSP | ⏳ |
-| #521 | BridgeMetrics + WebSocket events | ⏳ |
-| #522 | CLI flags + deprecations | ⏳ |
-| #523 | optional audio.toml config | ⏳ |
+All 10 issues (#514–#523) merged: AudioBackend protocol, PortAudio/FakeAudioBackend,
+UsbAudioDriver refactor, AudioBridge with BridgeState machine, BridgeMetrics,
+PcmResampler, DspPipeline, audio.toml config, CLI flags.
 
-**Scope note:** this epic is strictly Variant A — smarter bridge on top of existing virtual audio
-devices (BlackHole / Loopback / VB-Cable). No native OS-level virtual audio device work.
+**Architecture review issues** ✅ closed
+
+| Issue | What |
+|-------|------|
+| #499 | Eliminate TOCTOU race in UDP port allocation (pre-bound sockets) |
+| #504 | Split commands.py into commands/ package (17 modules) |
+| #505 | Decompose radio.py into scope/audio/dual-rx runtime mixins |
+| #506 | Trim `__init__.py` public API from 150+ to ~30 symbols |
+| #507 | Split web/handlers.py into handlers/ package |
+
+**Epic #526 — Zero-config startup** ✅ closed
+
+| Issue | What |
+|-------|------|
+| #527 | Auto-discovery integration into serve/web startup |
+| #528 | CLI presets (hamradio, digimode, serial, headless) |
+| #529 | Smart startup hints (banner, loopback detection) |
+| #530 | Documentation — help epilog with usage examples |
+
+**#112 — Audio bridge Linux/Windows support** ✅ closed
+
+Cross-platform via PortAudio/sounddevice. Loopback candidates for Linux/Windows added.
+
+---
+
+## CLI zero-config notes
+
+- `--host` omitted → LAN auto-discovery via UDP broadcast (3s)
+- `--backend` omitted → inferred from `--serial-port` / `$ICOM_SERIAL_DEVICE`
+- `--preset digimode` → bridge + rigctld + wsjtx-compat
+- Startup banner shows radio/web/rigctld/bridge status + loopback hints
 
 ---
 
