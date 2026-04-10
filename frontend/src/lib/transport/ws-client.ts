@@ -1,7 +1,7 @@
 import type { WsCommand, WsIncoming } from '../types/protocol';
 import { makeCommandId } from '../types/protocol';
 import { setWsConnected, setHttpConnected, markStateUpdated, setReconnecting } from '../stores/connection.svelte';
-import { patchActiveReceiver, patchRadioState, setRadioState } from '../stores/radio.svelte';
+import { getRadioState, patchActiveReceiver, patchRadioState, setRadioState } from '../stores/radio.svelte';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
 type MessageHandler = (msg: WsIncoming) => void;
@@ -422,6 +422,28 @@ function _applyOptimistic(name: string, params: Record<string, unknown>): void {
         patchRadioState({ active: isSub ? 'SUB' : 'MAIN' });
       }
       break;
+
+    case 'set_scope_mode': {
+      const sm = getRadioState();
+      if (sm?.scopeControls && typeof params.mode === 'number') {
+        patchRadioState({ scopeControls: { ...sm.scopeControls, mode: params.mode } });
+      }
+      break;
+    }
+    case 'set_scope_span': {
+      const ss = getRadioState();
+      if (ss?.scopeControls && typeof params.span === 'number') {
+        patchRadioState({ scopeControls: { ...ss.scopeControls, span: params.span } });
+      }
+      break;
+    }
+    case 'set_scope_hold': {
+      const sh = getRadioState();
+      if (sh?.scopeControls && typeof params.on === 'boolean') {
+        patchRadioState({ scopeControls: { ...sh.scopeControls, hold: params.on } });
+      }
+      break;
+    }
 
     case 'set_antenna_1':
       // IC-7610: 0x12 0x00 selects ANT1 and the data byte encodes RX-ANT.

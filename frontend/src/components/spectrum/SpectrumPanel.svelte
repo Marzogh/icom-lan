@@ -223,6 +223,19 @@
     sendCommand('set_freq', { freq, receiver });
   }
 
+  // Click-to-tune on spectrum or waterfall area (fires only when not dragging)
+  function handleAreaClick(event: MouseEvent): void {
+    if (dragging || spanHz <= 0) return;
+    // Suppress click events that fire immediately after a drag ends
+    if (performance.now() - dragEndTime < 100) return;
+    // Don't tune if clicking on a button or control
+    if ((event.target as HTMLElement).closest('button, .toolbar-btn, select, input')) return;
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const relX = event.clientX - rect.left;
+    const hz = startFreq + (relX / rect.width) * spanHz;
+    handleTune(hz);
+  }
+
   // --- Scroll-to-tune (mouse wheel on spectrum/waterfall) ---
   function handleWheel(event: WheelEvent): void {
     event.preventDefault();
@@ -242,6 +255,7 @@
   // Final freq always sent on release.
   //
   let dragging = $state(false);
+  let dragEndTime = 0; // timestamp of last drag end — used to suppress click after drag
   let dragStartX = $state(0);
   let dragStartFreq = $state(0);
   let dragPointerId = $state<number | null>(null);
@@ -327,6 +341,7 @@
       sendCommand('set_freq', { freq: dragFreq, receiver });
     }
 
+    if (dragging) dragEndTime = performance.now();
     dragging = false;
     dragPointerId = null;
     dragFreq = 0;
@@ -390,7 +405,7 @@
         <div class="tick" style="top: {tick.position}%">{tick.label}</div>
       {/each}
     </div>
-    <div class="spectrum-area" class:panning={dragging} bind:this={spectrumArea} onpointerdown={handleDragStart}>
+    <div class="spectrum-area" class:panning={dragging} bind:this={spectrumArea} onpointerdown={handleDragStart} onclick={handleAreaClick}>
       <BandPlanOverlay {startFreq} {endFreq} visible={showBandPlan} {hiddenLayers} />
       <SpectrumCanvas data={scopePixels} options={spectrumOptions} {spanHz} {enableAvg} {enablePeakHold} onRegisterPush={(fn) => spectrumPush = fn} />
       {#if spanHz > 0 && pbWidthPct > 0 && canResizePassband}
@@ -415,8 +430,8 @@
   {/if}
   <div class="waterfall-area">
     <div class="waterfall-scale"></div>
-    <div class="waterfall-content" class:panning={dragging} bind:this={waterfallContent} onpointerdown={handleDragStart}>
-      <WaterfallCanvas options={waterfallOptions} onFreqClick={handleTune} onRegisterPush={(fn) => waterfallPush = fn} />
+    <div class="waterfall-content" class:panning={dragging} bind:this={waterfallContent} onpointerdown={handleDragStart} onclick={handleAreaClick}>
+      <WaterfallCanvas options={waterfallOptions} onRegisterPush={(fn) => waterfallPush = fn} />
       <DxOverlay spots={dxSpots} {startFreq} {endFreq} onTune={handleTune} />
       <!-- Tuning + passband indicator overlays the waterfall -->
       {#if spanHz > 0}

@@ -5,24 +5,16 @@
     defaultWaterfallOptions,
     type WaterfallOptions,
   } from '../../lib/renderers/waterfall-renderer';
-  import { gesture } from '../../lib/gestures/use-gesture';
-  import { sendCommand } from '../../lib/transport/ws-client';
-  import { radio } from '../../lib/stores/radio.svelte';
-  import { vibrate } from '../../lib/utils/haptics';
 
   interface Props {
     options?: WaterfallOptions;
-    onFreqClick?: (hz: number) => void;
     onRegisterPush?: (fn: (data: Uint8Array) => void) => void;
   }
 
-  let { options = defaultWaterfallOptions, onFreqClick, onRegisterPush }: Props = $props();
+  let { options = defaultWaterfallOptions, onRegisterPush }: Props = $props();
 
   let canvas: HTMLCanvasElement;
   let renderer = $state<WaterfallRenderer | null>(null);
-
-  // Accumulated pan offset in Hz (applied on drag end)
-  let panOffsetHz = $state(0);
 
   // Direct push function — called by parent SpectrumPanel for each scope frame.
   // Svelte 5 reactivity cannot reliably track Uint8Array prop changes at 100+ fps,
@@ -38,54 +30,6 @@
       renderer.updateOptions(options);
     }
   });
-
-  // --- Hz per pixel helper ---
-  function hzPerPixel(): number {
-    if (!canvas || options.spanHz <= 0) return 0;
-    const dpr = window.devicePixelRatio || 1;
-    return options.spanHz / (canvas.getBoundingClientRect().width * dpr);
-  }
-
-  // --- Waterfall gesture callbacks ---
-  const waterfallGestures = {
-    onTap(x: number, y: number): void {
-      if (!renderer || !onFreqClick) return;
-      const dpr = window.devicePixelRatio || 1;
-      const rect = canvas.getBoundingClientRect();
-      const freq = renderer.pixelToFreq((x - rect.left) * dpr);
-      if (freq > 0) {
-        vibrate('tap');
-        onFreqClick(freq);
-      }
-    },
-
-    onPinch(scale: number, _cx: number, _cy: number): void {
-      if (options.spanHz <= 0) return;
-      // Clamp span to reasonable radio range (2.5 kHz – 5 MHz)
-      const newSpan = Math.max(2_500, Math.min(5_000_000, options.spanHz / scale));
-      const half = Math.round(newSpan / 2);
-      sendCommand('set_scope_fixed_edge', {
-        edge: 1,
-        start_hz: Math.max(0, options.centerHz - half),
-        end_hz: options.centerHz + half,
-      });
-    },
-
-    onPan(dx: number, _dy: number): void {
-      const hpp = hzPerPixel();
-      if (hpp <= 0) return;
-      // Accumulate; visual feedback is implicit through options update from server
-      panOffsetHz -= dx * hpp;
-    },
-
-    onPanEnd(): void {
-      if (panOffsetHz === 0 || options.centerHz <= 0) return;
-      const newCenter = Math.max(0, options.centerHz + panOffsetHz);
-      const receiver = radio.current?.active === 'SUB' ? 1 : 0;
-      sendCommand('set_freq', { freq: Math.round(newCenter), receiver });
-      panOffsetHz = 0;
-    },
-  };
 
   onMount(() => {
     renderer = new WaterfallRenderer(canvas, options);
@@ -113,7 +57,7 @@
   });
 </script>
 
-<canvas bind:this={canvas} use:gesture={waterfallGestures}></canvas>
+<canvas bind:this={canvas}></canvas>
 
 <style>
   canvas {
