@@ -201,6 +201,103 @@ class TestScanning:
         assert frame[3] == 0xE1
 
 
+class TestScanTypes:
+    """Tests for extended scan type commands (0x0E with various sub-bytes)."""
+
+    def test_scan_start_type_programmed(self) -> None:
+        """scan_start_type(0x01) builds programmed scan frame."""
+        assert commands.scan_start_type(0x01) == _frame(_CMD_SCANNING, 0x01)
+
+    def test_scan_start_type_programmed_p2(self) -> None:
+        """scan_start_type(0x02) builds programmed scan P2 frame."""
+        assert commands.scan_start_type(0x02) == _frame(_CMD_SCANNING, 0x02)
+
+    def test_scan_start_type_df(self) -> None:
+        """scan_start_type(0x03) builds delta-F scan frame."""
+        assert commands.scan_start_type(0x03) == _frame(_CMD_SCANNING, 0x03)
+
+    def test_scan_start_type_fine_programmed(self) -> None:
+        """scan_start_type(0x12) builds fine programmed scan frame."""
+        assert commands.scan_start_type(0x12) == _frame(_CMD_SCANNING, 0x12)
+
+    def test_scan_start_type_memory(self) -> None:
+        """scan_start_type(0x22) builds memory scan frame."""
+        assert commands.scan_start_type(0x22) == _frame(_CMD_SCANNING, 0x22)
+
+    def test_scan_start_type_select_memory(self) -> None:
+        """scan_start_type(0x23) builds select memory scan frame."""
+        assert commands.scan_start_type(0x23) == _frame(_CMD_SCANNING, 0x23)
+
+    def test_scan_start_type_custom_addresses(self) -> None:
+        frame = commands.scan_start_type(0x03, to_addr=0xA4, from_addr=0xE1)
+        assert frame[2] == 0xA4
+        assert frame[3] == 0xE1
+
+    def test_scan_start_type_rejects_invalid(self) -> None:
+        """scan_start_type rejects values not in VALID_SCAN_TYPES."""
+        with pytest.raises(ValueError, match="scan_type"):
+            commands.scan_start_type(0xFF)
+
+
+class TestScanDfSpan:
+    """Tests for ΔF scan span selection (0x0E 0xA1-0xA7)."""
+
+    def test_scan_set_df_span_5k(self) -> None:
+        assert commands.scan_set_df_span(0xA1) == _frame(_CMD_SCANNING, 0xA1)
+
+    def test_scan_set_df_span_10k(self) -> None:
+        assert commands.scan_set_df_span(0xA2) == _frame(_CMD_SCANNING, 0xA2)
+
+    def test_scan_set_df_span_20k(self) -> None:
+        assert commands.scan_set_df_span(0xA3) == _frame(_CMD_SCANNING, 0xA3)
+
+    def test_scan_set_df_span_50k(self) -> None:
+        assert commands.scan_set_df_span(0xA4) == _frame(_CMD_SCANNING, 0xA4)
+
+    def test_scan_set_df_span_100k(self) -> None:
+        assert commands.scan_set_df_span(0xA5) == _frame(_CMD_SCANNING, 0xA5)
+
+    def test_scan_set_df_span_500k(self) -> None:
+        assert commands.scan_set_df_span(0xA6) == _frame(_CMD_SCANNING, 0xA6)
+
+    def test_scan_set_df_span_1m(self) -> None:
+        assert commands.scan_set_df_span(0xA7) == _frame(_CMD_SCANNING, 0xA7)
+
+    def test_scan_set_df_span_rejects_invalid(self) -> None:
+        with pytest.raises(ValueError, match="df_span"):
+            commands.scan_set_df_span(0xA0)
+
+    def test_scan_set_df_span_custom_addresses(self) -> None:
+        frame = commands.scan_set_df_span(0xA3, to_addr=0xA4, from_addr=0xE1)
+        assert frame[2] == 0xA4
+        assert frame[3] == 0xE1
+
+
+class TestScanResume:
+    """Tests for scan resume mode (0x0E 0xD0-0xD3)."""
+
+    def test_scan_set_resume_off(self) -> None:
+        assert commands.scan_set_resume(0xD0) == _frame(_CMD_SCANNING, 0xD0)
+
+    def test_scan_set_resume_5s(self) -> None:
+        assert commands.scan_set_resume(0xD1) == _frame(_CMD_SCANNING, 0xD1)
+
+    def test_scan_set_resume_10s(self) -> None:
+        assert commands.scan_set_resume(0xD2) == _frame(_CMD_SCANNING, 0xD2)
+
+    def test_scan_set_resume_15s(self) -> None:
+        assert commands.scan_set_resume(0xD3) == _frame(_CMD_SCANNING, 0xD3)
+
+    def test_scan_set_resume_rejects_invalid(self) -> None:
+        with pytest.raises(ValueError, match="resume_mode"):
+            commands.scan_set_resume(0xD4)
+
+    def test_scan_set_resume_custom_addresses(self) -> None:
+        frame = commands.scan_set_resume(0xD1, to_addr=0xA4, from_addr=0xE1)
+        assert frame[2] == 0xA4
+        assert frame[3] == 0xE1
+
+
 # ---------------------------------------------------------------------------
 # Dual Watch (0x07 0xC0 / 0xC1 / 0xC2)
 # ---------------------------------------------------------------------------

@@ -116,6 +116,8 @@ __all__ = [
     "SetApf",
     "SetTwinPeak",
     "SetDriveGain",
+    "ScanSetDfSpan",
+    "ScanSetResume",
     "ScanStart",
     "ScanStop",
     "SetToneFreq",
@@ -174,6 +176,8 @@ from .._poller_types import (  # noqa: E402
     PttOn,
     QuickDualWatch,
     QuickSplit,
+    ScanSetDfSpan,
+    ScanSetResume,
     ScanStart,
     ScanStop,
     SelectVfo,
@@ -1199,15 +1203,26 @@ class RadioPoller:
                 if self._radio_state:
                     self._radio_state.drive_gain = level
                     self.bump_revision()
-            case ScanStart():
-                await _r.scan_start()
+            case ScanStart(scan_type=st):
+                await _r.scan_start(mode=st)
                 if self._radio_state:
                     self._radio_state.scanning = True
+                    self._radio_state.scan_type = st
                     self.bump_revision()
             case ScanStop():
                 await _r.scan_stop()
                 if self._radio_state:
                     self._radio_state.scanning = False
+                    self._radio_state.scan_type = 0
+                    self.bump_revision()
+            case ScanSetDfSpan(span=span):
+                await _r.scan_set_df_span(span)
+                if self._radio_state:
+                    self.bump_revision()
+            case ScanSetResume(mode=resume_mode):
+                await _r.scan_set_resume(resume_mode)
+                if self._radio_state:
+                    self._radio_state.scan_resume_mode = resume_mode & 0x0F
                     self.bump_revision()
             case SetDataMode(mode=mode, receiver=rx):
                 self._ensure_receiver_supported(rx, operation="set_data_mode")

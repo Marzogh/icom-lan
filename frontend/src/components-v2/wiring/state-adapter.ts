@@ -533,3 +533,19 @@ export function toVfoOpsProps(
     mainSubTracking: state?.mainSubTracking ?? false,
   };
 }
+
+/* ── Scan Panel ──────────────────────────────────────────────── */
+
+export interface ScanProps {
+  scanning: boolean;
+  scanType: number;
+  scanResumeMode: number;
+}
+
+export function toScanProps(state: ServerState | null): ScanProps {
+  return {
+    scanning: state?.scanning ?? false,
+    scanType: state?.scanType ?? 0,
+    scanResumeMode: state?.scanResumeMode ?? 0,
+  };
+}

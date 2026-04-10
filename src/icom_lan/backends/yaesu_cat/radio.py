@@ -1391,6 +1391,12 @@ class YaesuCatRadio:
     async def scan_stop(self) -> None:
         raise NotImplementedError("Scan not supported on this radio")
 
+    async def scan_set_df_span(self, span: int) -> None:
+        raise NotImplementedError("Scan not supported on this radio")
+
+    async def scan_set_resume(self, mode: int) -> None:
+        raise NotImplementedError("Scan not supported on this radio")
+
     # -- Memory (not supported on Yaesu) ----------------------------------------
 
     async def set_memory_mode(self, channel: int) -> None:

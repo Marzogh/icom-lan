@@ -24,6 +24,8 @@ __all__ = [
     "PttOn",
     "QuickDualWatch",
     "QuickSplit",
+    "ScanSetDfSpan",
+    "ScanSetResume",
     "ScanStart",
     "ScanStop",
     "SelectVfo",
@@ -315,12 +317,22 @@ class SetDriveGain:
 
 @dataclass(frozen=True, slots=True)
 class ScanStart:
-    pass
+    scan_type: int = 0x01  # 0x01=programmed, 0x02=P2, 0x03=ΔF, 0x12=fine, 0x22=mem, 0x23=sel_mem
 
 
 @dataclass(frozen=True, slots=True)
 class ScanStop:
     pass
+
+
+@dataclass(frozen=True, slots=True)
+class ScanSetDfSpan:
+    span: int  # 0xA1=±5k, 0xA2=±10k, 0xA3=±20k, 0xA4=±50k, 0xA5=±100k, 0xA6=±500k, 0xA7=±1M
+
+
+@dataclass(frozen=True, slots=True)
+class ScanSetResume:
+    mode: int  # 0xD0=OFF, 0xD1=5s, 0xD2=10s, 0xD3=15s
 
 
 @dataclass(frozen=True, slots=True)
@@ -800,6 +812,8 @@ Command = (
     | SetDriveGain
     | ScanStart
     | ScanStop
+    | ScanSetDfSpan
+    | ScanSetResume
     | SetDataMode
     | SetMicGain
     | SetVox

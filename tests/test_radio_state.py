@@ -153,6 +153,8 @@ def test_to_dict_structure() -> None:
         "split",
         "dual_watch",
         "scanning",
+        "scan_type",
+        "scan_resume_mode",
         "tuning_step",
         "overflow",
         "tuner_status",

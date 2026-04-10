@@ -19,6 +19,7 @@
   import RfFrontEnd from '../panels/RfFrontEnd.svelte';
   import RitXitPanel from '../panels/RitXitPanel.svelte';
   import AntennaPanel from '../panels/AntennaPanel.svelte';
+  import ScanPanel from '../panels/ScanPanel.svelte';
   import CwPanel from '../panels/CwPanel.svelte';
   import DockMeterPanel from '../panels/DockMeterPanel.svelte';
   import KeyboardHandler from './KeyboardHandler.svelte';
@@ -35,14 +36,14 @@
   import {
     toVfoProps, toVfoOpsProps, toMeterProps,
     toRfFrontEndProps, toModeProps, toFilterProps, toAgcProps, toRitXitProps,
-    toBandSelectorProps, toRxAudioProps, toDspProps, toTxProps, toCwProps, toAntennaProps,
+    toBandSelectorProps, toRxAudioProps, toDspProps, toTxProps, toCwProps, toAntennaProps, toScanProps,
   } from '../wiring/state-adapter';
   import {
     makeVfoHandlers, makeMeterHandlers, makeKeyboardHandlers,
     makeRfFrontEndHandlers, makeModeHandlers, makeFilterHandlers,
     makeAgcHandlers, makeRitXitHandlers, makeBandHandlers, makePresetHandlers,
     makeRxAudioHandlers, makeDspHandlers, makeTxHandlers, makeCwPanelHandlers,
-    makeSystemHandlers, makeAntennaHandlers,
+    makeSystemHandlers, makeAntennaHandlers, makeScanHandlers,
   } from '../wiring/command-bus';
   import { getKeyboardConfig } from '$lib/stores/capabilities.svelte';
   import { audioManager } from '$lib/audio/audio-manager';
@@ -71,6 +72,7 @@
   let dsp = $derived(toDspProps(radioState, caps));
   let cw = $derived(toCwProps(radioState, caps));
   let antenna = $derived(toAntennaProps(radioState, caps));
+  let scan = $derived(toScanProps(radioState));
 
   // ── Handlers ──
   const vfoHandlers = makeVfoHandlers();
@@ -88,6 +90,7 @@
   const dspHandlers = makeDspHandlers();
   const cwHandlers = makeCwPanelHandlers();
   const antennaHandlers = makeAntennaHandlers();
+  const scanHandlers = makeScanHandlers();
   const systemHandlers = makeSystemHandlers();
 
   // ── VFO layout ──
@@ -524,6 +527,21 @@
           currentFreq={band.currentFreq}
           onBandSelect={bandHandlers.onBandSelect}
           onPresetSelect={presetHandlers.onPresetSelect}
+        />
+      </CollapsiblePanel>
+    </section>
+
+    <!-- Scan -->
+    <section class="m-section">
+      <CollapsiblePanel title="SCAN" panelId="m-scan" collapsible={true}>
+        <ScanPanel
+          scanning={scan.scanning}
+          scanType={scan.scanType}
+          scanResumeMode={scan.scanResumeMode}
+          onScanStart={scanHandlers.onScanStart}
+          onScanStop={scanHandlers.onScanStop}
+          onDfSpanChange={scanHandlers.onDfSpanChange}
+          onResumeChange={scanHandlers.onResumeChange}
         />
       </CollapsiblePanel>
     </section>

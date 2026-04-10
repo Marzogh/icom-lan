@@ -154,7 +154,10 @@ from .commands import (
     ptt_on,
     quick_dual_watch,
     quick_split,
+    scan_set_df_span,
+    scan_set_resume,
     scan_start,
+    scan_start_type,
     scan_stop,
     send_cw,
     set_acc1_mod_level,
@@ -2566,16 +2569,37 @@ class CoreRadio(ScopeRuntimeMixin, AudioRuntimeMixin, DualRxRuntimeMixin):
         civ = set_tuning_step(step, to_addr=self._radio_addr)
         await self._send_civ_raw(civ, wait_response=False)
 
-    async def scan_start(self) -> None:
-        """Start scanning (CI-V 0x0E 0x01). Fire-and-forget."""
+    async def scan_start(self, mode: int = 0) -> None:
+        """Start scanning (CI-V 0x0E). Fire-and-forget.
+
+        Args:
+            mode: Scan type sub-byte.  0 (default) sends 0x01 (programmed scan)
+                  for backward compatibility.  Non-zero values are forwarded
+                  directly as the scan-type sub-byte (e.g. 0x03 = ΔF scan).
+        """
         self._check_connected()
-        civ = scan_start(to_addr=self._radio_addr)
+        if mode == 0:
+            civ = scan_start(to_addr=self._radio_addr)
+        else:
+            civ = scan_start_type(mode, to_addr=self._radio_addr)
         await self._send_civ_raw(civ, wait_response=False)
 
     async def scan_stop(self) -> None:
         """Stop scanning (CI-V 0x0E 0x00). Fire-and-forget."""
         self._check_connected()
         civ = scan_stop(to_addr=self._radio_addr)
+        await self._send_civ_raw(civ, wait_response=False)
+
+    async def scan_set_df_span(self, span: int) -> None:
+        """Set ΔF scan span (CI-V 0x0E 0xA1-0xA7). Fire-and-forget."""
+        self._check_connected()
+        civ = scan_set_df_span(span, to_addr=self._radio_addr)
+        await self._send_civ_raw(civ, wait_response=False)
+
+    async def scan_set_resume(self, mode: int) -> None:
+        """Set scan resume mode (CI-V 0x0E 0xD0-0xD3). Fire-and-forget."""
+        self._check_connected()
+        civ = scan_set_resume(mode, to_addr=self._radio_addr)
         await self._send_civ_raw(civ, wait_response=False)
 
     async def get_dual_watch(self) -> bool:

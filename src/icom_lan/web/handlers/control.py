@@ -16,6 +16,8 @@ from ..protocol import (
 from ..radio_poller import (
     PttOff,
     PttOn,
+    ScanSetDfSpan,
+    ScanSetResume,
     ScanStart,
     ScanStop,
     SelectVfo,
@@ -217,6 +219,8 @@ class ControlHandler:
             "set_drive_gain",
             "scan_start",
             "scan_stop",
+            "scan_set_df_span",
+            "scan_set_resume",
             "set_data_mode",
             "set_mic_gain",
             "set_vox",
@@ -1618,12 +1622,23 @@ class ControlHandler:
                 return {"on": on}
             case "scan_start":
                 self._ensure_capability("scan", "scan_start")
-                q.put(ScanStart())
-                return {}
+                scan_type = int(params.get("type", 0x01))
+                q.put(ScanStart(scan_type=scan_type))
+                return {"type": scan_type}
             case "scan_stop":
                 self._ensure_capability("scan", "scan_stop")
                 q.put(ScanStop())
                 return {}
+            case "scan_set_df_span":
+                self._ensure_capability("scan", "scan_set_df_span")
+                span = int(params["span"])
+                q.put(ScanSetDfSpan(span=span))
+                return {"span": span}
+            case "scan_set_resume":
+                self._ensure_capability("scan", "scan_set_resume")
+                resume_mode = int(params["mode"])
+                q.put(ScanSetResume(mode=resume_mode))
+                return {"mode": resume_mode}
             case "set_repeater_tone":
                 on = bool(params.get("on", False))
                 rx = int(params.get("receiver", 0))

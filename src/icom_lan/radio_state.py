@@ -110,6 +110,8 @@ class RadioState:
     split: bool = False
     dual_watch: bool = False
     scanning: bool = False
+    scan_type: int = 0  # 0=none, 0x01=prog, 0x02=P2, 0x03=ΔF, 0x12=fine, 0x22=mem, 0x23=sel
+    scan_resume_mode: int = 0  # 0=OFF, 1=5s, 2=10s, 3=15s (low nibble of 0xD0-0xD3)
     tuning_step: int = 0
     overflow: bool = False
     tuner_status: int = 0  # 0=off, 1=on, 2=tuning
@@ -162,6 +164,8 @@ class RadioState:
             "split": self.split,
             "dual_watch": self.dual_watch,
             "scanning": self.scanning,
+            "scan_type": self.scan_type,
+            "scan_resume_mode": self.scan_resume_mode,
             "tuning_step": self.tuning_step,
             "overflow": self.overflow,
             "tuner_status": self.tuner_status,

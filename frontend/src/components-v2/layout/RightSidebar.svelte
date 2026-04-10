@@ -7,6 +7,7 @@
   import TxPanel from '../panels/TxPanel.svelte';
   import CwPanel from '../panels/CwPanel.svelte';
   import VoxPanel from '../panels/VoxPanel.svelte';
+  import MemoryPanel from '../panels/MemoryPanel.svelte';
   import CollapsiblePanel from '../controls/CollapsiblePanel.svelte';
   import {
     toRxAudioProps,
@@ -160,6 +161,10 @@
       </CollapsiblePanel>
     {/if}
   {/if}
+
+  <CollapsiblePanel title="MEMORY" panelId="memory">
+    <MemoryPanel />
+  </CollapsiblePanel>
 </aside>
 
 <style>

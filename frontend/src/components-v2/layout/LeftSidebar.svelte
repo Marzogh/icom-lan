@@ -7,6 +7,7 @@
   import AgcPanel from '../panels/AgcPanel.svelte';
   import RitXitPanel from '../panels/RitXitPanel.svelte';
   import AntennaPanel from '../panels/AntennaPanel.svelte';
+  import ScanPanel from '../panels/ScanPanel.svelte';
   import BandSelector from '../controls/BandSelector.svelte';
   import CollapsiblePanel from '../controls/CollapsiblePanel.svelte';
   import {
@@ -17,6 +18,7 @@
     toRitXitProps,
     toBandSelectorProps,
     toAntennaProps,
+    toScanProps,
   } from '../wiring/state-adapter';
   import {
     makeRfFrontEndHandlers,
@@ -27,6 +29,7 @@
     makeBandHandlers,
     makePresetHandlers,
     makeAntennaHandlers,
+    makeScanHandlers,
   } from '../wiring/command-bus';
 
   // Reactive state + capabilities
@@ -35,7 +38,7 @@
 
   // --- Panel reorder ---
   const PANEL_ORDER_KEY = 'icom-lan:panel-order';
-  const DEFAULT_ORDER = ['rf-front-end', 'mode', 'filter', 'agc', 'rit-xit', 'band', 'antenna'];
+  const DEFAULT_ORDER = ['rf-front-end', 'mode', 'filter', 'agc', 'rit-xit', 'band', 'antenna', 'scan'];
 
   function loadPanelOrder(): string[] {
     try {
@@ -139,6 +142,7 @@
   let ritXit = $derived(toRitXitProps(radioState, caps));
   let band = $derived(toBandSelectorProps(radioState));
   let antenna = $derived(toAntennaProps(radioState, caps));
+  let scan = $derived(toScanProps(radioState));
   // Command handlers via command-bus
   const rfHandlers = makeRfFrontEndHandlers();
   const modeHandlers = makeModeHandlers();
@@ -148,6 +152,7 @@
   const bandHandlers = makeBandHandlers();
   const presetHandlers = makePresetHandlers();
   const antennaHandlers = makeAntennaHandlers();
+  const scanHandlers = makeScanHandlers();
 </script>
 
 <aside class="left-sidebar">
@@ -265,6 +270,20 @@
       />
     </CollapsiblePanel>
   {/if}
+
+  <CollapsiblePanel title="SCAN" panelId="scan"
+    draggable={true} onDragStart={handleDragStart}
+    style="order:{orderOf('scan')}{dragPanelId === 'scan' ? ';opacity:0.5;transform:scale(0.98)' : ''}{dropTargetIndex === orderOf('scan') && dragPanelId && dragPanelId !== 'scan' ? ';border-top:2px solid var(--v2-accent, #4af)' : ''}">
+    <ScanPanel
+      scanning={scan.scanning}
+      scanType={scan.scanType}
+      scanResumeMode={scan.scanResumeMode}
+      onScanStart={scanHandlers.onScanStart}
+      onScanStop={scanHandlers.onScanStop}
+      onDfSpanChange={scanHandlers.onDfSpanChange}
+      onResumeChange={scanHandlers.onResumeChange}
+    />
+  </CollapsiblePanel>
 
   <div class="sidebar-footer" style="order:99">
     <button type="button" class="reset-order-btn" onclick={resetPanelOrder}>

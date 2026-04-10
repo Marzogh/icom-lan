@@ -130,6 +130,83 @@ def scan_stop(
     return build_civ_frame(to_addr, from_addr, _CMD_SCAN, data=b"\x00")
 
 
+# Valid scan type sub-bytes for 0x0E command.
+VALID_SCAN_TYPES = frozenset({0x01, 0x02, 0x03, 0x12, 0x22, 0x23})
+# Valid ΔF span sub-bytes: 0xA1=±5kHz .. 0xA7=±1MHz.
+VALID_DF_SPANS = frozenset(range(0xA1, 0xA8))
+# Valid scan resume sub-bytes: 0xD0=OFF, 0xD1=5s, 0xD2=10s, 0xD3=15s.
+VALID_SCAN_RESUME = frozenset(range(0xD0, 0xD4))
+
+
+def scan_start_type(
+    scan_type: int,
+    to_addr: int,
+    from_addr: int = CONTROLLER_ADDR,
+    cmd_map: CommandMap | None = None,
+) -> bytes:
+    """Build CI-V command to start scan with specific type (0x0E sub).
+
+    Valid scan_type values:
+      0x01=programmed, 0x02=programmed P2, 0x03=ΔF,
+      0x12=fine programmed, 0x22=memory, 0x23=select memory.
+    """
+    if scan_type not in VALID_SCAN_TYPES:
+        raise ValueError(
+            f"scan_type must be one of {sorted(hex(x) for x in VALID_SCAN_TYPES)}, got {hex(scan_type)}"
+        )
+    if cmd_map is not None:
+        return _build_from_map(
+            cmd_map, "scan_start_type", to_addr=to_addr, from_addr=from_addr,
+            data=bytes([scan_type]),
+        )
+    return build_civ_frame(to_addr, from_addr, _CMD_SCAN, data=bytes([scan_type]))
+
+
+def scan_set_df_span(
+    df_span: int,
+    to_addr: int,
+    from_addr: int = CONTROLLER_ADDR,
+    cmd_map: CommandMap | None = None,
+) -> bytes:
+    """Build CI-V command to set ΔF scan span (0x0E 0xA1-0xA7).
+
+    0xA1=±5kHz, 0xA2=±10kHz, 0xA3=±20kHz, 0xA4=±50kHz,
+    0xA5=±100kHz, 0xA6=±500kHz, 0xA7=±1MHz.
+    """
+    if df_span not in VALID_DF_SPANS:
+        raise ValueError(
+            f"df_span must be 0xA1-0xA7, got {hex(df_span)}"
+        )
+    if cmd_map is not None:
+        return _build_from_map(
+            cmd_map, "scan_set_df_span", to_addr=to_addr, from_addr=from_addr,
+            data=bytes([df_span]),
+        )
+    return build_civ_frame(to_addr, from_addr, _CMD_SCAN, data=bytes([df_span]))
+
+
+def scan_set_resume(
+    resume_mode: int,
+    to_addr: int,
+    from_addr: int = CONTROLLER_ADDR,
+    cmd_map: CommandMap | None = None,
+) -> bytes:
+    """Build CI-V command to set scan resume mode (0x0E 0xD0-0xD3).
+
+    0xD0=OFF, 0xD1=5sec, 0xD2=10sec, 0xD3=15sec.
+    """
+    if resume_mode not in VALID_SCAN_RESUME:
+        raise ValueError(
+            f"resume_mode must be 0xD0-0xD3, got {hex(resume_mode)}"
+        )
+    if cmd_map is not None:
+        return _build_from_map(
+            cmd_map, "scan_set_resume", to_addr=to_addr, from_addr=from_addr,
+            data=bytes([resume_mode]),
+        )
+    return build_civ_frame(to_addr, from_addr, _CMD_SCAN, data=bytes([resume_mode]))
+
+
 def set_dual_watch_off(
     to_addr: int, from_addr: int = CONTROLLER_ADDR, cmd_map: CommandMap | None = None,
 ) -> bytes:

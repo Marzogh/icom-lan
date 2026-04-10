@@ -751,6 +751,14 @@ class SystemControlCapable(Protocol):
         """Stop any active scan."""
         ...
 
+    async def scan_set_df_span(self, span: int) -> None:
+        """Set ΔF scan span (0xA1=±5kHz .. 0xA7=±1MHz)."""
+        ...
+
+    async def scan_set_resume(self, mode: int) -> None:
+        """Set scan resume mode (0xD0=OFF, 0xD1=5s, 0xD2=10s, 0xD3=15s)."""
+        ...
+
 
 @runtime_checkable
 class RepeaterControlCapable(Protocol):

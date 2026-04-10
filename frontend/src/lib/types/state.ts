@@ -92,6 +92,8 @@ export interface ServerState {
   // Extended fields — optional (not all radio models expose these)
   powerLevel?: number;
   scanning?: boolean;
+  scanType?: number;
+  scanResumeMode?: number;
   tuningStep?: number;
   overflow?: boolean;
   txFreqMonitor?: boolean;

@@ -663,6 +663,28 @@ export function makeSystemHandlers() {
   };
 }
 
+/* ── Scan Handlers ──────────────────────────────────────────── */
+
+export function makeScanHandlers() {
+  return {
+    onScanStart: (type: number) => {
+      patchRadioState({ scanning: true, scanType: type });
+      cmd('scan_start', { type });
+    },
+    onScanStop: () => {
+      patchRadioState({ scanning: false, scanType: 0 });
+      cmd('scan_stop');
+    },
+    onDfSpanChange: (span: number) => {
+      cmd('scan_set_df_span', { span });
+    },
+    onResumeChange: (mode: number) => {
+      patchRadioState({ scanResumeMode: mode & 0x0F });
+      cmd('scan_set_resume', { mode });
+    },
+  };
+}
+
 function cycleValue(values: number[], current: number): number {
   if (values.length === 0) {
     return current;
