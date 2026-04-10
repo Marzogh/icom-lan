@@ -19,6 +19,7 @@ export interface SpectrumOptions {
   passbandHz: number; // filter passband width in Hz (0 = hide)
   passbandShiftHz: number; // IF/PBT-derived passband offset from carrier
   mode: string;       // current mode (USB/LSB/CW/AM/FM) — affects passband placement
+  scopeMode: number;  // 0=CTR, 1=FIX, 2=SCROLL-C, 3=SCROLL-F
 }
 
 export const defaultSpectrumOptions: SpectrumOptions = {
@@ -35,6 +36,7 @@ export const defaultSpectrumOptions: SpectrumOptions = {
   passbandHz: 0,
   passbandShiftHz: 0,
   mode: '',
+  scopeMode: 0,
 };
 
 function clamp(v: number, lo: number, hi: number): number {
@@ -150,14 +152,12 @@ export function renderSpectrum(
 
   // Tuning indicator + passband overlay
   if (spanHz > 0) {
-    // In CENTER mode: tuneHz ≈ centerHz, indicator stays at center.
-    // In FIXED mode: tuneHz differs from centerHz, indicator moves.
-    // Detect mode by checking if tuneHz is close to centerHz (< 0.5% of span).
+    // scopeMode: 0=CTR, 1=FIX, 2=SCROLL-C, 3=SCROLL-F
+    const isFixedScope = options.scopeMode === 1 || options.scopeMode === 3;
     const startHz = centerHz - spanHz / 2;
-    const isCentered = !tuneHz || Math.abs(tuneHz - centerHz) < spanHz * 0.005;
-    const tunePx = isCentered
-      ? width / 2
-      : clamp(((tuneHz - startHz) / spanHz) * width, 0, width);
+    const tunePx = (isFixedScope && tuneHz > 0)
+      ? clamp(((tuneHz - startHz) / spanHz) * width, 0, width)
+      : width / 2;
 
     // Draw passband rectangle
     if (passbandHz > 0) {

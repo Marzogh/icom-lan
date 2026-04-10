@@ -132,7 +132,7 @@ export function renderAudioSpectrum(
   const whiskerRight = width / 2 + totalHalfW;
 
   const avgPbtHz = pbtRawToHz(Math.round((pbtInner + pbtOuter) / 2));
-  const shiftRef = Math.max(animFilterWidth, filterWidthMax * 0.5);
+  const shiftRef = Math.max(rs.animFilterWidth, filterWidthMax * 0.5);
   const cx = width / 2 + (avgPbtHz / shiftRef) * totalHalfW * 0.6;
 
   const slopeExtra = trapH * 0.35;

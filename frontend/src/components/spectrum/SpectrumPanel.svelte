@@ -118,6 +118,7 @@
     passbandHz,
     passbandShiftHz,
     mode: rxMode,
+    scopeMode,
   });
 
   let waterfallOptions = $derived<WaterfallOptions>({
