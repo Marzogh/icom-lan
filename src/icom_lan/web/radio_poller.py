@@ -719,7 +719,7 @@ class RadioPoller:
                         except (ConnectionError, RadioConnectionError):
                             _backoff = min(_backoff + 0.5, _MAX_BACKOFF)
                         except Exception:
-                            logger.debug(
+                            logger.warning(
                                 "radio-poller: cmd error: %s",
                                 type(cmd).__name__,
                                 exc_info=True,
@@ -1425,17 +1425,15 @@ class RadioPoller:
                     await radio.vfo_equalize()
             case EnableScope(policy=policy):
                 if CAP_SCOPE in self._caps:
-                    # Wait for initial state fetch to finish before enabling
-                    # scope — scope data flood + initial fetch responses
-                    # overflow the CI-V packet queue (4096 limit).
+                    # Defer scope enable during initial fetch to avoid
+                    # CI-V packet queue overflow (scope data + fetch).
                     if not self._initial_fetch_done.is_set():
-                        logger.info("radio-poller: deferring scope enable until initial fetch completes")
-                        await self._initial_fetch_done.wait()
-                    await radio.enable_scope(policy=policy)
-                    logger.info("radio-poller: scope enabled")
-                    # Fetch scope controls now that scope is active —
-                    # IC-7610 ignores scope control queries when scope is off.
-                    await self._fetch_scope_controls()
+                        logger.info("radio-poller: re-queuing scope enable (initial fetch in progress)")
+                        self._queue.put(EnableScope(policy=policy))
+                    else:
+                        await radio.enable_scope(policy=policy)
+                        logger.info("radio-poller: scope enabled")
+                        await self._fetch_scope_controls()
             case DisableScope():
                 if CAP_SCOPE in self._caps:
                     await radio.disable_scope()
