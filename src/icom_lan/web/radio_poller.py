@@ -601,7 +601,8 @@ class RadioPoller:
         0x17,  # hold
         0x19,  # ref level
         0x1A,  # sweep speed
-        0x1C,  # center type
+        # 0x1C (center type) does NOT take receiver prefix — sending 0x00
+        # as prefix is misinterpreted as SET center_type=0 (Filter center).
         0x1D,  # VBW
         0x1E,  # fixed edge frequencies
         0x1F,  # RBW
@@ -647,7 +648,7 @@ class RadioPoller:
             scope_rx = self._radio_state.scope_controls.receiver
 
         # Queries without receiver prefix
-        for sub in (0x12, 0x13, 0x1B):
+        for sub in (0x12, 0x13, 0x1B, 0x1C):
             try:
                 await self._civ(0x27, sub=sub, data=b"")
             except Exception:
@@ -656,7 +657,7 @@ class RadioPoller:
 
         # Queries that require receiver prefix byte
         rx_byte = bytes([scope_rx])
-        for sub in (0x14, 0x15, 0x16, 0x17, 0x19, 0x1A, 0x1C, 0x1D, 0x1F):
+        for sub in (0x14, 0x15, 0x16, 0x17, 0x19, 0x1A, 0x1D, 0x1F):
             try:
                 await self._civ(0x27, sub=sub, data=rx_byte)
             except Exception:
