@@ -1632,11 +1632,15 @@ class ControlHandler:
             case "scan_set_df_span":
                 self._ensure_capability("scan", "scan_set_df_span")
                 span = int(params["span"])
+                if span not in range(0xA1, 0xA8):
+                    raise ValueError(f"scan_set_df_span: span must be 0xA1-0xA7, got {span:#x}")
                 q.put(ScanSetDfSpan(span=span))
                 return {"span": span}
             case "scan_set_resume":
                 self._ensure_capability("scan", "scan_set_resume")
                 resume_mode = int(params["mode"])
+                if resume_mode not in range(0xD0, 0xD4):
+                    raise ValueError(f"scan_set_resume: mode must be 0xD0-0xD3, got {resume_mode:#x}")
                 q.put(ScanSetResume(mode=resume_mode))
                 return {"mode": resume_mode}
             case "set_repeater_tone":

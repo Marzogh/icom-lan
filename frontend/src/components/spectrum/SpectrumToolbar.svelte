@@ -207,7 +207,7 @@
           <button
             class="toolbar-btn small"
             class:active={scopeControls?.edge === e}
-            onclick={() => sendCommand('set_scope_fixed_edge', { edge: e })}
+            onclick={() => sendCommand('set_scope_edge', { edge: e })}
           >{e}</button>
         {/each}
       </div>

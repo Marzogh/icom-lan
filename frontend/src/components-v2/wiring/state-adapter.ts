@@ -546,6 +546,6 @@ export function toScanProps(state: ServerState | null): ScanProps {
   return {
     scanning: state?.scanning ?? false,
     scanType: state?.scanType ?? 0,
-    scanResumeMode: state?.scanResumeMode ?? 0,
+    scanResumeMode: (state?.scanResumeMode ?? 0) & 0x0F,
   };
 }

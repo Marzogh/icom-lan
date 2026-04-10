@@ -303,127 +303,127 @@
       <span class="power-off-hint">Use the ON button in the status bar to power up</span>
     </div>
   </div>
+{/if}
 
-  <!-- ═══ SETTINGS MODAL ═══ -->
-  {#if settingsOpen}
+<!-- ═══ SETTINGS MODAL (outside power-off block so it works when radio is on) ═══ -->
+{#if settingsOpen}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="settings-backdrop" onclick={() => (settingsOpen = false)}>
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="settings-backdrop" onclick={() => (settingsOpen = false)}>
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div class="settings-modal" onclick={(e) => e.stopPropagation()}>
-        <div class="settings-header">
-          <span class="settings-title">SETTINGS</span>
-          <button class="settings-close" onclick={() => (settingsOpen = false)}>✕</button>
-        </div>
-        <div class="settings-content">
-          <CollapsiblePanel title="VFO / BAND" panelId="desktop-vfo-ops">
-            <div class="settings-vfo-ops-row">
-              <HardwareButton
-                active={vfoOps.splitActive}
-                indicator="edge-left"
-                color={vfoOps.splitActive ? 'yellow' : 'gray'}
-                onclick={vfoHandlers.onSplitToggle}
-              >
-                SPLIT
-              </HardwareButton>
-              <HardwareButton
-                indicator="edge-left"
-                color="cyan"
-                onclick={vfoHandlers.onSwap}
-              >
-                A↔B
-              </HardwareButton>
-              <HardwareButton
-                indicator="edge-left"
-                color="cyan"
-                onclick={vfoHandlers.onEqual}
-              >
-                A=B
-              </HardwareButton>
-            </div>
-            <BandSelector
-              currentFreq={band.currentFreq}
-              onBandSelect={bandHandlers.onBandSelect}
-              onPresetSelect={presetHandlers.onPresetSelect}
-            />
-          </CollapsiblePanel>
+    <div class="settings-modal" onclick={(e) => e.stopPropagation()}>
+      <div class="settings-header">
+        <span class="settings-title">SETTINGS</span>
+        <button class="settings-close" onclick={() => (settingsOpen = false)}>✕</button>
+      </div>
+      <div class="settings-content">
+        <CollapsiblePanel title="VFO / BAND" panelId="desktop-vfo-ops">
+          <div class="settings-vfo-ops-row">
+            <HardwareButton
+              active={vfoOps.splitActive}
+              indicator="edge-left"
+              color={vfoOps.splitActive ? 'yellow' : 'gray'}
+              onclick={vfoHandlers.onSplitToggle}
+            >
+              SPLIT
+            </HardwareButton>
+            <HardwareButton
+              indicator="edge-left"
+              color="cyan"
+              onclick={vfoHandlers.onSwap}
+            >
+              A↔B
+            </HardwareButton>
+            <HardwareButton
+              indicator="edge-left"
+              color="cyan"
+              onclick={vfoHandlers.onEqual}
+            >
+              A=B
+            </HardwareButton>
+          </div>
+          <BandSelector
+            currentFreq={band.currentFreq}
+            onBandSelect={bandHandlers.onBandSelect}
+            onPresetSelect={presetHandlers.onPresetSelect}
+          />
+        </CollapsiblePanel>
 
-          <CollapsiblePanel title="DSP" panelId="desktop-dsp">
-            <DspPanel
-              nrMode={dsp.nrMode}
-              nrLevel={dsp.nrLevel}
-              nbActive={dsp.nbActive}
-              nbLevel={dsp.nbLevel}
-              notchMode={dsp.notchMode}
-              notchFreq={dsp.notchFreq}
-              onNrModeChange={dspHandlers.onNrModeChange}
-              onNrLevelChange={dspHandlers.onNrLevelChange}
-              onNbToggle={dspHandlers.onNbToggle}
-              onNbLevelChange={dspHandlers.onNbLevelChange}
-              onNotchModeChange={dspHandlers.onNotchModeChange}
-              onNotchFreqChange={dspHandlers.onNotchFreqChange}
-            />
-          </CollapsiblePanel>
+        <CollapsiblePanel title="DSP" panelId="desktop-dsp">
+          <DspPanel
+            nrMode={dsp.nrMode}
+            nrLevel={dsp.nrLevel}
+            nbActive={dsp.nbActive}
+            nbLevel={dsp.nbLevel}
+            notchMode={dsp.notchMode}
+            notchFreq={dsp.notchFreq}
+            onNrModeChange={dspHandlers.onNrModeChange}
+            onNrLevelChange={dspHandlers.onNrLevelChange}
+            onNbToggle={dspHandlers.onNbToggle}
+            onNbLevelChange={dspHandlers.onNbLevelChange}
+            onNotchModeChange={dspHandlers.onNotchModeChange}
+            onNotchFreqChange={dspHandlers.onNotchFreqChange}
+          />
+        </CollapsiblePanel>
 
-          <CollapsiblePanel title="AGC" panelId="desktop-agc">
-            <AgcPanel
-              agcMode={agc.agcMode}
-              onAgcModeChange={agcHandlers.onAgcModeChange}
-            />
-          </CollapsiblePanel>
+        <CollapsiblePanel title="AGC" panelId="desktop-agc">
+          <AgcPanel
+            agcMode={agc.agcMode}
+            onAgcModeChange={agcHandlers.onAgcModeChange}
+          />
+        </CollapsiblePanel>
 
-          <CollapsiblePanel title="RF FRONT END" panelId="desktop-rf">
-            <RfFrontEnd
-              rfGain={rfFrontEnd.rfGain}
-              squelch={rfFrontEnd.squelch}
-              att={rfFrontEnd.att}
-              pre={rfFrontEnd.pre}
-              digiSel={rfFrontEnd.digiSel}
-              ipPlus={rfFrontEnd.ipPlus}
-              onRfGainChange={rfHandlers.onRfGainChange}
-              onSquelchChange={rfHandlers.onSquelchChange}
-              onAttChange={rfHandlers.onAttChange}
-              onPreChange={rfHandlers.onPreChange}
-              onDigiSelToggle={rfHandlers.onDigiSelToggle}
-              onIpPlusToggle={rfHandlers.onIpPlusToggle}
-            />
-          </CollapsiblePanel>
+        <CollapsiblePanel title="RF FRONT END" panelId="desktop-rf">
+          <RfFrontEnd
+            rfGain={rfFrontEnd.rfGain}
+            squelch={rfFrontEnd.squelch}
+            att={rfFrontEnd.att}
+            pre={rfFrontEnd.pre}
+            digiSel={rfFrontEnd.digiSel}
+            ipPlus={rfFrontEnd.ipPlus}
+            onRfGainChange={rfHandlers.onRfGainChange}
+            onSquelchChange={rfHandlers.onSquelchChange}
+            onAttChange={rfHandlers.onAttChange}
+            onPreChange={rfHandlers.onPreChange}
+            onDigiSelToggle={rfHandlers.onDigiSelToggle}
+            onIpPlusToggle={rfHandlers.onIpPlusToggle}
+          />
+        </CollapsiblePanel>
 
-          <CollapsiblePanel title="RIT / XIT" panelId="desktop-rit">
-            <RitXitPanel
-              ritActive={ritXit.ritActive}
-              ritOffset={ritXit.ritOffset}
-              xitActive={ritXit.xitActive}
-              xitOffset={ritXit.xitOffset}
-              hasRit={ritXit.hasRit}
-              hasXit={ritXit.hasXit}
-              onRitToggle={ritXitHandlers.onRitToggle}
-              onXitToggle={ritXitHandlers.onXitToggle}
-              onRitOffsetChange={ritXitHandlers.onRitOffsetChange}
-              onXitOffsetChange={ritXitHandlers.onXitOffsetChange}
-              onClear={ritXitHandlers.onClear}
-            />
-          </CollapsiblePanel>
+        <CollapsiblePanel title="RIT / XIT" panelId="desktop-rit">
+          <RitXitPanel
+            ritActive={ritXit.ritActive}
+            ritOffset={ritXit.ritOffset}
+            xitActive={ritXit.xitActive}
+            xitOffset={ritXit.xitOffset}
+            hasRit={ritXit.hasRit}
+            hasXit={ritXit.hasXit}
+            onRitToggle={ritXitHandlers.onRitToggle}
+            onXitToggle={ritXitHandlers.onXitToggle}
+            onRitOffsetChange={ritXitHandlers.onRitOffsetChange}
+            onXitOffsetChange={ritXitHandlers.onXitOffsetChange}
+            onClear={ritXitHandlers.onClear}
+          />
+        </CollapsiblePanel>
 
-          <CollapsiblePanel title="CW" panelId="desktop-cw">
-            <CwPanel
-              cwPitch={cw.cwPitch}
-              keySpeed={cw.keySpeed}
-              breakIn={cw.breakIn}
-              apfMode={cw.apfMode}
-              twinPeak={cw.twinPeak}
-              currentMode={radioState?.active === 'SUB' ? (radioState?.sub?.mode ?? '') : (radioState?.main?.mode ?? '')}
-              onCwPitchChange={cwHandlers.onCwPitchChange}
-              onKeySpeedChange={cwHandlers.onKeySpeedChange}
-              onBreakInToggle={cwHandlers.onBreakInToggle}
-              onApfChange={cwHandlers.onApfChange}
-              onTwinPeakToggle={cwHandlers.onTwinPeakToggle}
-              onAutoTune={cwHandlers.onAutoTune}
-            />
-          </CollapsiblePanel>
-        </div>
+        <CollapsiblePanel title="CW" panelId="desktop-cw">
+          <CwPanel
+            cwPitch={cw.cwPitch}
+            keySpeed={cw.keySpeed}
+            breakIn={cw.breakIn}
+            apfMode={cw.apfMode}
+            twinPeak={cw.twinPeak}
+            currentMode={radioState?.active === 'SUB' ? (radioState?.sub?.mode ?? '') : (radioState?.main?.mode ?? '')}
+            onCwPitchChange={cwHandlers.onCwPitchChange}
+            onKeySpeedChange={cwHandlers.onKeySpeedChange}
+            onBreakInToggle={cwHandlers.onBreakInToggle}
+            onApfChange={cwHandlers.onApfChange}
+            onTwinPeakToggle={cwHandlers.onTwinPeakToggle}
+            onAutoTune={cwHandlers.onAutoTune}
+          />
+        </CollapsiblePanel>
       </div>
     </div>
-  {/if}
+  </div>
 {/if}
 
 <style>

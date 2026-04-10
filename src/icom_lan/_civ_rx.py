@@ -683,7 +683,11 @@ class CivRuntime:
                 elif frame.sub == 0x02 and frame.data:
                     self._notify_change("rit_tx_changed", {"on": bool(frame.data[0])})
             elif frame.command == 0x0E and frame.data:
-                self._notify_change("scanning_changed", {"on": bool(frame.data[0])})
+                # Only 0x00 (stop) and 0x01-0x23 (start variants) change scan state.
+                # 0xA1-0xA7 (ΔF span) and 0xD0-0xD3 (resume mode) are config-only.
+                sub_0e = frame.data[0]
+                if sub_0e <= 0x23:
+                    self._notify_change("scanning_changed", {"on": bool(sub_0e)})
             elif frame.command == 0x10 and frame.data:
                 b = frame.data[0]
                 step = ((b >> 4) & 0x0F) * 10 + (b & 0x0F)
@@ -1005,7 +1009,10 @@ class CivRuntime:
 
             elif cmd == 0x0E:
                 if frame.data:
-                    rs.scanning = bool(frame.data[0])
+                    sub_0e = frame.data[0]
+                    # 0xA1-0xA7 (ΔF span) and 0xD0-0xD3 (resume) are config-only
+                    if sub_0e <= 0x23:
+                        rs.scanning = bool(sub_0e)
 
             elif cmd == 0x10:
                 if frame.data:
