@@ -2217,7 +2217,8 @@ def _detect_loopback_hint() -> str | None:
 
         dev = find_loopback_device()
         if dev:
-            return f"{dev} detected — use --bridge to enable audio bridge"
+            name = dev.get("name", dev) if isinstance(dev, dict) else str(dev)
+            return f"{name} detected — use --bridge to enable audio bridge"
     except Exception:
         pass
     return None
@@ -2234,7 +2235,7 @@ def _print_startup_banner(
 ) -> None:
     """Print a structured startup summary."""
     model = getattr(radio, "model", "Unknown")
-    host = getattr(radio, "host", "?")
+    host = getattr(radio, "_host", None) or getattr(radio, "host", "?")
 
     lines = [
         f"--- icom-lan v{__version__} ---",
