@@ -323,13 +323,6 @@ async def test_parse_error_propagates(connected_radio):
         await connected_radio.get_freq()
 
 
-@pytest.mark.asyncio
-async def test_data_mode_stubs(connected_radio):
-    """get_data_mode returns False; set_data_mode is a no-op."""
-    assert await connected_radio.get_data_mode() is False
-    await connected_radio.set_data_mode(True)  # should not raise
-
-
 def test_radio_state_initially_default(radio):
     """radio_state is a RadioState with default values."""
     from icom_lan.radio_state import RadioState
@@ -1039,39 +1032,55 @@ async def test_stop_cw_text_sends_ky_clear(connected_radio):
 
 
 # ---------------------------------------------------------------------------
-# RM Meters (COMP, ID, VDD, SWR)
+# RM Meters (COMP, ALC, Power, SWR, ID, VDD)
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
 async def test_read_meter_comp_zero(connected_radio):
-    connected_radio._transport.query = AsyncMock(return_value="RM0000000")
+    connected_radio._transport.query = AsyncMock(return_value="RM3000000")
     val = await connected_radio.get_comp_meter()
     assert val == 0
-    connected_radio._transport.query.assert_called_once_with("RM0;")
+    connected_radio._transport.query.assert_called_once_with("RM3;")
 
 
 @pytest.mark.asyncio
 async def test_read_meter_comp_fifty(connected_radio):
-    connected_radio._transport.query = AsyncMock(return_value="RM0050000")
+    connected_radio._transport.query = AsyncMock(return_value="RM3050000")
     val = await connected_radio.get_comp_meter()
     assert val == 50
 
 
 @pytest.mark.asyncio
 async def test_read_meter_id(connected_radio):
-    connected_radio._transport.query = AsyncMock(return_value="RM1003000")
+    connected_radio._transport.query = AsyncMock(return_value="RM7003000")
     val = await connected_radio.get_id_meter()
     assert val == 3
-    connected_radio._transport.query.assert_called_once_with("RM1;")
+    connected_radio._transport.query.assert_called_once_with("RM7;")
 
 
 @pytest.mark.asyncio
 async def test_read_meter_vd(connected_radio):
-    connected_radio._transport.query = AsyncMock(return_value="RM2005000")
+    connected_radio._transport.query = AsyncMock(return_value="RM8005000")
     val = await connected_radio.get_vd_meter()
     assert val == 5
-    connected_radio._transport.query.assert_called_once_with("RM2;")
+    connected_radio._transport.query.assert_called_once_with("RM8;")
+
+
+@pytest.mark.asyncio
+async def test_read_meter_alc(connected_radio):
+    connected_radio._transport.query = AsyncMock(return_value="RM4080000")
+    val = await connected_radio.get_alc_meter()
+    assert val == 80
+    connected_radio._transport.query.assert_called_once_with("RM4;")
+
+
+@pytest.mark.asyncio
+async def test_read_meter_power(connected_radio):
+    connected_radio._transport.query = AsyncMock(return_value="RM5200000")
+    val = await connected_radio.get_power_meter()
+    assert val == 200
+    connected_radio._transport.query.assert_called_once_with("RM5;")
 
 
 @pytest.mark.asyncio
@@ -1083,15 +1092,15 @@ async def test_read_meter_malformed_response_raises(connected_radio):
 
 @pytest.mark.asyncio
 async def test_get_swr_zero_returns_one(connected_radio):
-    connected_radio._transport.query = AsyncMock(return_value="RM3000000")
+    connected_radio._transport.query = AsyncMock(return_value="RM6000000")
     swr = await connected_radio.get_swr()
     assert swr == 1.0
-    connected_radio._transport.query.assert_called_once_with("RM3;")
+    connected_radio._transport.query.assert_called_once_with("RM6;")
 
 
 @pytest.mark.asyncio
 async def test_get_swr_mid_value(connected_radio):
-    connected_radio._transport.query = AsyncMock(return_value="RM3120000")
+    connected_radio._transport.query = AsyncMock(return_value="RM6120000")
     swr = await connected_radio.get_swr()
     expected = 1.0 + (120 / 255.0) * 8.9
     assert abs(swr - expected) < 0.01
@@ -1099,7 +1108,7 @@ async def test_get_swr_mid_value(connected_radio):
 
 @pytest.mark.asyncio
 async def test_get_swr_max(connected_radio):
-    connected_radio._transport.query = AsyncMock(return_value="RM3255000")
+    connected_radio._transport.query = AsyncMock(return_value="RM6255000")
     swr = await connected_radio.get_swr()
     assert abs(swr - 9.9) < 0.01
 
@@ -1109,3 +1118,59 @@ async def test_get_rf_power_delegates_to_get_power(connected_radio):
     connected_radio._transport.query = AsyncMock(return_value="PC2005")
     watts = await connected_radio.get_rf_power()
     assert watts == 5
+
+
+# ---------------------------------------------------------------------------
+# Processor level (PL command) — bug #549
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_processor_level_parses_3_digit(connected_radio):
+    """PL command returns 3-digit level; get_processor_level parses it."""
+    connected_radio._transport.query = AsyncMock(return_value="PL045")
+    level = await connected_radio.get_processor_level()
+    assert level == 45
+    connected_radio._transport.query.assert_called_once_with("PL;")
+
+
+@pytest.mark.asyncio
+async def test_set_processor_level_sends_3_digit(connected_radio):
+    """set_processor_level(75) sends exactly 'PL075;' — no drive parameter."""
+    connected_radio._transport.write = AsyncMock()
+    await connected_radio.set_processor_level(75)
+    connected_radio._transport.write.assert_called_once_with("PL075;")
+
+
+@pytest.mark.asyncio
+async def test_get_processor_level_no_last_drive_gain_attribute(connected_radio):
+    """After get_processor_level, no _last_drive_gain attribute should exist."""
+    connected_radio._transport.query = AsyncMock(return_value="PL050")
+    await connected_radio.get_processor_level()
+    assert not hasattr(connected_radio, "_last_drive_gain")
+
+
+# ---------------------------------------------------------------------------
+# Bug #550: capabilities must not advertise unimplemented features
+# ---------------------------------------------------------------------------
+
+
+class TestCapabilitiesNoFalseAdvertising:
+    """Verify that features raising NotImplementedError are NOT in capabilities."""
+
+    def test_repeater_tone_not_in_capabilities(self, radio):
+        assert "repeater_tone" not in radio.capabilities
+
+    def test_tsql_not_in_capabilities(self, radio):
+        assert "tsql" not in radio.capabilities
+
+    def test_data_mode_not_in_capabilities(self, radio):
+        assert "data_mode" not in radio.capabilities
+
+    def test_scan_not_in_capabilities(self, radio):
+        assert "scan" not in radio.capabilities
+
+    def test_real_capabilities_still_present(self, radio):
+        """Regression: removing false caps must not break real ones."""
+        for cap in ("audio", "dual_rx", "compressor", "meters", "tx", "cw"):
+            assert cap in radio.capabilities, f"{cap!r} should be in capabilities"

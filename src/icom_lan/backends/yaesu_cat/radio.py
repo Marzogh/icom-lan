@@ -552,13 +552,6 @@ class YaesuCatRadio:
         else:
             self._state.sub.mode = mode
 
-    async def get_data_mode(self) -> bool:
-        """Data mode is not implemented in this minimal backend."""
-        return False
-
-    async def set_data_mode(self, on: int | bool, receiver: int = 0) -> None:
-        """Data mode is not implemented in this minimal backend."""
-
     # -- PTT ----------------------------------------------------------------
 
     async def set_ptt(self, on: bool) -> None:
@@ -601,7 +594,7 @@ class YaesuCatRadio:
             self._state.sub.s_meter = raw
         return raw
 
-    # -- RM meters (COMP, ID, VDD, SWR) ------------------------------------
+    # -- RM meters (COMP, ALC, Power, SWR, IDD, VDD) ----------------------
 
     async def _read_meter(self, meter_type: int) -> tuple[int, int]:
         """Read RM{type}; meter. Returns (main, sub) raw values 0–255."""
@@ -616,18 +609,18 @@ class YaesuCatRadio:
         return main_val, sub_val
 
     async def get_comp_meter(self) -> int:
-        """Get COMP (ALC/compression) meter reading (0–255)."""
-        main, _ = await self._read_meter(0)
+        """Get COMP (compression) meter reading (0–255)."""
+        main, _ = await self._read_meter(3)
         return main
 
-    async def get_id_meter(self) -> int:
-        """Get ID (current drain) meter reading (0–255)."""
-        main, _ = await self._read_meter(1)
+    async def get_alc_meter(self) -> int:
+        """Get ALC meter reading (0–255)."""
+        main, _ = await self._read_meter(4)
         return main
 
-    async def get_vd_meter(self) -> int:
-        """Get VDD (voltage) meter reading (0–255)."""
-        main, _ = await self._read_meter(2)
+    async def get_power_meter(self) -> int:
+        """Get TX power meter reading (0–255)."""
+        main, _ = await self._read_meter(5)
         return main
 
     async def get_swr(self) -> float:
@@ -637,16 +630,26 @@ class YaesuCatRadio:
         Current mapping is approximate — needs hardware calibration.
         Linear mapping: raw 0 → 1.0, raw 255 → 9.9.
         """
-        main, _ = await self._read_meter(3)
+        main, _ = await self._read_meter(6)
         if main == 0:
             return 1.0
         return 1.0 + (main / 255.0) * 8.9
 
+    async def get_id_meter(self) -> int:
+        """Get IDD (current drain) meter reading (0–255)."""
+        main, _ = await self._read_meter(7)
+        return main
+
+    async def get_vd_meter(self) -> int:
+        """Get VDD (voltage) meter reading (0–255)."""
+        main, _ = await self._read_meter(8)
+        return main
+
     async def get_rf_power(self) -> int:
         """Get configured TX power in watts.
 
-        Note: Returns the SET power level, not measured output.
-        FTX-1 does not provide a separate TX power meter via RM.
+        Note: Returns the configured (SET) power level via PC command,
+        not measured output. For measured RF output use get_power_meter() (RM5).
         """
         _, watts = await self.get_power()
         return watts
@@ -897,15 +900,13 @@ class YaesuCatRadio:
         await self._write("set_processor", state="1" if state else "0")
 
     async def get_processor_level(self) -> int:
-        """Get processor level (PL: drive + comp level, 0-100 each)."""
+        """Get processor level (0-100)."""
         result = await self._query("get_processor_level")
-        self._last_drive_gain = result.get("drive", 0)
         return int(result["level"])
 
     async def set_processor_level(self, level: int) -> None:
-        """Set processor level (0-100). Preserves current drive gain."""
-        drive = getattr(self, "_last_drive_gain", 50)
-        await self._write("set_processor_level", drive=drive, level=level)
+        """Set processor level (0-100)."""
+        await self._write("set_processor_level", level=level)
 
     async def get_monitor_on(self) -> bool:
         """Get monitor ON/OFF state — not supported on FTX-1."""
@@ -916,13 +917,12 @@ class YaesuCatRadio:
         raise NotImplementedError("Monitor not supported on this radio")
 
     async def get_monitor_level(self) -> int:
-        """Get monitor level (0–100, ML1)."""
-        result = await self._query("get_monitor_level")
-        return int(result["level"])
+        """Get monitor level — not supported on FTX-1."""
+        raise NotImplementedError("Monitor not supported on this radio")
 
     async def set_monitor_level(self, level: int) -> None:
-        """Set monitor level (0–100, ML1)."""
-        await self._write("set_monitor_level", level=level)
+        """Set monitor level — not supported on FTX-1."""
+        raise NotImplementedError("Monitor not supported on this radio")
 
     # -- D7: CW -------------------------------------------------------------
 
@@ -1345,34 +1345,6 @@ class YaesuCatRadio:
     async def get_dash_ratio(self) -> int:
         raise NotImplementedError("CW dash ratio not supported on this radio")
 
-    # -- Repeater tone / TSQL toggles (not supported as direct on/off) --------
-
-    async def set_repeater_tone(self, on: bool, receiver: int = 0) -> None:
-        raise NotImplementedError("Repeater tone not supported on this radio")
-
-    async def get_repeater_tone(self, receiver: int = 0) -> bool:
-        raise NotImplementedError("Repeater tone not supported on this radio")
-
-    async def set_repeater_tsql(self, on: bool, receiver: int = 0) -> None:
-        raise NotImplementedError("TSQL not supported on this radio")
-
-    async def get_repeater_tsql(self, receiver: int = 0) -> bool:
-        raise NotImplementedError("TSQL not supported on this radio")
-
-    # -- Tone / TSQL frequencies (not supported) ------------------------------
-
-    async def set_tone_freq(self, freq_hz: int, receiver: int = 0) -> None:
-        raise NotImplementedError("Tone frequency not supported on this radio")
-
-    async def get_tone_freq(self, receiver: int = 0) -> int:
-        raise NotImplementedError("Tone frequency not supported on this radio")
-
-    async def set_tsql_freq(self, freq_hz: int, receiver: int = 0) -> None:
-        raise NotImplementedError("TSQL frequency not supported on this radio")
-
-    async def get_tsql_freq(self, receiver: int = 0) -> int:
-        raise NotImplementedError("TSQL frequency not supported on this radio")
-
     # -- Main/Sub tracking (single-receiver Yaesu) ----------------------------
 
     async def set_main_sub_tracking(self, on: bool) -> None:
@@ -1380,20 +1352,6 @@ class YaesuCatRadio:
 
     async def get_main_sub_tracking(self) -> bool:
         raise NotImplementedError("Main/Sub tracking not supported on this radio")
-
-    # -- Scan (no CAT scan commands in FTX-1 profile) -------------------------
-
-    async def scan_start(self, mode: int = 0) -> None:
-        raise NotImplementedError("Scan not supported on this radio")
-
-    async def scan_stop(self) -> None:
-        raise NotImplementedError("Scan not supported on this radio")
-
-    async def scan_set_df_span(self, span: int) -> None:
-        raise NotImplementedError("Scan not supported on this radio")
-
-    async def scan_set_resume(self, mode: int) -> None:
-        raise NotImplementedError("Scan not supported on this radio")
 
     # -- Memory (not supported on Yaesu) ----------------------------------------
 

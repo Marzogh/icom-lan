@@ -38,10 +38,6 @@ features = [
     "rit",
     "tuner",
     "meters",
-    "repeater_tone",
-    "tsql",
-    "data_mode",
-    "scan",
     "dial_lock",
 ]
 
