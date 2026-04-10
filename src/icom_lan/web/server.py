@@ -992,7 +992,23 @@ class WebServer:
 
     async def stop(self) -> None:
         """Close the listener, stop RadioPoller, disconnect radio, cancel tasks."""
-        # Stop DX cluster client
+        # 1. Stop poller first (no more CI-V queries)
+        if self._radio_poller is not None:
+            self._radio_poller.stop()
+            self._radio_poller = None
+        if self._yaesu_poller is not None:
+            await self._yaesu_poller.stop()
+            self._yaesu_poller = None
+
+        # 2. Stop audio relay (stops AudioBus subscription → stop_audio_rx)
+        try:
+            await asyncio.wait_for(self._audio_broadcaster._stop_relay(), timeout=2.0)
+        except (TimeoutError, Exception) as exc:
+            logger.warning("audio relay stop: %s", exc)
+        if self._audio_bridge is not None:
+            await self.stop_audio_bridge()
+
+        # 3. Stop DX cluster
         if self._dx_client is not None:
             await self._dx_client.stop()
             self._dx_client = None
@@ -1003,63 +1019,37 @@ class WebServer:
             except asyncio.CancelledError:
                 pass
             self._dx_client_task = None
-        # Stop audio bridge first
-        if self._audio_bridge is not None:
-            await self.stop_audio_bridge()
-        if self._zombie_reaper_task is not None:
-            self._zombie_reaper_task.cancel()
-            try:
-                await self._zombie_reaper_task
-            except asyncio.CancelledError:
-                pass
-            self._zombie_reaper_task = None
-        if self._scope_health_task is not None:
-            self._scope_health_task.cancel()
-            self._scope_health_task = None
-        if self._scope_reenable_task is not None:
-            self._scope_reenable_task.cancel()
-            self._scope_reenable_task = None
-        if self._yaesu_poller is not None:
-            await self._yaesu_poller.stop()
-            self._yaesu_poller = None
-        if self._radio_poller is not None:
-            self._radio_poller.stop()
-            self._radio_poller = None
 
-        # Radio disconnect is handled by the caller's context manager
-        # (async with radio: in _run). Do NOT disconnect here — it causes
-        # double-disconnect hangs when the second attempt times out.
+        # 4. Cancel housekeeping tasks
+        for task in (self._zombie_reaper_task, self._scope_health_task, self._scope_reenable_task):
+            if task is not None:
+                task.cancel()
+        self._zombie_reaper_task = None
+        self._scope_health_task = None
+        self._scope_reenable_task = None
 
+        # 5. Close TCP listener (stops accepting new connections)
         if self._server is not None:
             self._server.close()
             await self._server.wait_closed()
             self._server = None
 
-        # Cancel background tasks (scope disable grace, etc.)
-        bg_tasks = list(self._bg_tasks)
-        for task in bg_tasks:
+        # 6. Cancel all background + client tasks with timeout
+        all_tasks = list(self._bg_tasks) + list(self._client_tasks)
+        for task in all_tasks:
             task.cancel()
-        if bg_tasks:
+        if all_tasks:
             try:
                 await asyncio.wait_for(
-                    asyncio.gather(*bg_tasks, return_exceptions=True),
+                    asyncio.gather(*all_tasks, return_exceptions=True),
                     timeout=3.0,
                 )
             except TimeoutError:
-                logger.warning("bg_tasks did not finish in 3s, continuing shutdown")
+                logger.warning("tasks did not finish in 3s, continuing shutdown")
         self._bg_tasks.clear()
 
-        tasks = list(self._client_tasks)
-        for task in tasks:
-            task.cancel()
-        if tasks:
-            try:
-                await asyncio.wait_for(
-                    asyncio.gather(*tasks, return_exceptions=True),
-                    timeout=3.0,
-                )
-            except TimeoutError:
-                logger.warning("client_tasks did not finish in 3s, forcing shutdown")
+        # Radio disconnect is handled by the caller's context manager
+        # (async with radio: in _run). Do NOT disconnect here.
         logger.info("web server stopped")
 
     async def serve_forever(self) -> None:
