@@ -111,7 +111,6 @@ nav:
       - Radio Protocol: radio-protocol.md
       - Reliability semantics: internals/reliability-semantics.md
       - Capabilities Matrix: capabilities-matrix.md
-      - Web UI RFC: internals/rfc-web-ui-v1.md
       - CLI design: internals/cli-design.md
       - Performance: PERFORMANCE.md
       - Audio Streaming Profile: AUDIO_STREAMING_PROFILE.md

@@ -162,7 +162,7 @@ class TestConnectionState:
         loop = _FakeLoop(("192.168.2.194", 50002))
 
         sock = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM)
-        sock.bind(("127.0.0.1", 0))
+        sock.bind(("0.0.0.0", 0))
 
         with (
             patch("icom_lan.transport.asyncio.get_event_loop", return_value=loop),

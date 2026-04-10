@@ -735,6 +735,7 @@ class TestCheckPortsAvailable:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             s.bind(("", 0))
+            s.listen(1)
             occupied_port = s.getsockname()[1]
             with pytest.raises(RuntimeError, match=f"Port {occupied_port} already in use"):
                 check_ports_available([occupied_port])
@@ -745,6 +746,7 @@ class TestCheckPortsAvailable:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             s.bind(("", 0))
+            s.listen(1)
             port = s.getsockname()[1]
             try:
                 check_ports_available([port])
@@ -766,6 +768,7 @@ class TestCheckPortsAvailable:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             s.bind(("", 0))
+            s.listen(1)
             occupied_port = s.getsockname()[1]
 
             args = _build_parser().parse_args([
