@@ -6,9 +6,9 @@
  * so that band plan overlay clicks (popups) are not interrupted by unwanted
  * frequency changes.
  *
- * The core filtering logic in handleDragEnd uses:
- *   target.closest('.waterfall-content')
- * A null result means the tap is ignored (spectrum area, toolbar, etc.).
+ * Tap-to-tune is handled by WaterfallCanvas gesture onTap (not handleDragEnd).
+ * These tests verify the target filtering contract: only waterfall taps tune,
+ * spectrum area / toolbar / band plan overlay taps are ignored.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
@@ -18,7 +18,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
  * Determines whether a pointer-up event should trigger click-to-tune.
  * Returns the frequency in Hz if tuning should happen, or null if not.
  *
- * Mirrors the tap branch of handleDragEnd() in SpectrumPanel.svelte.
+ * Mirrors the target filtering logic for tap-to-tune.
  */
 function shouldTapTune(
   target: HTMLElement,

@@ -336,6 +336,7 @@ class RadioPoller:
         # This prevents EnableScope from hanging in tests that don't call start().
         self._initial_fetch_done = asyncio.Event()
         self._initial_fetch_done.set()
+        self._scope_enable_deferred = False
 
     def start(self) -> None:
         if self._task is not None and not self._task.done():
@@ -705,6 +706,7 @@ class RadioPoller:
         # Fetch ALL state queries once so the UI shows real values immediately
         # instead of Python defaults (zeros) until the slow rotation reaches them.
         self._initial_fetch_done.clear()
+        self._scope_enable_deferred = False
         await self._initial_state_fetch()
         self._initial_fetch_done.set()
 
@@ -1428,7 +1430,7 @@ class RadioPoller:
                     # Defer scope enable during initial fetch to avoid
                     # CI-V packet queue overflow (scope data + fetch).
                     if not self._initial_fetch_done.is_set():
-                        if not getattr(self, '_scope_enable_deferred', False):
+                        if not self._scope_enable_deferred:
                             logger.info("radio-poller: deferring scope enable until initial fetch completes")
                             self._scope_enable_deferred = True
                         self._queue.put(EnableScope(policy=policy))

@@ -255,7 +255,7 @@
   // Final freq always sent on release.
   //
   let dragging = $state(false);
-  let dragEndTime = 0; // timestamp of last drag end — used to suppress click after drag
+  // dragEndTime removed — tap-to-tune handled by WaterfallCanvas gesture only
   let dragStartX = $state(0);
   let dragStartFreq = $state(0);
   let dragPointerId = $state<number | null>(null);
@@ -341,21 +341,9 @@
         const receiver = radio.current?.active === 'SUB' ? 1 : 0;
         sendCommand('set_freq', { freq: dragFreq, receiver });
       }
-      dragEndTime = performance.now();
-    } else if (spanHz > 0 && dragPointerId !== null) {
-      // Tap (no drag threshold crossed): click-to-tune on WATERFALL only.
-      // Spectrum area taps are ignored so band plan overlay clicks work.
-      const target = event.target as HTMLElement;
-      if (!target.closest('button, .toolbar-btn, select, input')) {
-        const area = target.closest('.waterfall-content') as HTMLElement | null;
-        if (area) {
-          const rect = area.getBoundingClientRect();
-          const relX = event.clientX - rect.left;
-          const hz = startFreq + (relX / rect.width) * spanHz;
-          handleTune(hz);
-        }
-      }
     }
+    // Tap-to-tune is handled exclusively by WaterfallCanvas gesture onTap
+    // (uses renderer.pixelToFreq with DPR awareness). No duplicate here.
 
     dragging = false;
     dragPointerId = null;
