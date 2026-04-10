@@ -66,6 +66,9 @@ from icom_lan.web.radio_poller import (
     SetRitFrequency,
     SetRitStatus,
     SetRitTxStatus,
+    SetScopeEdge,
+    SetScopeRbw,
+    SetScopeVbw,
     SetSplit,
     SetSquelch,
     SetVox,
@@ -105,7 +108,10 @@ def _capable_radio() -> SimpleNamespace:
         capture_scope_frames=AsyncMock(),
         set_scope_during_tx=AsyncMock(),
         set_scope_center_type=AsyncMock(),
+        set_scope_edge=AsyncMock(),
         set_scope_fixed_edge=AsyncMock(),
+        set_scope_vbw=AsyncMock(),
+        set_scope_rbw=AsyncMock(),
         # AdvancedControlCapable protocol attrs
         send_cw_text=AsyncMock(),
         stop_cw_text=AsyncMock(),
@@ -563,6 +569,11 @@ def _scope_frame() -> ScopeFrame:
         ("set_dual_watch", {"on": True}, SetDualWatch, {"on": True}, {"on": True}),
         ("set_dual_watch", {"on": False}, SetDualWatch, {"on": False}, {"on": False}),
         ("set_compressor", {"on": True}, SetCompressor, {"on": True}, {"on": True}),
+        ("set_scope_edge", {"edge": 2}, SetScopeEdge, {"edge": 2}, {"edge": 2}),
+        ("set_scope_vbw", {"narrow": True}, SetScopeVbw, {"narrow": True}, {"narrow": True}),
+        ("set_scope_vbw", {"narrow": False}, SetScopeVbw, {"narrow": False}, {"narrow": False}),
+        ("set_scope_rbw", {"rbw": 1}, SetScopeRbw, {"rbw": 1}, {"rbw": 1}),
+        ("set_scope_rbw", {"rbw": 2}, SetScopeRbw, {"rbw": 2}, {"rbw": 2}),
     ],
 )
 async def test_enqueue_command_variants(
@@ -603,7 +614,10 @@ async def test_enqueue_command_errors() -> None:
         capture_scope_frames=AsyncMock(),
         set_scope_during_tx=AsyncMock(),
         set_scope_center_type=AsyncMock(),
+        set_scope_edge=AsyncMock(),
         set_scope_fixed_edge=AsyncMock(),
+        set_scope_vbw=AsyncMock(),
+        set_scope_rbw=AsyncMock(),
         # ScopeCapable scope control methods
         get_scope_receiver=AsyncMock(return_value=0),
         set_scope_receiver=AsyncMock(),

@@ -68,13 +68,16 @@ from ..radio_poller import (
     SetRxAntennaAnt2,
     SetScopeCenterType,
     SetScopeDuringTx,
+    SetScopeEdge,
     SetScopeFixedEdge,
     SetScopeDual,
     SetScopeMode,
+    SetScopeRbw,
     SetScopeSpan,
     SetScopeSpeed,
     SetScopeRef,
     SetScopeHold,
+    SetScopeVbw,
     SetSplit,
     SetSquelch,
     SetSystemDate,
@@ -235,7 +238,10 @@ class ControlHandler:
             "switch_scope_receiver",
             "set_scope_during_tx",
             "set_scope_center_type",
+            "set_scope_edge",
             "set_scope_fixed_edge",
+            "set_scope_vbw",
+            "set_scope_rbw",
             "set_scope_dual",
             "set_scope_mode",
             "set_scope_span",
@@ -1420,6 +1426,11 @@ class ControlHandler:
                 self._ensure_capability("scope", "set_scope_center_type")
                 q.put(SetScopeCenterType(center_type))
                 return {"center_type": center_type}
+            case "set_scope_edge":
+                edge = int(params["edge"])
+                self._ensure_capability("scope", "set_scope_edge")
+                q.put(SetScopeEdge(edge))
+                return {"edge": edge}
             case "set_scope_fixed_edge":
                 edge = int(params["edge"])
                 start_hz = int(params["start_hz"])
@@ -1427,6 +1438,16 @@ class ControlHandler:
                 self._ensure_capability("scope", "set_scope_fixed_edge")
                 q.put(SetScopeFixedEdge(edge, start_hz, end_hz))
                 return {"edge": edge, "start_hz": start_hz, "end_hz": end_hz}
+            case "set_scope_vbw":
+                narrow = bool(params.get("narrow", False))
+                self._ensure_capability("scope", "set_scope_vbw")
+                q.put(SetScopeVbw(narrow))
+                return {"narrow": narrow}
+            case "set_scope_rbw":
+                rbw = int(params.get("rbw", 0))
+                self._ensure_capability("scope", "set_scope_rbw")
+                q.put(SetScopeRbw(rbw))
+                return {"rbw": rbw}
             case "set_scope_dual":
                 dual = bool(params["dual"])
                 self._ensure_capability("scope", "set_scope_dual")

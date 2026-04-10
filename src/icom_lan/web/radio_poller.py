@@ -92,13 +92,16 @@ __all__ = [
     "SwitchScopeReceiver",
     "SetScopeDuringTx",
     "SetScopeCenterType",
+    "SetScopeEdge",
     "SetScopeFixedEdge",
     "SetScopeDual",
     "SetScopeMode",
+    "SetScopeRbw",
     "SetScopeSpan",
     "SetScopeSpeed",
     "SetScopeRef",
     "SetScopeHold",
+    "SetScopeVbw",
     "SetAntenna1",
     "SetAntenna2",
     "SetRxAntennaAnt1",
@@ -248,12 +251,15 @@ from .._poller_types import (  # noqa: E402
     SetScopeCenterType,
     SetScopeDual,
     SetScopeDuringTx,
+    SetScopeEdge,
     SetScopeFixedEdge,
     SetScopeHold,
     SetScopeMode,
+    SetScopeRbw,
     SetScopeRef,
     SetScopeSpeed,
     SetScopeSpan,
+    SetScopeVbw,
     SetSplit,
     SetSquelch,
     SetSsbTxBandwidth,
@@ -475,6 +481,7 @@ class RadioPoller:
                 ("filter_width", 0x1A, 0x03),
                 ("pbt", 0x14, 0x07),  # PBT Inner
                 ("pbt", 0x14, 0x08),  # PBT Outer
+                ("notch", 0x16, 0x57),  # Manual notch width
                 ("squelch", 0x15, 0x01),  # S-meter squelch status
             ]
             for cap, cmd_byte, sub_byte in _PER_RX_QUERIES:
@@ -533,6 +540,7 @@ class RadioPoller:
             (0x16, 0x50),  # Dial lock status
             (0x14, 0x16),  # VOX gain
             (0x14, 0x17),  # Anti-VOX gain
+            (0x14, 0x0F),  # Break-in delay
         ]
         # NOTE: Antenna status (0x12) is NOT polled.
         # CI-V 0x12 sub-commands are SET-only on IC-7610 (0x12 0x00 = select
@@ -565,8 +573,14 @@ class RadioPoller:
                     (0x27, 0x13, None),  # Scope single/dual mode
                     (0x27, 0x14, None),  # Scope mode (center/fixed)
                     (0x27, 0x15, None),  # Scope span
+                    (0x27, 0x16, None),  # Scope edge number
                     (0x27, 0x17, None),  # Scope hold
+                    (0x27, 0x19, None),  # Scope REF level
                     (0x27, 0x1A, None),  # Scope sweep speed
+                    (0x27, 0x1B, None),  # Scope during TX
+                    (0x27, 0x1C, None),  # Scope center type
+                    (0x27, 0x1D, None),  # Scope VBW
+                    (0x27, 0x1F, None),  # Scope RBW
                 ]
             )
         return queries
@@ -627,7 +641,7 @@ class RadioPoller:
             scope_rx = self._radio_state.scope_controls.receiver
 
         # Queries without receiver prefix
-        for sub in (0x12, 0x13):
+        for sub in (0x12, 0x13, 0x1B):
             try:
                 await self._civ(0x27, sub=sub, data=b"")
             except Exception:
@@ -636,7 +650,7 @@ class RadioPoller:
 
         # Queries that require receiver prefix byte
         rx_byte = bytes([scope_rx])
-        for sub in (0x14, 0x15, 0x17, 0x19, 0x1A):
+        for sub in (0x14, 0x15, 0x16, 0x17, 0x19, 0x1A, 0x1C, 0x1D, 0x1F):
             try:
                 await self._civ(0x27, sub=sub, data=rx_byte)
             except Exception:
@@ -1424,9 +1438,15 @@ class RadioPoller:
             case SetScopeDuringTx(on=on):
                 if CAP_SCOPE in self._caps:
                     await radio.set_scope_during_tx(on)
+                    if self._radio_state:
+                        self._radio_state.scope_controls.during_tx = on
+                    self.bump_revision()
             case SetScopeCenterType(center_type=center_type):
                 if CAP_SCOPE in self._caps:
                     await radio.set_scope_center_type(center_type)
+                    if self._radio_state:
+                        self._radio_state.scope_controls.center_type = center_type
+                    self.bump_revision()
             case SetScopeFixedEdge(edge=edge, start_hz=start_hz, end_hz=end_hz):
                 if CAP_SCOPE in self._caps:
                     await radio.set_scope_fixed_edge(
@@ -1469,6 +1489,24 @@ class RadioPoller:
                     await radio.set_scope_hold(on)
                     if self._radio_state:
                         self._radio_state.scope_controls.hold = on
+                    self.bump_revision()
+            case SetScopeEdge(edge=edge):
+                if CAP_SCOPE in self._caps:
+                    await radio.set_scope_edge(edge)
+                    if self._radio_state:
+                        self._radio_state.scope_controls.edge = edge
+                    self.bump_revision()
+            case SetScopeVbw(narrow=narrow):
+                if CAP_SCOPE in self._caps:
+                    await radio.set_scope_vbw(narrow)
+                    if self._radio_state:
+                        self._radio_state.scope_controls.vbw_narrow = narrow
+                    self.bump_revision()
+            case SetScopeRbw(rbw=rbw):
+                if CAP_SCOPE in self._caps:
+                    await radio.set_scope_rbw(rbw)
+                    if self._radio_state:
+                        self._radio_state.scope_controls.rbw = rbw
                     self.bump_revision()
             case SetPowerstat(on=on):
                 if CAP_POWER_CONTROL in self._caps:

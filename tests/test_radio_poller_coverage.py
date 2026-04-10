@@ -33,6 +33,9 @@ from icom_lan.web.radio_poller import (
     SetNR,
     SetPower,
     SetPreamp,
+    SetScopeEdge,
+    SetScopeRbw,
+    SetScopeVbw,
     SwitchScopeReceiver,
     VfoSwap,
 )
@@ -96,7 +99,10 @@ def _make_radio(active: str = "MAIN") -> MagicMock:
     radio.capture_scope_frames = AsyncMock()
     radio.set_scope_during_tx = AsyncMock()
     radio.set_scope_center_type = AsyncMock()
+    radio.set_scope_edge = AsyncMock()
     radio.set_scope_fixed_edge = AsyncMock()
+    radio.set_scope_vbw = AsyncMock()
+    radio.set_scope_rbw = AsyncMock()
     # DSP toggles (needed for AdvancedControlCapable protocol)
     radio.get_auto_notch = AsyncMock(return_value=False)
     radio.set_auto_notch = AsyncMock()
@@ -525,3 +531,51 @@ def test_fast_cmds_include_comp_meter_for_ic7610() -> None:
     poller = RadioPoller(_make_radio(), StateCache(), CommandQueue())
 
     assert (0x15, 0x14) in poller._FAST_CMDS  # noqa: SLF001
+
+
+@pytest.mark.asyncio
+async def test_execute_set_scope_edge_updates_state() -> None:
+    radio = _make_radio()
+    state = RadioState()
+    poller = RadioPoller(radio, StateCache(), CommandQueue(), radio_state=state)
+
+    await poller._execute(SetScopeEdge(edge=3))  # noqa: SLF001
+
+    radio.set_scope_edge.assert_awaited_once_with(3)
+    assert state.scope_controls.edge == 3
+
+
+@pytest.mark.asyncio
+async def test_execute_set_scope_vbw_updates_state() -> None:
+    radio = _make_radio()
+    state = RadioState()
+    poller = RadioPoller(radio, StateCache(), CommandQueue(), radio_state=state)
+
+    await poller._execute(SetScopeVbw(narrow=True))  # noqa: SLF001
+
+    radio.set_scope_vbw.assert_awaited_once_with(True)
+    assert state.scope_controls.vbw_narrow is True
+
+
+@pytest.mark.asyncio
+async def test_execute_set_scope_rbw_updates_state() -> None:
+    radio = _make_radio()
+    state = RadioState()
+    poller = RadioPoller(radio, StateCache(), CommandQueue(), radio_state=state)
+
+    await poller._execute(SetScopeRbw(rbw=2))  # noqa: SLF001
+
+    radio.set_scope_rbw.assert_awaited_once_with(2)
+    assert state.scope_controls.rbw == 2
+
+
+def test_state_queries_include_scope_vbw_rbw_edge_for_ic7610() -> None:
+    poller = RadioPoller(_make_radio(), StateCache(), CommandQueue())
+
+    queries = set(poller._STATE_QUERIES)  # noqa: SLF001
+    assert (0x27, 0x16, None) in queries  # edge number
+    assert (0x27, 0x19, None) in queries  # REF level
+    assert (0x27, 0x1B, None) in queries  # during TX
+    assert (0x27, 0x1C, None) in queries  # center type
+    assert (0x27, 0x1D, None) in queries  # VBW
+    assert (0x27, 0x1F, None) in queries  # RBW

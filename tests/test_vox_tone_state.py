@@ -300,6 +300,38 @@ def test_build_state_queries_includes_repeater_tone_and_tsql() -> None:
     assert (0x14, 0x17) in cmd_sub_pairs, "anti_vox_gain not polled"
 
 
+def test_build_state_queries_includes_notch_width() -> None:
+    """_build_state_queries includes 0x16/0x57 (manual notch width) for IC-7610."""
+    profile = resolve_radio_profile(model="IC-7610")
+    radio = MagicMock()
+    radio.profile = profile
+    radio.model = profile.model
+    radio.capabilities = set(profile.capabilities)
+    radio._radio_state = SimpleNamespace(active="MAIN")
+    radio.send_civ = AsyncMock()
+    poller = RadioPoller(radio, StateCache(), CommandQueue())
+
+    queries = poller._STATE_QUERIES  # noqa: SLF001
+    cmd_sub_pairs = {(cmd, sub) for cmd, sub, _ in queries}
+    assert (0x16, 0x57) in cmd_sub_pairs, "manual notch width (0x16/0x57) not polled"
+
+
+def test_build_state_queries_includes_break_in_delay() -> None:
+    """_build_state_queries includes 0x14/0x0F (break-in delay) as common query."""
+    profile = resolve_radio_profile(model="IC-7610")
+    radio = MagicMock()
+    radio.profile = profile
+    radio.model = profile.model
+    radio.capabilities = set(profile.capabilities)
+    radio._radio_state = SimpleNamespace(active="MAIN")
+    radio.send_civ = AsyncMock()
+    poller = RadioPoller(radio, StateCache(), CommandQueue())
+
+    queries = poller._STATE_QUERIES  # noqa: SLF001
+    cmd_sub_pairs = {(cmd, sub) for cmd, sub, _ in queries}
+    assert (0x14, 0x0F) in cmd_sub_pairs, "break_in_delay (0x14/0x0F) not polled"
+
+
 # ---------------------------------------------------------------------------
 # Optimistic state updates in _execute
 # ---------------------------------------------------------------------------

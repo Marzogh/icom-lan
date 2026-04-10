@@ -4,6 +4,7 @@
   import { radio } from '../../lib/stores/radio.svelte';
   import { sendCommand } from '../../lib/transport/ws-client';
   import { hasCapability, hasDualReceiver } from '../../lib/stores/capabilities.svelte';
+  import ScopeSettingsPopover from './ScopeSettingsPopover.svelte';
 
   interface LayerInfo {
     name: string;
@@ -22,6 +23,7 @@
     showEiBi = $bindable(false),
   } = $props();
 
+  let showSettings = $state(false);
   let layerDropdownOpen = $state(false);
   let layerToggleBtn = $state<HTMLElement | null>(null);
   let dropdownStyle = $derived.by(() => {
@@ -240,6 +242,13 @@
         </button>
       </div>
     {/if}
+    <div class="toolbar-separator"></div>
+    <div class="toolbar-group settings-group">
+      <button class="toolbar-btn small" onclick={() => showSettings = !showSettings} title="Scope settings">&#9881;</button>
+      {#if showSettings}
+        <ScopeSettingsPopover onClose={() => showSettings = false} />
+      {/if}
+    </div>
   {/if}
   <div class="toolbar-separator"></div>
   <div class="toolbar-group">
@@ -444,6 +453,10 @@
     height: 22px;
     justify-content: center;
     padding: 0;
+  }
+
+  .settings-group {
+    position: relative;
   }
 
   .bands-group {

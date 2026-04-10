@@ -100,12 +100,15 @@ __all__ = [
     "SetScopeCenterType",
     "SetScopeDual",
     "SetScopeDuringTx",
+    "SetScopeEdge",
     "SetScopeFixedEdge",
     "SetScopeHold",
     "SetScopeMode",
+    "SetScopeRbw",
     "SetScopeRef",
     "SetScopeSpeed",
     "SetScopeSpan",
+    "SetScopeVbw",
     "SetSplit",
     "SetSquelch",
     "SetSsbTxBandwidth",
@@ -481,6 +484,24 @@ class SetScopeHold:
 
 
 @dataclass(frozen=True, slots=True)
+class SetScopeEdge:
+    """Select fixed-edge number (1-4)."""
+    edge: int
+
+
+@dataclass(frozen=True, slots=True)
+class SetScopeVbw:
+    """Set scope VBW (Video Bandwidth): narrow=True for narrow."""
+    narrow: bool
+
+
+@dataclass(frozen=True, slots=True)
+class SetScopeRbw:
+    """Set scope RBW (Resolution Bandwidth): 0=wide, 1=mid, 2=narrow."""
+    rbw: int
+
+
+@dataclass(frozen=True, slots=True)
 class SetPowerstat:
     on: bool
 
@@ -796,6 +817,7 @@ Command = (
     | SwitchScopeReceiver
     | SetScopeDuringTx
     | SetScopeCenterType
+    | SetScopeEdge
     | SetScopeFixedEdge
     | SetScopeDual
     | SetScopeMode
@@ -803,6 +825,8 @@ Command = (
     | SetScopeSpeed
     | SetScopeRef
     | SetScopeHold
+    | SetScopeVbw
+    | SetScopeRbw
     | SetPowerstat
     | SetAntenna1
     | SetAntenna2
