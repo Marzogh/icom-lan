@@ -21,8 +21,8 @@ describe('ui-version store', () => {
   });
 
   describe('getUiVersion', () => {
-    it('returns v1 by default', () => {
-      expect(store.getUiVersion()).toBe('v1');
+    it('returns v2 by default', () => {
+      expect(store.getUiVersion()).toBe('v2');
     });
   });
 
@@ -51,28 +51,28 @@ describe('ui-version store', () => {
   });
 
   describe('toggleUiVersion', () => {
-    it('toggles from v1 to v2', () => {
+    it('toggles from v2 to v1', () => {
+      expect(store.getUiVersion()).toBe('v2');
+      store.toggleUiVersion();
       expect(store.getUiVersion()).toBe('v1');
+    });
+
+    it('toggles from v1 back to v2', () => {
+      store.setUiVersion('v1');
       store.toggleUiVersion();
       expect(store.getUiVersion()).toBe('v2');
     });
 
-    it('toggles from v2 back to v1', () => {
-      store.setUiVersion('v2');
-      store.toggleUiVersion();
-      expect(store.getUiVersion()).toBe('v1');
-    });
-
     it('persists toggled value to localStorage', () => {
       store.toggleUiVersion();
-      expect(localStorageMock.getItem('icom-lan-ui-version')).toBe('v2');
+      expect(localStorageMock.getItem('icom-lan-ui-version')).toBe('v1');
     });
   });
 
   describe('initUiVersion', () => {
-    it('uses default v1 when nothing set', () => {
+    it('uses default v2 when nothing set', () => {
       store.initUiVersion();
-      expect(store.getUiVersion()).toBe('v1');
+      expect(store.getUiVersion()).toBe('v2');
     });
 
     it('reads v2 from localStorage', () => {
@@ -87,10 +87,10 @@ describe('ui-version store', () => {
       expect(store.getUiVersion()).toBe('v1');
     });
 
-    it('ignores invalid localStorage value and falls back to v1', () => {
+    it('ignores invalid localStorage value and falls back to v2', () => {
       localStorageMock.setItem('icom-lan-ui-version', 'v3');
       store.initUiVersion();
-      expect(store.getUiVersion()).toBe('v1');
+      expect(store.getUiVersion()).toBe('v2');
     });
 
     it('URL param ?ui=v2 overrides localStorage', () => {
@@ -120,10 +120,10 @@ describe('ui-version store', () => {
       expect(store.getUiVersion()).toBe('v2');
     });
 
-    it('invalid URL param and no localStorage falls back to v1', () => {
+    it('invalid URL param and no localStorage falls back to v2', () => {
       window.history.replaceState({}, '', '/?ui=bad');
       store.initUiVersion();
-      expect(store.getUiVersion()).toBe('v1');
+      expect(store.getUiVersion()).toBe('v2');
     });
   });
 });

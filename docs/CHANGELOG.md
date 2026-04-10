@@ -7,9 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.1] — 2026-04-10
+
+### Changed
+- **Web UI v2 is now the default layout.** New visitors and fresh installs see the
+  redesigned RadioLayout v2 interface. Users who previously selected v1 keep their
+  choice (persisted in localStorage). Switch manually with `?ui=v1` or `?ui=v2`.
+
 ## [0.15.0] — 2026-04-10
 
 ### Added
+- **Zero-config CLI startup** (Epic #526) — `icom-lan web` auto-discovers radio via LAN broadcast,
+  `--preset hamradio|digimode|serial|headless` for common scenarios, smart startup banner with
+  loopback device hints (#527, #528, #529, #530).
 - **Drag-and-drop panel reorder** — drag handles on right sidebar panels (#557).
 - **Complete CI-V command coverage** (Epic #535) — scope settings popover (#538), missing polling
   entries (#539), VOX/CW/DSP panels (#540), TX band edge support (#541), memory channel
@@ -354,7 +364,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Transport layer, authentication, CI-V commands, meters, PTT, keep-alive.
 - Clean-room Icom LAN UDP protocol implementation.
 
-[Unreleased]: https://github.com/morozsm/icom-lan/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/morozsm/icom-lan/compare/v0.15.1...HEAD
+[0.15.1]: https://github.com/morozsm/icom-lan/compare/v0.15.0...v0.15.1
 [0.15.0]: https://github.com/morozsm/icom-lan/compare/v0.14.2...v0.15.0
 [0.14.2]: https://github.com/morozsm/icom-lan/compare/v0.14.1...v0.14.2
 [0.14.1]: https://github.com/morozsm/icom-lan/compare/v0.14.0...v0.14.1

@@ -2,7 +2,7 @@ const STORAGE_KEY = 'icom-lan-ui-version';
 
 type UiVersion = 'v1' | 'v2';
 
-let uiVersion = $state<UiVersion>('v1');
+let uiVersion = $state<UiVersion>('v2');
 
 export function getUiVersion(): UiVersion {
   return uiVersion;
@@ -40,5 +40,5 @@ export function initUiVersion(): void {
   }
 
   // Default
-  uiVersion = 'v1';
+  uiVersion = 'v2';
 }
