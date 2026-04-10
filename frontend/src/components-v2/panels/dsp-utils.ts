@@ -12,13 +12,12 @@ export function isCwMode(mode: string): boolean {
 
 /**
  * Builds the options array for the NR mode SegmentedButton.
- * Values: 0=OFF, 1=NR1, 2=NR2 (both 1 and 2 turn NR on; backend is on/off only).
+ * IC-7610: NR is binary on/off (CI-V 0x16/0x40). No NR1/NR2 distinction.
  */
 export function buildNrOptions(): DspOption[] {
   return [
     { value: 0, label: 'OFF' },
-    { value: 1, label: '1' },
-    { value: 2, label: '2' },
+    { value: 1, label: 'ON' },
   ];
 }
 

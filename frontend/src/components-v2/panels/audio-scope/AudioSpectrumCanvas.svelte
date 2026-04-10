@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { renderAudioSpectrum, resetSmoothing, type SpectrumState } from './audio-spectrum-renderer';
+  import { renderAudioSpectrum, AudioSpectrumRendererState, type SpectrumState } from './audio-spectrum-renderer';
 
   interface Props {
     /** FFT pixel data from AudioFftScope (0-160 range) */
@@ -47,6 +47,7 @@
   let rafId = 0;
   let visible = true;
   let latestPixels: Uint8Array | null = null;
+  const rendererState = new AudioSpectrumRendererState();
 
   function draw(): void {
     if (!visible) { rafId = 0; return; }
@@ -67,7 +68,7 @@
           contour,
           contourFreq,
         };
-        renderAudioSpectrum(ctx, cssWidth, cssHeight, state);
+        renderAudioSpectrum(ctx, cssWidth, cssHeight, state, rendererState);
       }
     }
     rafId = requestAnimationFrame(draw);
@@ -95,7 +96,7 @@
       canvas.width = Math.round(cssWidth * dpr);
       canvas.height = Math.round(cssHeight * dpr);
       canvas.getContext('2d')?.setTransform(dpr, 0, 0, dpr, 0, 0);
-      resetSmoothing();
+      rendererState.reset();
     });
     ro.observe(canvas);
 

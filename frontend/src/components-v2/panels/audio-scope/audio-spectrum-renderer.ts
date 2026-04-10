@@ -49,20 +49,25 @@ const FILTER_LABEL_COLOR = 'rgba(180, 220, 255, 0.7)';
 const ATTACK = 0.55;
 const DECAY = 0.25;
 
-// ── Module state ─────────────────────────────────────────────────────────────
-
-let smoothed: Float32Array | null = null;
-let animFilterWidth = 0;
-
 /** Convert PBT raw (0-255, center=128) to Hz offset. */
 export function pbtRawToHz(raw: number, center = 128, maxHz = 1200): number {
   return Math.round((raw - center) * (maxHz / center));
 }
 
-/** Reset smoothing buffers */
-export function resetSmoothing(): void {
-  smoothed = null;
+/** Per-instance renderer state (avoids module-level singleton sharing). */
+export class AudioSpectrumRendererState {
+  smoothed: Float32Array | null = null;
   animFilterWidth = 0;
+
+  reset(): void {
+    this.smoothed = null;
+    this.animFilterWidth = 0;
+  }
+}
+
+/** @deprecated Use AudioSpectrumRendererState.reset() instead */
+export function resetSmoothing(): void {
+  // no-op — kept for backward compat; callers should migrate to instance
 }
 
 // ── Frequency label helpers ──────────────────────────────────────────────────
@@ -76,6 +81,9 @@ function formatHz(hz: number): string {
   }
   return `${sign}${abs}`;
 }
+
+// Default singleton for backward compat (single-instance usage)
+const _defaultState = new AudioSpectrumRendererState();
 
 function chooseGridStep(halfBw: number): number {
   const steps = [100, 200, 500, 1000, 2000, 5000, 10000];
@@ -93,7 +101,12 @@ export function renderAudioSpectrum(
   width: number,
   height: number,
   state: SpectrumState,
+  rs?: AudioSpectrumRendererState,
 ): void {
+  // Use provided instance state, or fall back to a default singleton for compat
+  if (!rs) {
+    rs = _defaultState;
+  }
   const { pixels, bandwidth, filterWidth, filterWidthMax, pbtInner, pbtOuter,
           manualNotch, notchFreq, contour, contourFreq } = state;
 
@@ -108,10 +121,10 @@ export function renderAudioSpectrum(
   if (trapH < 10) return;
 
   // ── Animate filter width ──
-  if (animFilterWidth === 0) animFilterWidth = filterWidth;
-  const fwDiff = filterWidth - animFilterWidth;
-  animFilterWidth += fwDiff * (Math.abs(fwDiff) > 200 ? 0.5 : 0.15);
-  if (Math.abs(fwDiff) <= 1) animFilterWidth = filterWidth;
+  if (rs.animFilterWidth === 0) rs.animFilterWidth = filterWidth;
+  const fwDiff = filterWidth - rs.animFilterWidth;
+  rs.animFilterWidth += fwDiff * (Math.abs(fwDiff) > 200 ? 0.5 : 0.15);
+  if (Math.abs(fwDiff) <= 1) rs.animFilterWidth = filterWidth;
 
   // ── Trapezoid geometry ──
   const totalHalfW = width * 0.45;
@@ -123,7 +136,7 @@ export function renderAudioSpectrum(
   const cx = width / 2 + (avgPbtHz / shiftRef) * totalHalfW * 0.6;
 
   const slopeExtra = trapH * 0.35;
-  const filterRatio = Math.max(0.05, Math.min(1, animFilterWidth / Math.max(1, filterWidthMax))) * 0.75;
+  const filterRatio = Math.max(0.05, Math.min(1, rs.animFilterWidth / Math.max(1, filterWidthMax))) * 0.75;
   const maxTopHalfW = totalHalfW - slopeExtra;
   const topHalfW = Math.max(trapH * 0.08, maxTopHalfW * filterRatio);
 
@@ -136,7 +149,7 @@ export function renderAudioSpectrum(
   ctx.font = '11px system-ui, sans-serif';
   ctx.textAlign = 'center';
   ctx.fillStyle = FILTER_LABEL_COLOR;
-  ctx.fillText(`Filter: ${Math.round(animFilterWidth)} Hz`, width / 2, TOP_LABEL_H - 5);
+  ctx.fillText(`Filter: ${Math.round(rs.animFilterWidth)} Hz`, width / 2, TOP_LABEL_H - 5);
 
   // ── Frequency grid labels (bottom) ──
   const halfBw = bandwidth / 2;
@@ -237,7 +250,7 @@ export function renderAudioSpectrum(
   ctx.fill();
 
   // ── Passband fraction (used for bin mapping below) ──
-  const filterHz = Math.round(animFilterWidth);
+  const filterHz = Math.round(rs.animFilterWidth);
   const passbandFrac = Math.min(1, filterHz / halfBw);
 
   // ── Spectrum: gradient fill + line, clipped to trapezoid ──
@@ -247,8 +260,8 @@ export function renderAudioSpectrum(
     const numPoints = botRight - botLeft;
     if (numPoints <= 0) return;
 
-    if (!smoothed || smoothed.length !== numPoints) {
-      smoothed = new Float32Array(numPoints);
+    if (!rs.smoothed || rs.smoothed.length !== numPoints) {
+      rs.smoothed = new Float32Array(numPoints);
     }
 
     // Build spectrum line points (only inside trapezoid)
@@ -266,8 +279,8 @@ export function renderAudioSpectrum(
       const rawAmp = Math.min(pixels[clamped], MAX_AMPLITUDE) / MAX_AMPLITUDE;
 
       // Smooth
-      const prev = smoothed[i];
-      smoothed[i] = rawAmp > prev
+      const prev = rs.smoothed[i];
+      rs.smoothed[i] = rawAmp > prev
         ? prev + (rawAmp - prev) * ATTACK
         : prev + (rawAmp - prev) * DECAY;
 
@@ -282,7 +295,7 @@ export function renderAudioSpectrum(
         maxFrac = 0;
       }
 
-      const amp = Math.min(smoothed[i], maxFrac);
+      const amp = Math.min(rs.smoothed[i], maxFrac);
       points[i] = trapBottom - amp * trapH;
     }
 

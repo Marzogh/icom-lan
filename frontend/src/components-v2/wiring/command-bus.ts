@@ -54,6 +54,7 @@ function focusModePanel(vfo: 'MAIN' | 'SUB'): void {
 export function makeVfoHandlers() {
   return {
     onSwap: () => cmd('vfo_swap'),
+    // IC-7610: A→B and A=B are the same CI-V command (0x07 0xA0)
     onCopy: () => cmd('vfo_equalize'),
     onEqual: () => cmd('vfo_equalize'),
     onSplitToggle: () => {
