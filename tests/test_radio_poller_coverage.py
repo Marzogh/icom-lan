@@ -569,6 +569,125 @@ async def test_execute_set_scope_rbw_updates_state() -> None:
     assert state.scope_controls.rbw == 2
 
 
+@pytest.mark.asyncio
+async def test_enable_scope_deferred_during_initial_fetch() -> None:
+    """EnableScope must be re-queued (not block) when initial fetch is in progress.
+
+    Regression test for deadlock in commit 6d385f3: EnableScope.await inside
+    drain loop blocked _initial_state_fetch, which was the caller.
+    """
+    radio = _make_radio()
+    queue = CommandQueue()
+    state = RadioState()
+    poller = RadioPoller(radio, StateCache(), queue, radio_state=state)
+
+    # Simulate initial fetch in progress
+    poller._initial_fetch_done.clear()  # noqa: SLF001
+
+    # Execute EnableScope — must NOT block, should re-queue
+    await poller._execute(EnableScope(policy="fast"))  # noqa: SLF001
+
+    # enable_scope should NOT have been called (deferred)
+    radio.enable_scope.assert_not_awaited()
+
+    # Command should be re-queued
+    assert queue.has_commands is True
+    cmds = queue.drain()
+    assert any(isinstance(c, EnableScope) for c in cmds)
+
+
+@pytest.mark.asyncio
+async def test_enable_scope_executes_after_initial_fetch_done() -> None:
+    """EnableScope executes normally when initial fetch is complete."""
+    radio = _make_radio()
+    queue = CommandQueue()
+    state = RadioState()
+    poller = RadioPoller(radio, StateCache(), queue, radio_state=state)
+
+    # Initial fetch done (default state)
+    assert poller._initial_fetch_done.is_set()  # noqa: SLF001
+
+    await poller._execute(EnableScope(policy="fast"))  # noqa: SLF001
+
+    radio.enable_scope.assert_awaited_once_with(policy="fast")
+
+
+@pytest.mark.asyncio
+async def test_set_freq_not_blocked_by_deferred_enable_scope() -> None:
+    """SetFreq must execute during initial fetch even when EnableScope is deferred.
+
+    This is the user-facing symptom of the deadlock: tuning stops working
+    while initial fetch is in progress.
+    """
+    radio = _make_radio()
+    queue = CommandQueue()
+    state = RadioState()
+    poller = RadioPoller(radio, StateCache(), queue, radio_state=state)
+
+    poller._initial_fetch_done.clear()  # noqa: SLF001
+
+    # Defer EnableScope
+    await poller._execute(EnableScope(policy="fast"))  # noqa: SLF001
+    radio.enable_scope.assert_not_awaited()
+
+    # SetFreq must still work (receiver=0 uses positional call without keyword)
+    await poller._execute(SetFreq(freq=14_074_000, receiver=0))  # noqa: SLF001
+    radio.set_freq.assert_awaited_once_with(14_074_000)
+
+
+@pytest.mark.asyncio
+async def test_command_error_propagates_from_execute() -> None:
+    """CommandError propagates from _execute so the drain loop can catch it.
+
+    The poller's drain loop wraps _execute in try/except, so errors don't
+    kill the loop. This test verifies the error propagation contract.
+    """
+    radio = _make_radio()
+    state = RadioState()
+    poller = RadioPoller(radio, StateCache(), CommandQueue(), radio_state=state)
+
+    radio.set_freq.side_effect = CommandError("timeout")
+    with pytest.raises(CommandError, match="timeout"):
+        await poller._execute(SetFreq(freq=14_074_000, receiver=0))  # noqa: SLF001
+
+    # After error, next command still works (simulates drain loop continuing)
+    radio.set_freq.side_effect = None
+    radio.set_freq.reset_mock()
+    await poller._execute(SetFreq(freq=7_074_000, receiver=0))  # noqa: SLF001
+    radio.set_freq.assert_awaited_once_with(7_074_000)
+
+
+@pytest.mark.asyncio
+async def test_multiple_commands_execute_in_order_after_fetch() -> None:
+    """Multiple commands enqueued during initial fetch all execute after fetch completes."""
+    radio = _make_radio()
+    queue = CommandQueue()
+    state = RadioState()
+    poller = RadioPoller(radio, StateCache(), queue, radio_state=state)
+
+    poller._initial_fetch_done.clear()  # noqa: SLF001
+
+    # EnableScope is deferred
+    await poller._execute(EnableScope(policy="fast"))  # noqa: SLF001
+
+    # But other commands execute immediately
+    await poller._execute(SetFreq(freq=14_074_000, receiver=0))  # noqa: SLF001
+    await poller._execute(SetMode(mode="USB", receiver=0))  # noqa: SLF001
+
+    radio.set_freq.assert_awaited_once()
+    radio.set_mode.assert_awaited_once()
+
+    # Now simulate fetch completing
+    poller._initial_fetch_done.set()  # noqa: SLF001
+
+    # Drain the re-queued EnableScope
+    cmds = queue.drain()
+    for cmd in cmds:
+        await poller._execute(cmd)  # noqa: SLF001
+
+    radio.enable_scope.assert_awaited_once()
+
+
 def test_state_queries_include_scope_vbw_rbw_edge_for_ic7610() -> None:
     poller = RadioPoller(_make_radio(), StateCache(), CommandQueue())
 

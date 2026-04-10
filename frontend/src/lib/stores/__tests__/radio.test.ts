@@ -213,4 +213,46 @@ describe('radio store', () => {
     expect(store.getRadioState()?.revision).toBe(5);
     expect(store.getRadioState()?.ptt).toBe(false);
   });
+
+  // --- patchRadioState tests (regression for #554 state corruption) ---
+
+  it('patchRadioState updates top-level field without losing others', () => {
+    store.setRadioState(makeState({ ptt: false, split: true }));
+    store.patchRadioState({ ptt: true });
+    const s = store.getRadioState();
+    expect(s?.ptt).toBe(true);
+    expect(s?.split).toBe(true);  // must NOT be lost
+  });
+
+  it('patchRadioState with nested scopeControls preserves all fields', () => {
+    const initial = makeState();
+    // Ensure scopeControls has multiple fields set
+    (initial as any).scopeControls = {
+      mode: 0, span: 3, hold: false, refDb: -10, speed: 1,
+      edge: 0, duringTx: false, centerType: 0, vbwNarrow: false, rbw: 0,
+      receiver: 0, dual: false,
+      fixedEdge: { rangeIndex: 0, edge: 0, startHz: 0, endHz: 0 },
+    };
+    store.setRadioState(initial);
+
+    // Optimistic patch for scope mode — must spread existing fields
+    const current = store.getRadioState()!;
+    store.patchRadioState({
+      scopeControls: { ...(current as any).scopeControls, mode: 1 },
+    } as any);
+
+    const result = store.getRadioState() as any;
+    expect(result.scopeControls.mode).toBe(1);
+    expect(result.scopeControls.span).toBe(3);      // preserved
+    expect(result.scopeControls.refDb).toBe(-10);    // preserved
+    expect(result.scopeControls.speed).toBe(1);      // preserved
+    expect(result.scopeControls.hold).toBe(false);   // preserved
+  });
+
+  it('patchRadioState is no-op when state is null', () => {
+    // Store starts null
+    expect(store.getRadioState()).toBeNull();
+    store.patchRadioState({ ptt: true });
+    expect(store.getRadioState()).toBeNull();
+  });
 });

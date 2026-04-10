@@ -13,20 +13,16 @@ vi.mock('$lib/stores/capabilities.svelte', () => ({
 // ---------------------------------------------------------------------------
 
 describe('buildNrOptions', () => {
-  it('returns 3 options (OFF / 1 / 2)', () => {
-    expect(buildNrOptions()).toHaveLength(3);
+  it('returns 2 options (OFF / ON)', () => {
+    expect(buildNrOptions()).toHaveLength(2);
   });
 
   it('first option is OFF with value 0', () => {
     expect(buildNrOptions()[0]).toEqual({ value: 0, label: 'OFF' });
   });
 
-  it('second option is 1 with value 1', () => {
-    expect(buildNrOptions()[1]).toEqual({ value: 1, label: '1' });
-  });
-
-  it('third option is 2 with value 2', () => {
-    expect(buildNrOptions()[2]).toEqual({ value: 2, label: '2' });
+  it('second option is ON with value 1', () => {
+    expect(buildNrOptions()[1]).toEqual({ value: 1, label: 'ON' });
   });
 
   it('all option values are numbers', () => {
