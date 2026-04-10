@@ -179,7 +179,7 @@ class AudioFftScope:
         Args:
             pcm_data: Raw 16-bit signed little-endian mono PCM bytes.
         """
-        if self._callback is None:
+        if self._callback is None or self._center_freq <= 0:
             return
 
         np = self._np
