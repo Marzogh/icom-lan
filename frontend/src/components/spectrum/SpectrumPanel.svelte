@@ -97,6 +97,12 @@
   let passbandHz = $derived(rx?.filterWidth ?? getFilterWidthHz(rxMode, rx?.filter ?? 1));
   let passbandShiftHz = $derived(deriveIfShift(rx?.pbtInner ?? 0, rx?.pbtOuter ?? 0));
   let canResizePassband = $derived(canResizeFromRightEdge(rxMode));
+  // Tuning indicator position: center in CTR mode, proportional in FIX mode
+  let tuneLinePct = $derived(
+    spanHz > 0 && tuneHz > 0 && tuneHz >= startFreq && tuneHz <= endFreq
+      ? ((tuneHz - startFreq) / spanHz) * 100
+      : 50
+  );
   let filterConfig = $derived(resolveFilterModeConfig(getCapabilities(), rxMode, rx?.dataMode));
   let filterMaxHz = $derived(filterConfig?.maxHz ?? 10000);
   let filterStepHz = $derived(filterConfig?.stepHz ?? filterConfig?.segments?.[0]?.stepHz ?? 100);
@@ -424,7 +430,7 @@
             ></button>
           {/if}
         {/if}
-        <div class="tune-line" style="left:50%"></div>
+        <div class="tune-line" style="left:{tuneLinePct}%"></div>
       {/if}
     </div>
   </div>

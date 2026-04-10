@@ -48,13 +48,14 @@ export function getPassbandGeometry(
   shiftHz: number,
   spanHz: number,
   widthPx: number,
+  tunePx?: number,
 ): PassbandGeometry | null {
   if (passbandHz <= 0 || spanHz <= 0 || widthPx <= 0) {
     return null;
   }
 
   const { leftHz, rightHz } = getPassbandEdgesHz(mode, passbandHz, shiftHz);
-  const centerPx = widthPx / 2;
+  const centerPx = tunePx ?? widthPx / 2;
   const hzToPx = widthPx / spanHz;
 
   const unclampedLeftPx = centerPx + leftHz * hzToPx;

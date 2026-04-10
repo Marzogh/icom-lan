@@ -150,13 +150,16 @@ export function renderSpectrum(
 
   // Tuning indicator + passband overlay
   if (spanHz > 0) {
-    // Center mode (IC-7610 default): scope is always centered on VFO freq.
-    // Line is always at center — no calculation needed.
-    const tunePx = width / 2;
+    // In CENTER mode: scope is centered on VFO — indicator at center.
+    // In FIXED mode: scope shows fixed range — indicator moves with VFO.
+    const startHz = centerHz - spanHz / 2;
+    const tunePx = (tuneHz > 0 && tuneHz >= startHz && tuneHz <= startHz + spanHz)
+      ? ((tuneHz - startHz) / spanHz) * width
+      : width / 2;
 
     // Draw passband rectangle
     if (passbandHz > 0) {
-      const geometry = getPassbandGeometry(options.mode ?? '', passbandHz, passbandShiftHz, spanHz, width);
+      const geometry = getPassbandGeometry(options.mode ?? '', passbandHz, passbandShiftHz, spanHz, width, tunePx);
 
       if (geometry && geometry.widthPx > 0) {
         const pbLeft = geometry.leftPx;
