@@ -62,7 +62,7 @@ def make_radio(
     radio.get_alc_meter = AsyncMock(return_value=0)
     radio.get_power_meter = AsyncMock(return_value=0)
     radio.get_comp_meter = AsyncMock(return_value=0)
-    radio.get_swr = AsyncMock(return_value=1.0)
+    radio._read_meter = AsyncMock(return_value=(0, 0))
     return radio
 
 
@@ -498,7 +498,7 @@ async def test_fast_poll_reads_tx_meters_when_ptt_active() -> None:
     radio.get_alc_meter = AsyncMock(return_value=42)
     radio.get_power_meter = AsyncMock(return_value=180)
     radio.get_comp_meter = AsyncMock(return_value=30)
-    radio.get_swr = AsyncMock(return_value=2.5)
+    radio._read_meter = AsyncMock(return_value=(120, 0))
 
     poller = YaesuCatPoller(
         radio,
@@ -515,11 +515,11 @@ async def test_fast_poll_reads_tx_meters_when_ptt_active() -> None:
     radio.get_alc_meter.assert_called()
     radio.get_power_meter.assert_called()
     radio.get_comp_meter.assert_called()
-    radio.get_swr.assert_called()
+    radio._read_meter.assert_called_with(6)
     assert radio.radio_state.alc_meter == 42
     assert radio.radio_state.power_meter == 180
     assert radio.radio_state.comp_meter == 30
-    assert radio.radio_state.swr_meter == 2.5
+    assert radio.radio_state.swr_meter == 120
 
 
 @pytest.mark.asyncio
@@ -542,3 +542,34 @@ async def test_fast_poll_skips_tx_meters_when_ptt_off() -> None:
 
     radio.get_alc_meter.assert_not_called()
     radio.get_power_meter.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_tx_meter_partial_failure_does_not_block_others() -> None:
+    """If one TX meter fails, the rest must still be polled."""
+    radio = make_radio(ptt=True)
+    radio.radio_state.ptt = True
+    radio.get_alc_meter = AsyncMock(side_effect=RuntimeError("ALC timeout"))
+    radio.get_power_meter = AsyncMock(return_value=200)
+    radio.get_comp_meter = AsyncMock(return_value=15)
+    radio._read_meter = AsyncMock(return_value=(80, 0))
+
+    poller = YaesuCatPoller(
+        radio,
+        callback=lambda s: None,
+        fast_interval=0.01,
+        medium_interval=10.0,
+        slow_interval=10.0,
+        ema_alpha=1.0,
+    )
+    await poller.start()
+    await asyncio.sleep(0.05)
+    await poller.stop()
+
+    # ALC failed, but power/comp/swr should still have been read
+    radio.get_power_meter.assert_called()
+    radio.get_comp_meter.assert_called()
+    radio._read_meter.assert_called()
+    assert radio.radio_state.power_meter == 200
+    assert radio.radio_state.comp_meter == 15
+    assert radio.radio_state.swr_meter == 80

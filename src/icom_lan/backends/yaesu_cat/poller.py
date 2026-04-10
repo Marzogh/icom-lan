@@ -2,7 +2,7 @@
 
 Three polling groups with different intervals share a single serial lock:
 
-- **Fast  (75 ms):**  S-meter (main + sub) for smooth UI animation.
+- **Fast  (75 ms):**  S-meter during RX; ALC/Power/COMP/SWR during TX.
 - **Medium (200 ms):** Frequency, mode, PTT — changes at human speed.
 - **Slow  (1000 ms):** AGC, AF/RF/squelch levels — rarely change.
 
@@ -496,7 +496,8 @@ class YaesuCatPoller:
             except Exception:
                 logger.debug("YaesuCatPoller: get_comp_meter failed", exc_info=True)
             try:
-                state.swr_meter = await self._radio.get_swr()
+                raw_swr, _ = await self._radio._read_meter(6)
+                state.swr_meter = raw_swr
             except Exception:
                 logger.debug("YaesuCatPoller: get_swr failed", exc_info=True)
         else:
