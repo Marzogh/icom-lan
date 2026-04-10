@@ -655,3 +655,56 @@ async def test_cw_partial_failure_does_not_block_others() -> None:
     radio.get_break_in.assert_called()
     assert radio.radio_state.cw_pitch == 700
     assert radio.radio_state.break_in == 0
+
+
+# ---------------------------------------------------------------------------
+# SUB receiver level polling (#563)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_slow_poll_reads_sub_levels_when_dual_rx() -> None:
+    """Slow poll should read SUB AF/RF/squelch when dual_rx capable."""
+    radio = make_radio()
+    radio.get_af_level = AsyncMock(side_effect=lambda r=0: 128 if r == 0 else 200)
+    radio.get_rf_gain = AsyncMock(side_effect=lambda r=0: 180 if r == 0 else 160)
+    radio.get_squelch = AsyncMock(side_effect=lambda r=0: 0 if r == 0 else 30)
+
+    poller = YaesuCatPoller(
+        radio,
+        callback=lambda s: None,
+        fast_interval=10.0,
+        medium_interval=10.0,
+        slow_interval=0.01,
+    )
+    await poller.start()
+    await asyncio.sleep(0.05)
+    await poller.stop()
+
+    # SUB receiver levels should be polled
+    assert any(
+        call.args == (1,) or call.kwargs.get("receiver") == 1
+        for call in radio.get_af_level.call_args_list
+    ), "get_af_level(1) was never called"
+
+
+@pytest.mark.asyncio
+async def test_slow_poll_skips_sub_levels_without_dual_rx() -> None:
+    """Without dual_rx, SUB levels should not be polled."""
+    radio = make_radio()
+    radio.capabilities.discard("dual_rx")
+
+    poller = YaesuCatPoller(
+        radio,
+        callback=lambda s: None,
+        fast_interval=10.0,
+        medium_interval=10.0,
+        slow_interval=0.01,
+    )
+    await poller.start()
+    await asyncio.sleep(0.05)
+    await poller.stop()
+
+    # Only receiver=0 calls should exist
+    for call in radio.get_af_level.call_args_list:
+        assert call.args == (0,) or call.args == (), "SUB receiver was polled"

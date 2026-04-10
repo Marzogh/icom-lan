@@ -583,6 +583,27 @@ class YaesuCatPoller:
             except Exception:
                 logger.debug("YaesuCatPoller: get_squelch failed", exc_info=True)
 
+        # -- SUB receiver levels --
+        if "dual_rx" in caps:
+            try:
+                await radio.get_af_level(1)
+            except NotImplementedError:
+                pass
+            except Exception:
+                logger.debug("YaesuCatPoller: get_af_level(sub) failed", exc_info=True)
+            try:
+                await radio.get_rf_gain(1)
+            except NotImplementedError:
+                pass
+            except Exception:
+                logger.debug("YaesuCatPoller: get_rf_gain(sub) failed", exc_info=True)
+            try:
+                await radio.get_squelch(1)
+            except NotImplementedError:
+                pass
+            except Exception:
+                logger.debug("YaesuCatPoller: get_squelch(sub) failed", exc_info=True)
+
         # -- DSP: NB/NR levels, auto notch --
         if "nb" in caps:
             try:
