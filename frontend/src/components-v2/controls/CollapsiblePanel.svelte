@@ -106,14 +106,6 @@
   {style}
 >
   <div class="panel-header-row">
-    {#if draggable}
-      <button
-        type="button"
-        class="drag-handle"
-        aria-label="Drag to reorder"
-        onpointerdown={(e) => onDragStart?.(panelId, e)}
-      >⠿</button>
-    {/if}
     <button
       type="button"
       class="panel-header"
@@ -129,6 +121,14 @@
       {/if}
       <span class="title">{title}</span>
     </button>
+    {#if draggable}
+      <button
+        type="button"
+        class="drag-handle"
+        aria-label="Drag to reorder"
+        onpointerdown={(e) => onDragStart?.(panelId, e)}
+      >⠿</button>
+    {/if}
   </div>
 
   <div
