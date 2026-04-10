@@ -1428,7 +1428,9 @@ class RadioPoller:
                     # Defer scope enable during initial fetch to avoid
                     # CI-V packet queue overflow (scope data + fetch).
                     if not self._initial_fetch_done.is_set():
-                        logger.info("radio-poller: re-queuing scope enable (initial fetch in progress)")
+                        if not getattr(self, '_scope_enable_deferred', False):
+                            logger.info("radio-poller: deferring scope enable until initial fetch completes")
+                            self._scope_enable_deferred = True
                         self._queue.put(EnableScope(policy=policy))
                     else:
                         await radio.enable_scope(policy=policy)
