@@ -61,7 +61,12 @@ export function createGestureRecognizer(
   }
 
   function onPointerDown(e: PointerEvent) {
-    element.setPointerCapture(e.pointerId);
+    // Only capture pointer if pan/pinch handlers need it.
+    // Capture prevents parent elements from receiving pointerup,
+    // breaking drag-to-pan in SpectrumPanel when only onTap is used.
+    if (callbacks.onPan || callbacks.onPinch) {
+      element.setPointerCapture(e.pointerId);
+    }
     const state: PointerState = {
       id: e.pointerId,
       startX: e.clientX,
