@@ -5,36 +5,47 @@
     defaultWaterfallOptions,
     type WaterfallOptions,
   } from '../../lib/renderers/waterfall-renderer';
+  import { gesture } from '../../lib/gestures/use-gesture';
+  import { vibrate } from '../../lib/utils/haptics';
 
   interface Props {
     options?: WaterfallOptions;
+    onFreqClick?: (hz: number) => void;
     onRegisterPush?: (fn: (data: Uint8Array) => void) => void;
   }
 
-  let { options = defaultWaterfallOptions, onRegisterPush }: Props = $props();
+  let { options = defaultWaterfallOptions, onFreqClick, onRegisterPush }: Props = $props();
 
   let canvas: HTMLCanvasElement;
   let renderer = $state<WaterfallRenderer | null>(null);
 
-  // Direct push function — called by parent SpectrumPanel for each scope frame.
-  // Svelte 5 reactivity cannot reliably track Uint8Array prop changes at 100+ fps,
-  // so we bypass it entirely with a direct function call.
   function directPush(pixels: Uint8Array): void {
-    if (document.hidden) return; // skip when tab hidden
+    if (document.hidden) return;
     renderer?.pushRow(pixels);
   }
 
-  // Sync options changes (colorMap, centerHz, spanHz) to the renderer
   $effect(() => {
     if (renderer && options) {
       renderer.updateOptions(options);
     }
   });
 
+  // Tap-to-tune only — drag-to-pan handled by SpectrumPanel (parent).
+  const waterfallGestures = {
+    onTap(x: number, _y: number): void {
+      if (!renderer || !onFreqClick) return;
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      const freq = renderer.pixelToFreq((x - rect.left) * dpr);
+      if (freq > 0) {
+        vibrate('tap');
+        onFreqClick(freq);
+      }
+    },
+  };
+
   onMount(() => {
     renderer = new WaterfallRenderer(canvas, options);
-
-    // Register direct push callback with parent
     onRegisterPush?.(directPush);
 
     const ro = new ResizeObserver((entries) => {
@@ -57,7 +68,7 @@
   });
 </script>
 
-<canvas bind:this={canvas}></canvas>
+<canvas bind:this={canvas} use:gesture={waterfallGestures}></canvas>
 
 <style>
   canvas {
