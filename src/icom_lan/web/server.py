@@ -258,7 +258,7 @@ class WebServer:
             CAP_SCOPE in radio.capabilities
         ) if radio is not None else False
         if radio is not None and _has_audio:
-            self._audio_fft_scope = AudioFftScope(fft_size=2048, fps=20, avg_count=4)
+            self._audio_fft_scope = AudioFftScope(fft_size=2048, fps=20, avg_count=2)
             self._audio_fft_scope.on_frame(self._broadcast_audio_scope)
             if not _has_scope:
                 # No hardware scope — audio FFT also feeds /api/v1/scope
@@ -453,7 +453,7 @@ class WebServer:
             h.enqueue_frame(frame)
 
     async def ensure_audio_scope_enabled(self, handler: "ScopeHandler") -> None:
-        """Register an audio scope handler. Lazy PCM tap enable."""
+        """Register an audio scope handler. Lazy PCM tap + relay enable."""
         was_empty = not self._audio_scope_handlers
         self._audio_scope_handlers.add(handler)
         if self._audio_fft_scope is not None:
@@ -461,7 +461,9 @@ class WebServer:
             self._update_fft_scope_mode()
             if was_empty:
                 self._audio_broadcaster.set_pcm_tap(self._audio_fft_scope.feed_audio)
-                logger.info("audio-scope: PCM tap enabled (first client)")
+                # Ensure relay is running so PCM tap fires even without audio WS clients
+                await self._audio_broadcaster.ensure_relay()
+                logger.info("audio-scope: PCM tap + relay enabled (first client)")
         logger.info("audio-scope: handler registered (%d total)", len(self._audio_scope_handlers))
 
     def unregister_audio_scope_handler(self, handler: "ScopeHandler") -> None:
@@ -1031,6 +1033,14 @@ class WebServer:
             self._server.close()
             await self._server.wait_closed()
             self._server = None
+
+        # Cancel background tasks (scope disable grace, etc.)
+        bg_tasks = list(self._bg_tasks)
+        for task in bg_tasks:
+            task.cancel()
+        if bg_tasks:
+            await asyncio.gather(*bg_tasks, return_exceptions=True)
+        self._bg_tasks.clear()
 
         tasks = list(self._client_tasks)
         for task in tasks:

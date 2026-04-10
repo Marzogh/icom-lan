@@ -111,12 +111,12 @@ class AudioBroadcaster:
         return queue
 
     async def unsubscribe(self, queue: asyncio.Queue[bytes]) -> None:
-        """Unregister a client and stop relay if last."""
+        """Unregister a client and stop relay if last (unless PCM tap is active)."""
         client_id = id(queue)
         async with self._lock:
             self._clients.pop(client_id, None)
             self._client_ws.pop(client_id, None)
-            if not self._clients and self._subscription is not None:
+            if not self._clients and self._subscription is not None and self._pcm_tap is None:
                 await self._stop_relay()
         logger.info("audio-broadcaster: client removed (total=%d)", len(self._clients))
 
@@ -131,6 +131,21 @@ class AudioBroadcaster:
             callback: Function receiving PCM16 bytes, or None to unregister.
         """
         self._pcm_tap = callback
+
+    async def ensure_relay(self) -> None:
+        """Ensure the relay loop is running (for PCM tap consumers like FFT scope).
+
+        Unlike :meth:`subscribe`, this does not create a client queue —
+        it just guarantees that audio packets flow through the relay so
+        that the PCM tap callback fires.
+        """
+        async with self._lock:
+            relay_alive = (
+                self._relay_task is not None and not self._relay_task.done()
+            )
+            if not relay_alive and self._radio:
+                await self._start_relay()
+                logger.info("audio-broadcaster: relay started for PCM tap")
 
     def reap_dead_clients(self) -> int:
         """Remove clients whose WebSocket is no longer alive. Returns count removed."""

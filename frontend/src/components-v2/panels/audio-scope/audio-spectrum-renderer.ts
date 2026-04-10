@@ -45,19 +45,13 @@ const GRID_LINE_COLOR = 'rgba(255, 255, 255, 0.06)';
 const GRID_LABEL_COLOR = 'rgba(255, 255, 255, 0.35)';
 const FILTER_LABEL_COLOR = 'rgba(180, 220, 255, 0.7)';
 
-// Smoothing
-const ATTACK = 0.4;
-const DECAY = 0.15;
-
-// AGC with fixed ceiling — noise stays low, signal peaks at ~75%
-const AGC_CEILING = 0.75;
-const AGC_ATTACK_RATE = 0.15;
-const AGC_RELEASE_RATE = 0.008;
+// Smoothing — fast attack shows transients, moderate decay avoids flicker
+const ATTACK = 0.55;
+const DECAY = 0.25;
 
 // ── Module state ─────────────────────────────────────────────────────────────
 
 let smoothed: Float32Array | null = null;
-let agcPeak = 60;
 let animFilterWidth = 0;
 
 /** Convert PBT raw (0-255, center=128) to Hz offset. */
@@ -68,7 +62,6 @@ export function pbtRawToHz(raw: number, center = 128, maxHz = 1200): number {
 /** Reset smoothing buffers */
 export function resetSmoothing(): void {
   smoothed = null;
-  agcPeak = 60;
   animFilterWidth = 0;
 }
 
@@ -243,24 +236,9 @@ export function renderAudioSpectrum(
   ctx.closePath();
   ctx.fill();
 
-  // ── AGC ──
+  // ── Passband fraction (used for bin mapping below) ──
   const filterHz = Math.round(animFilterWidth);
   const passbandFrac = Math.min(1, filterHz / halfBw);
-  let peakVal = 1;
-  if (pixels && pixels.length > 0) {
-    const dcIdx = Math.floor(pixels.length / 2);
-    const endBin = dcIdx + Math.ceil(passbandFrac * (pixels.length - dcIdx));
-    for (let j = dcIdx; j < endBin && j < pixels.length; j++) {
-      if (pixels[j] > peakVal) peakVal = pixels[j];
-    }
-  }
-  if (peakVal > agcPeak) {
-    agcPeak += (peakVal - agcPeak) * AGC_ATTACK_RATE;
-  } else {
-    agcPeak += (peakVal - agcPeak) * AGC_RELEASE_RATE;
-  }
-  agcPeak = Math.max(15, Math.min(MAX_AMPLITUDE, agcPeak));
-  const gain = (MAX_AMPLITUDE * AGC_CEILING) / agcPeak;
 
   // ── Spectrum: gradient fill + line, clipped to trapezoid ──
   if (pixels && pixels.length > 0) {
@@ -285,7 +263,7 @@ export function renderAudioSpectrum(
       const barFrac = i / numPoints;
       const pixIdx = dcIdx + Math.floor(barFrac * passbandFrac * positiveLen);
       const clamped = Math.max(dcIdx, Math.min(pixels.length - 1, pixIdx));
-      const rawAmp = Math.min(pixels[clamped] * gain, MAX_AMPLITUDE) / MAX_AMPLITUDE;
+      const rawAmp = Math.min(pixels[clamped], MAX_AMPLITUDE) / MAX_AMPLITUDE;
 
       // Smooth
       const prev = smoothed[i];

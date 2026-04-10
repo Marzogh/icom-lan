@@ -32,9 +32,11 @@ _log = logging.getLogger(__name__)
 _SCOPE_MODE_CENTER = 0
 
 # Amplitude mapping: FFT dB range → 0-160 pixel range (ScopeFrame convention)
+# Range tuned for typical radio RX audio levels.
+# 55 dB span ≈ 2.9 px/dB — good contrast between noise floor and signals.
 _PIXEL_MAX = 160
-_DB_FLOOR = -120.0  # noise floor dB
-_DB_CEIL = 0.0  # clipping level dB
+_DB_FLOOR = -70.0  # noise floor dB
+_DB_CEIL = -15.0  # clipping level dB
 
 
 def _import_numpy() -> Any:

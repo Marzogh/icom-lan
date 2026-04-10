@@ -60,15 +60,10 @@
   const INK = '#1A1000';
   const INK_A = 'rgba(26, 16, 0,';
 
-  // FFT bar smoothing
+  // FFT bar smoothing — fast attack shows transients, moderate decay avoids flicker
   let smoothed: Float32Array | null = null;
-  const ATTACK = 0.4;
-  const DECAY = 0.15;
-
-  // Auto-gain AGC for scope display
-  let agcPeak = 40; // smoothed peak value
-  const AGC_ATTACK = 0.3;  // fast attack (signal appears)
-  const AGC_RELEASE = 0.02; // slow release (signal fades)
+  const ATTACK = 0.55;
+  const DECAY = 0.25;
 
   // Trapezoid animation — adaptive lerp toward target filterWidth
   // Big jumps (fast knob turning) → fast animation to keep up
@@ -244,27 +239,8 @@
       ctx.stroke();
     }
 
-    // ── Auto-gain AGC ──
-    const halfBandwidth = effectiveBandwidth / 2;
-    const passbandFrac = Math.min(1, filterHz / halfBandwidth);
-    let peakVal = 1;
-    if (pixels && pixels.length > 0) {
-      const dcIdx = Math.floor(pixels.length / 2);
-      const endBin = dcIdx + Math.ceil(passbandFrac * (pixels.length - dcIdx));
-      for (let j = dcIdx; j < endBin && j < pixels.length; j++) {
-        if (pixels[j] > peakVal) peakVal = pixels[j];
-      }
-    }
-    if (peakVal > agcPeak) {
-      agcPeak += (peakVal - agcPeak) * AGC_ATTACK;
-    } else {
-      agcPeak += (peakVal - agcPeak) * AGC_RELEASE;
-    }
-    agcPeak = Math.max(10, agcPeak);
-    const gain = 160 / agcPeak;
-
     // ── FFT bars INSIDE trapezoid — only passband portion of spectrum ──
-    drawFft(ctx, pixels, w, h, trapTop, trapH, cx, topHalfW, slopeExtra, filterHz, gain);
+    drawFft(ctx, pixels, w, h, trapTop, trapH, cx, topHalfW, slopeExtra, filterHz);
   }
 
   function drawFft(
@@ -278,7 +254,6 @@
     topHalfW: number,
     slopeExtra: number,
     passbandHz: number,
-    gain: number,
   ): void {
     const maxVal = 160;
     const barW = 2;
@@ -320,7 +295,7 @@
         // Map to positive-side FFT bin within passband only
         const pixIdx = dcIdx + Math.floor(barFrac * passbandFrac * positiveLen);
         const clamped = Math.max(dcIdx, Math.min(pixels.length - 1, pixIdx));
-        rawAmp = Math.min(pixels[clamped] * gain, maxVal) / maxVal;
+        rawAmp = Math.min(pixels[clamped], maxVal) / maxVal;
       } else {
         rawAmp = Math.random() * 0.06 + 0.02;
       }
