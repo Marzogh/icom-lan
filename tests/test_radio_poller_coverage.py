@@ -427,6 +427,7 @@ async def test_run_backoff_and_query_error_paths() -> None:
 
     poller._execute = AsyncMock(side_effect=ConnectionError("down"))  # noqa: SLF001
     poller._send_query = AsyncMock(return_value=None)  # noqa: SLF001
+    poller._initial_state_fetch = AsyncMock()  # noqa: SLF001  — skip to test backoff path
     poller._queue.wait = AsyncMock(side_effect=asyncio.CancelledError())  # noqa: SLF001
     with patch("icom_lan.web.radio_poller.asyncio.sleep", new=AsyncMock()):
         await poller._run()  # noqa: SLF001

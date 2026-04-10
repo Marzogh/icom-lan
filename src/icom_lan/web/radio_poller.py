@@ -321,6 +321,10 @@ class RadioPoller:
             self._FAST_CMDS_SERIAL if self._is_serial else self._FAST_CMDS_LAN
         )
         self._STATE_QUERIES = self._build_state_queries()
+        # Set by default — cleared at _run() start, re-set after initial fetch.
+        # This prevents EnableScope from hanging in tests that don't call start().
+        self._initial_fetch_done = asyncio.Event()
+        self._initial_fetch_done.set()
 
     def start(self) -> None:
         if self._task is not None and not self._task.done():
@@ -567,33 +571,123 @@ class RadioPoller:
             )
         return queries
 
-    async def _eager_fetch_scope_controls(self) -> None:
-        """Fetch scope control state once at startup for immediate UI accuracy.
+    # Scope sub-commands that require a receiver prefix byte in READ queries.
+    # Without the prefix, IC-7610 silently ignores the query.
+    # 0x12 (receiver select), 0x13 (single/dual), 0x1B (during TX) do NOT need it.
+    _SCOPE_RECEIVER_PREFIX_SUBS = frozenset({
+        0x14,  # mode (center/fixed/scroll)
+        0x15,  # span
+        0x16,  # edge number
+        0x17,  # hold
+        0x19,  # ref level
+        0x1A,  # sweep speed
+        0x1C,  # center type
+        0x1D,  # VBW
+        0x1E,  # fixed edge frequencies
+        0x1F,  # RBW
+    })
 
-        Only runs for radios that have scope queries in the poll rotation
-        (currently IC-7610).  Without this, the SPAN control shows the Python
-        default (0 = ±2.5k) until the slow rotation reaches 0x27 0x15.
+    async def _send_one_state_query(
+        self,
+        cmd_byte: int,
+        sub_byte: int | None,
+        receiver: int | None,
+    ) -> None:
+        """Send a single state query (shared by initial fetch and slow rotation)."""
+        if receiver is not None:
+            if cmd_byte in (0x25, 0x26):
+                await self._civ(cmd_byte, data=bytes([receiver]))
+            else:
+                inner = bytes([receiver, cmd_byte])
+                if sub_byte is not None:
+                    inner += bytes([sub_byte])
+                await self._civ(0x29, data=inner)
+        elif cmd_byte == 0x27 and sub_byte in self._SCOPE_RECEIVER_PREFIX_SUBS:
+            # Scope control queries need receiver prefix (00=MAIN, 01=SUB)
+            scope_rx = 0
+            if self._radio_state:
+                scope_rx = self._radio_state.scope_controls.receiver
+            await self._civ(cmd_byte, sub=sub_byte, data=bytes([scope_rx]))
+        else:
+            await self._civ(cmd_byte, sub=sub_byte, data=b"")
+
+    async def _fetch_scope_controls(self) -> None:
+        """Fetch scope control state (span, mode, speed, hold, etc.).
+
+        Called after scope is enabled — IC-7610 ignores scope control
+        queries when scope data output is off.
+
+        Note: commands 0x14, 0x15, 0x17, 0x19, 0x1A require a receiver
+        prefix byte (00=MAIN, 01=SUB) in the READ query — without it
+        the IC-7610 silently ignores the query.
         """
-        if self._profile.model not in ("IC-7610",):
-            return
-        _SCOPE_QUERIES = [
-            (0x27, 0x14),  # Scope mode (center/fixed)
-            (0x27, 0x15),  # Scope span
-        ]
-        for cmd, sub in _SCOPE_QUERIES:
+        # Determine active scope receiver (0=MAIN, 1=SUB)
+        scope_rx = 0
+        if self._radio_state:
+            scope_rx = self._radio_state.scope_controls.receiver
+
+        # Queries without receiver prefix
+        for sub in (0x12, 0x13):
             try:
-                await self._civ(cmd, sub=sub, data=b"")
-                await asyncio.sleep(self._gap)
+                await self._civ(0x27, sub=sub, data=b"")
             except Exception:
                 pass
+            await asyncio.sleep(self._gap)
+
+        # Queries that require receiver prefix byte
+        rx_byte = bytes([scope_rx])
+        for sub in (0x14, 0x15, 0x17, 0x19, 0x1A):
+            try:
+                await self._civ(0x27, sub=sub, data=rx_byte)
+            except Exception:
+                pass
+            await asyncio.sleep(self._gap)
+        logger.info("radio-poller: scope controls fetched (receiver=%d)", scope_rx)
+
+    async def _initial_state_fetch(self) -> None:
+        """Fetch ALL state queries once at startup to populate RadioState.
+
+        Without this, the UI shows Python defaults (zeros) for controls
+        like SPAN, squelch, AF level, etc. until the slow poll rotation
+        reaches each query — which can take 10+ seconds for 60+ queries.
+
+        On LAN (~12ms gap) this takes ~0.7s for 60 queries.
+        Commands from the queue are drained between queries so that
+        user-initiated actions are not blocked.
+        """
+        if not self._STATE_QUERIES:
+            return
+        logger.info(
+            "radio-poller: initial state fetch (%d queries)...",
+            len(self._STATE_QUERIES),
+        )
+        ok = 0
+        for cmd_byte, sub_byte, receiver in self._STATE_QUERIES:
+            # Drain command queue between queries so commands aren't blocked
+            if self._queue.has_commands:
+                for cmd in self._queue.drain():
+                    try:
+                        await self._execute(cmd)
+                    except Exception:
+                        pass
+                    await asyncio.sleep(self._gap)
+            try:
+                await self._send_one_state_query(cmd_byte, sub_byte, receiver)
+                ok += 1
+            except Exception:
+                pass  # non-fatal; regular rotation will retry
+            await asyncio.sleep(self._gap)
+        logger.info("radio-poller: initial state fetch done (%d/%d ok)", ok, len(self._STATE_QUERIES))
 
     async def _run(self) -> None:
         _backoff = 0.0
         _MAX_BACKOFF = 5.0  # max pause when radio is disconnected
 
-        # Eager-fetch scope controls so the UI shows correct values immediately
-        # instead of waiting for the slow query rotation to reach them.
-        await self._eager_fetch_scope_controls()
+        # Fetch ALL state queries once so the UI shows real values immediately
+        # instead of Python defaults (zeros) until the slow rotation reaches them.
+        self._initial_fetch_done.clear()
+        await self._initial_state_fetch()
+        self._initial_fetch_done.set()
 
         try:
             while True:
@@ -1301,8 +1395,17 @@ class RadioPoller:
                     await radio.vfo_equalize()
             case EnableScope(policy=policy):
                 if CAP_SCOPE in self._caps:
+                    # Wait for initial state fetch to finish before enabling
+                    # scope — scope data flood + initial fetch responses
+                    # overflow the CI-V packet queue (4096 limit).
+                    if not self._initial_fetch_done.is_set():
+                        logger.info("radio-poller: deferring scope enable until initial fetch completes")
+                        await self._initial_fetch_done.wait()
                     await radio.enable_scope(policy=policy)
                     logger.info("radio-poller: scope enabled")
+                    # Fetch scope controls now that scope is active —
+                    # IC-7610 ignores scope control queries when scope is off.
+                    await self._fetch_scope_controls()
             case DisableScope():
                 if CAP_SCOPE in self._caps:
                     await radio.disable_scope()
@@ -1646,19 +1749,7 @@ class RadioPoller:
                 return
             state_idx = (self._poll_index // 2) % len(self._STATE_QUERIES)
             cmd_byte, sub_byte, receiver = self._STATE_QUERIES[state_idx]
-            if receiver is not None:
-                if cmd_byte in (0x25, 0x26):
-                    # RX Freq / RX Mode: receiver byte in data payload
-                    await self._civ(cmd_byte, data=bytes([receiver]))
-                else:
-                    # cmd29 framing: FE FE to from 29 rcvr cmd [sub] FD
-                    inner = bytes([receiver, cmd_byte])
-                    if sub_byte is not None:
-                        inner += bytes([sub_byte])
-                    await self._civ(0x29, data=inner)
-            else:
-                # Global: plain CI-V query
-                await self._civ(cmd_byte, sub=sub_byte, data=b"")
+            await self._send_one_state_query(cmd_byte, sub_byte, receiver)
         self._poll_index += 1
 
     def _emit(self, name: str, data: dict[str, Any]) -> None:

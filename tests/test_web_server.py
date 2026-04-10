@@ -773,6 +773,8 @@ class TestControlChannel:
             _, payload = await _ws_recv_frame(reader)
             resp = json.loads(payload)
             assert resp["ok"] is True
+            # PTT goes through command queue; wait for poller to drain it
+            await asyncio.sleep(0.05)
             mock_radio.set_ptt.assert_awaited_once_with(True)
         finally:
             await _close_ws(writer)
@@ -850,6 +852,8 @@ class TestControlChannel:
             _, payload = await _ws_recv_frame(reader)
             resp = json.loads(payload)
             assert resp["ok"] is True
+            # vfo_swap goes through command queue; wait for poller to drain it
+            await asyncio.sleep(0.05)
             mock_radio.vfo_exchange.assert_awaited_once()
         finally:
             await _close_ws(writer)
@@ -1949,12 +1953,12 @@ class TestRadioPoller:
         poller = RadioPoller(radio, cache, queue)
 
         poller.start()
-        # 25ms × 8 cycles = 200ms; +2 eager scope queries at startup.
-        await asyncio.sleep(0.25)
+        # Initial state fetch runs ~60 queries × 12ms gap ≈ 0.7s before
+        # the main poll loop starts meter queries.
+        await asyncio.sleep(1.5)
         poller.stop()
 
-        # Interleaved design: even cycles = meter, odd cycles = state.
-        # Eager fetch adds 2 scope queries before the main loop.
+        # Initial fetch + interleaved meter/state queries.
         assert radio.send_civ.await_count >= 4
         meter_calls = [
             c for c in radio.send_civ.call_args_list if c[0][0] == 0x15

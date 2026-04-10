@@ -1032,7 +1032,7 @@ class CivRuntime:
                             self._notify_change("dual_watch_changed", {"on": new_dw})
 
         except (ValueError, IndexError, KeyError, AttributeError, TypeError) as exc:
-            logger.debug("civ-rx: state update failed: %s", exc)
+            logger.debug("civ-rx: state update failed for cmd=0x%02x sub=0x%02x: %s", frame.command or 0, frame.sub or 0, exc)
         except Exception:
             logger.warning("civ-rx: unexpected error in state update", exc_info=True)
 
