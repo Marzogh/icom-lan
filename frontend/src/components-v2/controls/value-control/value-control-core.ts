@@ -248,8 +248,12 @@ export function formatBipolarValue(value: number): string {
 /** Center position (RF at max, SQL at min). */
 export const DUAL_PARAM_CENTER_NORM = 0.5;
 
+/** Half-width of the center dead zone (normalized). */
+export const DUAL_PARAM_DEAD_ZONE = 0.04;
+
 /**
  * Map pointer position to RF and SQL. At center: RF=max, SQL=min.
+ * A dead zone around center prevents accidental changes on small movements.
  */
 export function dualParamValuesFromNormX(
   normX: number,
@@ -263,18 +267,27 @@ export function dualParamValuesFromNormX(
     const v = snapToStep(min, step, min);
     return { rf: v, sql: v };
   }
-  if (nx <= DUAL_PARAM_CENTER_NORM) {
-    const t = nx / DUAL_PARAM_CENTER_NORM;
+  // Dead zone: snap to center state
+  if (Math.abs(nx - DUAL_PARAM_CENTER_NORM) <= DUAL_PARAM_DEAD_ZONE) {
+    return { rf: max, sql: min };
+  }
+  if (nx < DUAL_PARAM_CENTER_NORM) {
+    // Left of dead zone: RF sweeps max→min, SQL stays at min
+    const leftEdge = DUAL_PARAM_CENTER_NORM - DUAL_PARAM_DEAD_ZONE;
+    const t = nx / leftEdge;
     const rf = snapToStep(min + t * range, step, min);
     return { rf: clamp(rf, min, max), sql: min };
   }
-  const t = (nx - DUAL_PARAM_CENTER_NORM) / DUAL_PARAM_CENTER_NORM;
+  // Right of dead zone: RF stays at max, SQL sweeps min→max
+  const rightEdge = DUAL_PARAM_CENTER_NORM + DUAL_PARAM_DEAD_ZONE;
+  const t = (nx - rightEdge) / (1 - rightEdge);
   const sql = snapToStep(min + t * range, step, min);
   return { rf: max, sql: clamp(sql, min, max) };
 }
 
 /**
  * Inverse mapping for display. If SQL is above min, assume right leg (RF forced to max).
+ * Maps through the dead zone so the thumb position matches the forward mapping.
  */
 export function dualParamNormXFromValues(
   rf: number,
@@ -285,11 +298,19 @@ export function dualParamNormXFromValues(
   const range = max - min;
   if (range === 0) return DUAL_PARAM_CENTER_NORM;
   if (sql > min) {
+    // Right side: SQL active, map min→max to rightEdge→1.0
     const t = clamp((sql - min) / range, 0, 1);
-    return DUAL_PARAM_CENTER_NORM + DUAL_PARAM_CENTER_NORM * t;
+    const rightEdge = DUAL_PARAM_CENTER_NORM + DUAL_PARAM_DEAD_ZONE;
+    return rightEdge + (1 - rightEdge) * t;
   }
+  if (rf >= max) {
+    // Center: RF at max, SQL at min
+    return DUAL_PARAM_CENTER_NORM;
+  }
+  // Left side: RF active, map min→max to 0→leftEdge
   const t = clamp((rf - min) / range, 0, 1);
-  return DUAL_PARAM_CENTER_NORM * t;
+  const leftEdge = DUAL_PARAM_CENTER_NORM - DUAL_PARAM_DEAD_ZONE;
+  return leftEdge * t;
 }
 
 /** Thumb center along track (0–100%). */

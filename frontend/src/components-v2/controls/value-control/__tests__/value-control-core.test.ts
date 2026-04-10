@@ -306,19 +306,37 @@ describe('dual RF/SQL single-thumb mapping', () => {
     expect(DUAL_PARAM_CENTER_NORM).toBe(0.5);
   });
 
-  it('maps norm X to RF/SQL (left = RF min, center = RF max SQL min, right = both max)', () => {
+  it('maps norm X to RF/SQL with center dead zone', () => {
+    // Extremes: unchanged
     expect(dualParamValuesFromNormX(0, 0, 255, 1)).toEqual({ rf: 0, sql: 0 });
-    expect(dualParamValuesFromNormX(0.5, 0, 255, 1)).toEqual({ rf: 255, sql: 0 });
     expect(dualParamValuesFromNormX(1, 0, 255, 1)).toEqual({ rf: 255, sql: 255 });
-    expect(dualParamValuesFromNormX(0.25, 0, 255, 1)).toEqual({ rf: 128, sql: 0 });
-    expect(dualParamValuesFromNormX(0.75, 0, 255, 1)).toEqual({ rf: 255, sql: 128 });
+    // Center: RF=max, SQL=min
+    expect(dualParamValuesFromNormX(0.5, 0, 255, 1)).toEqual({ rf: 255, sql: 0 });
+    // Inside dead zone (0.46–0.54): snaps to center
+    expect(dualParamValuesFromNormX(0.47, 0, 255, 1)).toEqual({ rf: 255, sql: 0 });
+    expect(dualParamValuesFromNormX(0.53, 0, 255, 1)).toEqual({ rf: 255, sql: 0 });
+    // Left of dead zone: RF active
+    const leftResult = dualParamValuesFromNormX(0.23, 0, 255, 1);
+    expect(leftResult.sql).toBe(0);
+    expect(leftResult.rf).toBe(128); // 0.23/0.46 * 255 = 127.5 → 128
+    // Right of dead zone: SQL active
+    const rightResult = dualParamValuesFromNormX(0.77, 0, 255, 1);
+    expect(rightResult.rf).toBe(255);
+    expect(rightResult.sql).toBe(128); // (0.77-0.54)/(1-0.54) * 255 = 127.5 → 128
   });
 
-  it('inverts values to norm X (SQL leg wins when SQL > min)', () => {
+  it('inverts values to norm X with dead zone', () => {
+    // Far left: RF=0, SQL=0 → 0
     expect(dualParamNormXFromValues(0, 0, 0, 255)).toBeCloseTo(0, 5);
+    // Center: RF=max, SQL=min → 0.5
     expect(dualParamNormXFromValues(255, 0, 0, 255)).toBeCloseTo(0.5, 5);
+    // Far right: RF=max, SQL=max → 1.0
     expect(dualParamNormXFromValues(255, 255, 0, 255)).toBeCloseTo(1, 5);
-    expect(dualParamNormXFromValues(100, 50, 0, 255)).toBeCloseTo(0.5 + 0.5 * (50 / 255), 5);
+    // SQL active: maps through right zone (0.54–1.0)
+    const rightEdge = 0.54;
+    expect(dualParamNormXFromValues(255, 128, 0, 255)).toBeCloseTo(
+      rightEdge + (1 - rightEdge) * (128 / 255), 2,
+    );
   });
 
   it('thumb percent follows norm X', () => {
