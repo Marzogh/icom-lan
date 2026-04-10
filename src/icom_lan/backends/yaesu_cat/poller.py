@@ -478,22 +478,42 @@ class YaesuCatPoller:
     # ------------------------------------------------------------------
 
     async def _poll_fast(self) -> None:
-        """Fast group: S-meter for main and sub receivers."""
+        """Fast group: S-meter (RX) or ALC/Power/COMP/SWR meters (TX)."""
         state = self._radio.radio_state
 
-        raw_main = await self._radio.get_s_meter(0)
-        self._ema_s_main = self._apply_ema(raw_main, self._ema_s_main)
-        state.main.s_meter = int(round(self._ema_s_main))
-
-        if "dual_rx" in self._caps:
+        if state.ptt and "meters" in self._caps:
+            # TX meters — poll ALC, Power, COMP, SWR during transmit
             try:
-                raw_sub = await self._radio.get_s_meter(1)
-                self._ema_s_sub = self._apply_ema(raw_sub, self._ema_s_sub)
-                state.sub.s_meter = int(round(self._ema_s_sub))
-            except NotImplementedError:
-                pass
+                state.alc_meter = await self._radio.get_alc_meter()
             except Exception:
-                logger.debug("YaesuCatPoller: sub S-meter unavailable", exc_info=True)
+                logger.debug("YaesuCatPoller: get_alc_meter failed", exc_info=True)
+            try:
+                state.power_meter = await self._radio.get_power_meter()
+            except Exception:
+                logger.debug("YaesuCatPoller: get_power_meter failed", exc_info=True)
+            try:
+                state.comp_meter = await self._radio.get_comp_meter()
+            except Exception:
+                logger.debug("YaesuCatPoller: get_comp_meter failed", exc_info=True)
+            try:
+                state.swr_meter = await self._radio.get_swr()
+            except Exception:
+                logger.debug("YaesuCatPoller: get_swr failed", exc_info=True)
+        else:
+            # RX meters — S-meter for main and sub receivers
+            raw_main = await self._radio.get_s_meter(0)
+            self._ema_s_main = self._apply_ema(raw_main, self._ema_s_main)
+            state.main.s_meter = int(round(self._ema_s_main))
+
+            if "dual_rx" in self._caps:
+                try:
+                    raw_sub = await self._radio.get_s_meter(1)
+                    self._ema_s_sub = self._apply_ema(raw_sub, self._ema_s_sub)
+                    state.sub.s_meter = int(round(self._ema_s_sub))
+                except NotImplementedError:
+                    pass
+                except Exception:
+                    logger.debug("YaesuCatPoller: sub S-meter unavailable", exc_info=True)
 
         self._callback(state)
 
