@@ -97,9 +97,12 @@
   let passbandHz = $derived(rx?.filterWidth ?? getFilterWidthHz(rxMode, rx?.filter ?? 1));
   let passbandShiftHz = $derived(deriveIfShift(rx?.pbtInner ?? 0, rx?.pbtOuter ?? 0));
   let canResizePassband = $derived(canResizeFromRightEdge(rxMode));
-  // Tuning indicator position: center in CTR mode, proportional in FIX mode
+  // Scope mode: 0=CTR, 1=FIX, 2=SCROLL-C, 3=SCROLL-F
+  let scopeMode = $derived(radio.current?.scopeControls?.mode ?? 0);
+  // Tuning indicator: fixed at center for CTR/SCROLL-C, proportional for FIX/SCROLL-F
+  let isFixedScope = $derived(scopeMode === 1 || scopeMode === 3);
   let tuneLinePct = $derived(
-    spanHz > 0 && tuneHz > 0 && tuneHz >= startFreq && tuneHz <= endFreq
+    isFixedScope && spanHz > 0 && tuneHz > 0 && tuneHz >= startFreq && tuneHz <= endFreq
       ? ((tuneHz - startFreq) / spanHz) * 100
       : 50
   );

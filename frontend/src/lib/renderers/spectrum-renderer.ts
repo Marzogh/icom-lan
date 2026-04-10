@@ -150,12 +150,14 @@ export function renderSpectrum(
 
   // Tuning indicator + passband overlay
   if (spanHz > 0) {
-    // In CENTER mode: scope is centered on VFO — indicator at center.
-    // In FIXED mode: scope shows fixed range — indicator moves with VFO.
+    // In CENTER mode: tuneHz ≈ centerHz, indicator stays at center.
+    // In FIXED mode: tuneHz differs from centerHz, indicator moves.
+    // Detect mode by checking if tuneHz is close to centerHz (< 0.5% of span).
     const startHz = centerHz - spanHz / 2;
-    const tunePx = (tuneHz > 0 && tuneHz >= startHz && tuneHz <= startHz + spanHz)
-      ? ((tuneHz - startHz) / spanHz) * width
-      : width / 2;
+    const isCentered = !tuneHz || Math.abs(tuneHz - centerHz) < spanHz * 0.005;
+    const tunePx = isCentered
+      ? width / 2
+      : clamp(((tuneHz - startHz) / spanHz) * width, 0, width);
 
     // Draw passband rectangle
     if (passbandHz > 0) {
