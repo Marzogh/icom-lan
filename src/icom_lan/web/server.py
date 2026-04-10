@@ -1039,14 +1039,26 @@ class WebServer:
         for task in bg_tasks:
             task.cancel()
         if bg_tasks:
-            await asyncio.gather(*bg_tasks, return_exceptions=True)
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(*bg_tasks, return_exceptions=True),
+                    timeout=3.0,
+                )
+            except TimeoutError:
+                logger.warning("bg_tasks did not finish in 3s, continuing shutdown")
         self._bg_tasks.clear()
 
         tasks = list(self._client_tasks)
         for task in tasks:
             task.cancel()
         if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(*tasks, return_exceptions=True),
+                    timeout=3.0,
+                )
+            except TimeoutError:
+                logger.warning("client_tasks did not finish in 3s, forcing shutdown")
         logger.info("web server stopped")
 
     async def serve_forever(self) -> None:
@@ -1058,9 +1070,16 @@ class WebServer:
 
         loop = asyncio.get_running_loop()
         stop_event = asyncio.Event()
+        _shutting_down = False
 
         def _on_signal() -> None:
+            nonlocal _shutting_down
+            if _shutting_down:
+                logger.info("forced shutdown (second signal)")
+                import os
+                os._exit(1)
             logger.info("received shutdown signal")
+            _shutting_down = True
             stop_event.set()
 
         for sig in (_signal.SIGTERM, _signal.SIGINT):
