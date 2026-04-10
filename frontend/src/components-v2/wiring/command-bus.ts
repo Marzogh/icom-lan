@@ -366,6 +366,24 @@ export function makeDspHandlers() {
       const receiver = activeReceiverParam();
       cmd('set_notch_filter', { value, receiver });
     },
+    onNbDepthChange: (level: number) => {
+      patchRadioState({ nbDepth: level });
+      cmd('set_nb_depth', { level });
+    },
+    onNbWidthChange: (level: number) => {
+      patchRadioState({ nbWidth: level });
+      cmd('set_nb_width', { level });
+    },
+    onManualNotchWidthChange: (value: number) => {
+      const receiver = activeReceiverParam();
+      patchActiveReceiver({ manualNotchWidth: value }, true);
+      cmd('set_manual_notch_width', { value, receiver });
+    },
+    onAgcTimeChange: (value: number) => {
+      const receiver = activeReceiverParam();
+      patchActiveReceiver({ agcTimeConstant: value }, true);
+      cmd('set_agc_time_constant', { value, receiver });
+    },
   };
 }
 
@@ -385,6 +403,10 @@ export function makeCwPanelHandlers() {
       const next = current > 0 ? 0 : 1;
       patchRadioState({ breakIn: next });
       cmd('set_break_in', { mode: next });
+    },
+    onBreakInModeChange: (mode: number) => {
+      patchRadioState({ breakIn: mode });
+      cmd('set_break_in', { mode });
     },
     onApfChange: (mode: number) => {
       const receiver = activeReceiverParam();
@@ -408,9 +430,9 @@ export function makeCwPanelHandlers() {
       patchRadioState({ keySpeed: speed });
       cmd('set_key_speed', { speed });
     },
-    onBreakInDelayChange: (delay: number) => {
-      patchRadioState({ breakInDelay: delay });
-      cmd('set_break_in_delay', { delay });
+    onBreakInDelayChange: (level: number) => {
+      patchRadioState({ breakInDelay: level });
+      cmd('set_break_in_delay', { level });
     },
     onSidetonePitchChange: (value: number) => {
       patchRadioState({ cwPitch: value });
@@ -428,6 +450,30 @@ export function makeCwPanelHandlers() {
     },
     onKeyerTypeChange: (type: number) => {
       cmd('set_keyer_type', { type });
+    },
+  };
+}
+
+/* ── VOX Handlers ───────────────────────────────────────────── */
+
+export function makeVoxHandlers() {
+  return {
+    onVoxToggle: () => {
+      const next = !(getRadioState()?.voxOn ?? false);
+      patchRadioState({ voxOn: next });
+      cmd('set_vox', { on: next });
+    },
+    onVoxGainChange: (level: number) => {
+      patchRadioState({ voxGain: level });
+      cmd('set_vox_gain', { level });
+    },
+    onAntiVoxGainChange: (level: number) => {
+      patchRadioState({ antiVoxGain: level });
+      cmd('set_anti_vox_gain', { level });
+    },
+    onVoxDelayChange: (level: number) => {
+      patchRadioState({ voxDelay: level });
+      cmd('set_vox_delay', { level });
     },
   };
 }
@@ -613,6 +659,7 @@ export function makeSystemHandlers() {
     onPttOff: () => cmd('ptt_off'),
     onDialLock: (on: boolean) => cmd('set_dial_lock', { on }),
     onPowerOff: () => cmd('set_powerstat', { on: false }),
+    onSpeak: () => cmd('speak', { mode: 0 }),
   };
 }
 

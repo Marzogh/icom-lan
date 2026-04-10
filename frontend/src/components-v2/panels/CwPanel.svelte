@@ -1,20 +1,20 @@
 <script lang="ts">
   import '../controls/control-button.css';
   import { HardwareButton } from '$lib/Button';
-  import { ValueControl } from '../controls/value-control';
+  import { ValueControl, rawToPercentDisplay } from '../controls/value-control';
   import { hasCapability } from '$lib/stores/capabilities.svelte';
 
   interface Props {
     cwPitch?: number;
     keySpeed?: number;
     breakIn?: number;
+    breakInDelay?: number;
     apfMode?: number;
     twinPeak?: boolean;
     currentMode?: string;
     // Mobile CW panel props
     wpm?: number;
     breakInActive?: boolean;
-    breakInDelay?: number;
     sidetonePitch?: number;
     sidetoneLevel?: number;
     reversePaddle?: boolean;
@@ -23,12 +23,13 @@
     onCwPitchChange?: (v: number) => void;
     onKeySpeedChange?: (v: number) => void;
     onBreakInToggle?: () => void;
+    onBreakInModeChange?: (mode: number) => void;
+    onBreakInDelayChange?: (v: number) => void;
     onApfChange?: (mode: number) => void;
     onTwinPeakToggle?: () => void;
     onAutoTune?: () => void;
     // Mobile CW handlers
     onWpmChange?: (v: number) => void;
-    onBreakInDelayChange?: (v: number) => void;
     onSidetonePitchChange?: (v: number) => void;
     onSidetoneLevelChange?: (v: number) => void;
     onReversePaddleToggle?: () => void;
@@ -44,12 +45,15 @@
     cwPitch = 600,
     keySpeed = 12,
     breakIn = 0,
+    breakInDelay = 0,
     apfMode = 0,
     twinPeak = false,
     currentMode = 'CW',
     onCwPitchChange = noopN,
     onKeySpeedChange = noopN,
     onBreakInToggle = noop,
+    onBreakInModeChange = noopN,
+    onBreakInDelayChange = noopN,
     onApfChange = noopN,
     onTwinPeakToggle = noop,
     onAutoTune = noop,
@@ -60,6 +64,9 @@
   let showTwinPeak = $derived(hasCapability('twin_peak'));
   let breakInActive = $derived(breakIn > 0);
   let apfActive = $derived(apfMode > 0);
+
+  const BREAK_IN_LABELS: Record<number, string> = { 0: 'OFF', 1: 'SEMI', 2: 'FULL' };
+  let breakInLabel = $derived(BREAK_IN_LABELS[breakIn] ?? 'OFF');
 </script>
 
 {#if hasCapability('cw')}
@@ -98,8 +105,11 @@
 
     <div class="toggle-row">
       {#if showBreakIn}
-        <HardwareButton indicator="edge-left" active={breakInActive} color="cyan" onclick={() => onBreakInToggle()}>
-          BK-IN
+        <HardwareButton indicator="edge-left" active={breakIn === 1} color="cyan" onclick={() => onBreakInModeChange(breakIn === 1 ? 0 : 1)}>
+          SEMI
+        </HardwareButton>
+        <HardwareButton indicator="edge-left" active={breakIn === 2} color="orange" onclick={() => onBreakInModeChange(breakIn === 2 ? 0 : 2)}>
+          FULL
         </HardwareButton>
       {/if}
       {#if showApf}
@@ -113,6 +123,21 @@
         </HardwareButton>
       {/if}
     </div>
+
+    {#if showBreakIn && breakIn === 1}
+      <ValueControl
+        label="Break-in Delay"
+        value={breakInDelay}
+        min={0}
+        max={255}
+        step={1}
+        renderer="hbar"
+        displayFn={rawToPercentDisplay}
+        accentColor="var(--v2-accent-cyan)"
+        onChange={onBreakInDelayChange}
+        variant="hardware-illuminated"
+      />
+    {/if}
 
     <div class="toggle-row">
       <button type="button" class="auto-tune-btn v2-control-button" onclick={onAutoTune}>

@@ -9,14 +9,22 @@
     nrLevel: number;
     nbActive: boolean;
     nbLevel: number;
+    nbDepth: number;
+    nbWidth: number;
     notchMode: 'off' | 'auto' | 'manual';
     notchFreq: number;
+    manualNotchWidth: number;
+    agcTimeConstant: number;
     onNrModeChange: (v: number) => void;
     onNrLevelChange: (v: number) => void;
     onNbToggle: (v: boolean) => void;
     onNbLevelChange: (v: number) => void;
+    onNbDepthChange: (v: number) => void;
+    onNbWidthChange: (v: number) => void;
     onNotchModeChange: (v: string) => void;
     onNotchFreqChange: (v: number) => void;
+    onManualNotchWidthChange: (v: number) => void;
+    onAgcTimeChange: (v: number) => void;
   }
 
   let {
@@ -24,15 +32,29 @@
     nrLevel,
     nbActive,
     nbLevel,
+    nbDepth = 0,
+    nbWidth = 0,
     notchMode,
     notchFreq,
+    manualNotchWidth = 0,
+    agcTimeConstant = 0,
     onNrModeChange,
     onNrLevelChange,
     onNbToggle,
     onNbLevelChange,
+    onNbDepthChange = () => {},
+    onNbWidthChange = () => {},
     onNotchModeChange,
     onNotchFreqChange,
+    onManualNotchWidthChange = () => {},
+    onAgcTimeChange = () => {},
   }: Props = $props();
+
+  const NOTCH_WIDTH_LABELS: Record<number, string> = { 0: 'WIDE', 1: 'MID', 2: 'NARROW' };
+  const AGC_TIME_LABELS: Record<number, string> = {
+    0: '0.1', 1: '0.3', 2: '0.6', 3: '1.0', 4: '1.5',
+    5: '2.0', 6: '3.0', 7: '4.0', 8: '5.0', 9: '6.0',
+  };
 
   let showNr = $derived(hasCapability('nr'));
   let showNb = $derived(hasCapability('nb'));
@@ -43,15 +65,17 @@
   let nrActive = $derived(nrMode > 0);
   let notchToggleActive = $derived(notchMode === 'auto' || notchMode === 'manual');
 
-  type ModalId = 'nr' | 'nb' | 'notch';
+  type ModalId = 'nr' | 'nb' | 'notch' | 'agc';
   let openModal = $state<ModalId | null>(null);
   let nrModalStyle = $state('');
   let nbModalStyle = $state('');
   let notchModalStyle = $state('');
+  let agcModalStyle = $state('');
 
   let nrAnchorEl: HTMLDivElement | undefined = $state();
   let nbAnchorEl: HTMLDivElement | undefined = $state();
   let notchAnchorEl: HTMLDivElement | undefined = $state();
+  let agcAnchorEl: HTMLDivElement | undefined = $state();
 
   /** Local NR mode for modal (supports 2 when server only reports on/off). */
   let nrModalMode = $state(0);
@@ -80,6 +104,8 @@
       nrModalStyle = computeModalStyle(nrAnchorEl);
     } else if (kind === 'nb') {
       nbModalStyle = computeModalStyle(nbAnchorEl);
+    } else if (kind === 'agc') {
+      agcModalStyle = computeModalStyle(agcAnchorEl);
     } else {
       notchModalMode = notchMode;
       notchModalStyle = computeModalStyle(notchAnchorEl);
@@ -126,6 +152,8 @@
       nbModalStyle = computeModalStyle(nbAnchorEl);
     } else if (openModal === 'notch') {
       notchModalStyle = computeModalStyle(notchAnchorEl);
+    } else if (openModal === 'agc') {
+      agcModalStyle = computeModalStyle(agcAnchorEl);
     }
   });
 
@@ -233,6 +261,15 @@
         onclick={() => onNotchModeChange(notchMode === 'auto' ? 'off' : 'auto')}
       >A-NOTCH</HardwareButton>
     </div>
+
+    <div class="dsp-btn-wrap" bind:this={agcAnchorEl}>
+      <HardwareButton
+        indicator="edge-left"
+        color="gray"
+        title="AGC Time — click for settings"
+        onclick={() => openModalFor('agc')}
+      >AGC-T {AGC_TIME_LABELS[agcTimeConstant] ?? agcTimeConstant}s</HardwareButton>
+    </div>
   </div>
 </div>
 
@@ -301,6 +338,30 @@
       onChange={onNbLevelChange}
       variant="hardware-illuminated"
     />
+    <ValueControl
+      label="NB Depth"
+      value={nbDepth}
+      min={0}
+      max={9}
+      step={1}
+      renderer="discrete"
+      tickStyle="notch"
+      accentColor="var(--v2-accent-orange)"
+      onChange={onNbDepthChange}
+      variant="hardware-illuminated"
+    />
+    <ValueControl
+      label="NB Width"
+      value={nbWidth}
+      min={0}
+      max={255}
+      step={1}
+      renderer="hbar"
+      displayFn={rawToPercentDisplay}
+      accentColor="var(--v2-accent-orange)"
+      onChange={onNbWidthChange}
+      variant="hardware-illuminated"
+    />
   </div>
 {/if}
 
@@ -332,7 +393,32 @@
         onChange={onNotchFreqChange}
         variant="hardware-illuminated"
       />
+      <div class="dsp-modal-block dsp-mode-grid">
+        <HardwareButton active={manualNotchWidth === 0} indicator="edge-left" color="cyan" onclick={() => onManualNotchWidthChange(0)}>WIDE</HardwareButton>
+        <HardwareButton active={manualNotchWidth === 1} indicator="edge-left" color="cyan" onclick={() => onManualNotchWidthChange(1)}>MID</HardwareButton>
+        <HardwareButton active={manualNotchWidth === 2} indicator="edge-left" color="cyan" onclick={() => onManualNotchWidthChange(2)}>NAR</HardwareButton>
+      </div>
     {/if}
+  </div>
+{/if}
+
+{#if openModal === 'agc'}
+  <div class="dsp-modal" role="dialog" aria-label="AGC time settings" style={agcModalStyle}>
+    <div class="menu-title">AGC Time Constant</div>
+    <ValueControl
+      label="AGC Time"
+      value={agcTimeConstant}
+      min={0}
+      max={9}
+      step={1}
+      renderer="discrete"
+      tickStyle="notch"
+      displayFn={(v: number) => AGC_TIME_LABELS[v] ?? String(v)}
+      unit="s"
+      accentColor="var(--v2-accent-cyan)"
+      onChange={onAgcTimeChange}
+      variant="hardware-illuminated"
+    />
   </div>
 {/if}
 

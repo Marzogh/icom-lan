@@ -15,7 +15,15 @@ from dataclasses import asdict, dataclass, field
 
 from .types import ScopeFixedEdge
 
-__all__ = ["ReceiverState", "ScopeControlsState", "RadioState"]
+__all__ = ["ReceiverState", "ScopeControlsState", "TxBandEdge", "RadioState"]
+
+
+@dataclass(slots=True)
+class TxBandEdge:
+    """A TX-permitted frequency range reported by the radio (0x1E)."""
+
+    start_hz: int = 0
+    end_hz: int = 0
 
 
 @dataclass(slots=True)
@@ -141,6 +149,7 @@ class RadioState:
     tx_antenna: int = 1  # 1 or 2
     rx_antenna_1: bool = False
     rx_antenna_2: bool = False
+    tx_band_edges: list[TxBandEdge] = field(default_factory=list)
     scope_controls: ScopeControlsState = field(default_factory=ScopeControlsState)
 
     def to_dict(self) -> dict[str, object]:
@@ -192,6 +201,10 @@ class RadioState:
             "tx_antenna": self.tx_antenna,
             "rx_antenna_1": self.rx_antenna_1,
             "rx_antenna_2": self.rx_antenna_2,
+            "tx_band_edges": [
+                {"start_hz": e.start_hz, "end_hz": e.end_hz}
+                for e in self.tx_band_edges
+            ],
             "scope_controls": asdict(self.scope_controls),
             "main": asdict(self.main),
             "sub": asdict(self.sub),

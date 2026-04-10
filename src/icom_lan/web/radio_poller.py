@@ -277,6 +277,7 @@ from .._poller_types import (  # noqa: E402
     SetVoxDelay,
     SetVoxGain,
     SetXfcStatus,
+    Speak,
     SwitchScopeReceiver,
     VfoEqualize,
     VfoSwap,
@@ -1749,6 +1750,8 @@ class RadioPoller:
                 await _r.quick_split()
             case QuickDualWatch():
                 await _r.quick_dual_watch()
+            case Speak(mode=what):
+                await _r.get_speech(what)
 
     # Fast: meters (polled on even cycles)
     # wfview: Priority=Highest, queue interval 25ms for LAN (HasFDComms)

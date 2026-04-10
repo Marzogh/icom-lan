@@ -266,8 +266,12 @@ export interface DspProps {
   nrLevel: number;
   nbActive: boolean;
   nbLevel: number;
+  nbDepth: number;
+  nbWidth: number;
   notchMode: 'off' | 'auto' | 'manual';
   notchFreq: number;
+  manualNotchWidth: number;
+  agcTimeConstant: number;
 }
 
 export function toDspProps(
@@ -286,8 +290,12 @@ export function toDspProps(
     nrLevel: rx?.nrLevel ?? 0,
     nbActive: rx?.nb ?? false,
     nbLevel: rx?.nbLevel ?? 0,
+    nbDepth: state?.nbDepth ?? 0,
+    nbWidth: state?.nbWidth ?? 0,
     notchMode,
     notchFreq: state?.notchFilter ?? 0,
+    manualNotchWidth: rx?.manualNotchWidth ?? 0,
+    agcTimeConstant: rx?.agcTimeConstant ?? 0,
   };
 }
 
@@ -435,6 +443,26 @@ export function toRxAudioProps(
     monitorMode,
     afLevel,
     hasLiveAudio,
+  };
+}
+
+/* ── VOX Panel ──────────────────────────────────────────────── */
+
+export interface VoxProps {
+  voxOn: boolean;
+  voxGain: number;
+  antiVoxGain: number;
+  voxDelay: number;
+}
+
+export function toVoxProps(
+  state: ServerState | null,
+): VoxProps {
+  return {
+    voxOn: state?.voxOn ?? false,
+    voxGain: state?.voxGain ?? 0,
+    antiVoxGain: state?.antiVoxGain ?? 0,
+    voxDelay: state?.voxDelay ?? 0,
   };
 }
 

@@ -379,6 +379,14 @@ from .antenna import (
     set_rx_antenna_ant2,
 )
 
+# --- tx_band.py ---
+from .tx_band import (
+    get_tx_band_count,
+    get_tx_band_edge,
+    parse_tx_band_count_response,
+    parse_tx_band_edge_response,
+)
+
 # --- config.py ---
 from .config import (
     get_acc1_mod_level,
@@ -731,4 +739,9 @@ __all__ = [
     "set_nb",
     "get_nr",
     "set_nr",
+    # TX band edge (0x1E)
+    "get_tx_band_count",
+    "get_tx_band_edge",
+    "parse_tx_band_count_response",
+    "parse_tx_band_edge_response",
 ]

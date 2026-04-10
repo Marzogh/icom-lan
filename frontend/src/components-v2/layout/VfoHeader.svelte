@@ -25,6 +25,7 @@
     onSubModeClick?: () => void;
     onMainFreqChange?: (freq: number) => void;
     onSubFreqChange?: (freq: number) => void;
+    onSpeak?: () => void;
   }
 
   let {
@@ -46,6 +47,7 @@
     onSubModeClick,
     onMainFreqChange,
     onSubFreqChange,
+    onSpeak,
   }: Props = $props();
 
   let dualReceiver = $derived(hasDualReceiver());
@@ -89,6 +91,12 @@
           <span class="split-status-title">SPLIT</span>
           <span class="split-status-row">RX {rxFrequency} TX {txFrequency}</span>
         </div>
+      {/if}
+
+      {#if onSpeak}
+        <button type="button" class="speak-btn" title="Speak frequency" onclick={onSpeak}>
+          SPEAK
+        </button>
       {/if}
     </div>
   </div>
@@ -191,6 +199,30 @@
     font-size: 7px;
     font-weight: 700;
     letter-spacing: 0.08em;
+  }
+
+  .speak-btn {
+    margin-top: 4px;
+    padding: 3px 6px;
+    border: 1px solid var(--v2-border);
+    border-radius: 3px;
+    background: transparent;
+    color: var(--v2-text-subdued);
+    font-family: 'Roboto Mono', monospace;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .speak-btn:hover {
+    color: var(--v2-accent-cyan);
+    border-color: var(--v2-accent-cyan);
+  }
+
+  .speak-btn:active {
+    background: rgba(0, 200, 220, 0.1);
   }
 
   .vfo-sub-panel {

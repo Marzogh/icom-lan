@@ -43,6 +43,7 @@
     makeKeyboardHandlers, makeMeterHandlers, makeVfoHandlers,
     makeRfFrontEndHandlers, makeAgcHandlers, makeRitXitHandlers,
     makeBandHandlers, makePresetHandlers, makeDspHandlers, makeCwPanelHandlers,
+    makeSystemHandlers,
   } from '../wiring/command-bus';
   import MobileRadioLayout from './MobileRadioLayout.svelte';
   import LcdLayout from './LcdLayout.svelte';
@@ -114,6 +115,7 @@
   const ritXitHandlers = makeRitXitHandlers();
   const bandHandlers = makeBandHandlers();
   const presetHandlers = makePresetHandlers();
+  const systemHandlers = makeSystemHandlers();
   const dspHandlers = makeDspHandlers();
   const cwHandlers = makeCwPanelHandlers();
 
@@ -218,6 +220,7 @@
       onMainFreqChange={vfoHandlers.onMainFreqChange}
       onSubFreqChange={vfoHandlers.onSubFreqChange}
       onSubModeClick={vfoHandlers.onSubModeClick}
+      onSpeak={systemHandlers.onSpeak}
     />
   </section>
 

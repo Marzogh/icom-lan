@@ -192,6 +192,7 @@ def test_to_dict_structure() -> None:
         "tx_antenna",
         "rx_antenna_1",
         "rx_antenna_2",
+        "tx_band_edges",
         "scope_controls",
         "main",
         "sub",

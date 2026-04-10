@@ -6,18 +6,21 @@
   import DspPanel from '../panels/DspPanel.svelte';
   import TxPanel from '../panels/TxPanel.svelte';
   import CwPanel from '../panels/CwPanel.svelte';
+  import VoxPanel from '../panels/VoxPanel.svelte';
   import CollapsiblePanel from '../controls/CollapsiblePanel.svelte';
   import {
     toRxAudioProps,
     toDspProps,
     toTxProps,
     toCwProps,
+    toVoxProps,
   } from '../wiring/state-adapter';
   import {
     makeRxAudioHandlers,
     makeDspHandlers,
     makeTxHandlers,
     makeCwPanelHandlers,
+    makeVoxHandlers,
     makeSystemHandlers,
   } from '../wiring/command-bus';
 
@@ -31,12 +34,14 @@
   let dsp = $derived(toDspProps(radioState, caps));
   let tx = $derived(toTxProps(radioState, caps));
   let cw = $derived(toCwProps(radioState, caps));
+  let vox = $derived(toVoxProps(radioState));
 
   // Command handlers via command-bus
   const rxAudioHandlers = makeRxAudioHandlers();
   const dspHandlers = makeDspHandlers();
   const txHandlers = makeTxHandlers();
   const cwHandlers = makeCwPanelHandlers();
+  const voxHandlers = makeVoxHandlers();
   const systemHandlers = makeSystemHandlers();
 
   type RightSidebarMode = 'all' | 'rx' | 'tx';
@@ -69,14 +74,22 @@
         nrLevel={dsp.nrLevel}
         nbActive={dsp.nbActive}
         nbLevel={dsp.nbLevel}
+        nbDepth={dsp.nbDepth}
+        nbWidth={dsp.nbWidth}
         notchMode={dsp.notchMode}
         notchFreq={dsp.notchFreq}
+        manualNotchWidth={dsp.manualNotchWidth}
+        agcTimeConstant={dsp.agcTimeConstant}
         onNrModeChange={dspHandlers.onNrModeChange}
         onNrLevelChange={dspHandlers.onNrLevelChange}
         onNbToggle={dspHandlers.onNbToggle}
         onNbLevelChange={dspHandlers.onNbLevelChange}
+        onNbDepthChange={dspHandlers.onNbDepthChange}
+        onNbWidthChange={dspHandlers.onNbWidthChange}
         onNotchModeChange={dspHandlers.onNotchModeChange}
         onNotchFreqChange={dspHandlers.onNotchFreqChange}
+        onManualNotchWidthChange={dspHandlers.onManualNotchWidthChange}
+        onAgcTimeChange={dspHandlers.onAgcTimeChange}
       />
     </CollapsiblePanel>
   {/if}
@@ -110,18 +123,36 @@
       />
     </CollapsiblePanel>
 
+    {#if hasCapability('vox')}
+      <CollapsiblePanel title="VOX" panelId="vox">
+        <VoxPanel
+          voxOn={vox.voxOn}
+          voxGain={vox.voxGain}
+          antiVoxGain={vox.antiVoxGain}
+          voxDelay={vox.voxDelay}
+          onVoxToggle={voxHandlers.onVoxToggle}
+          onVoxGainChange={voxHandlers.onVoxGainChange}
+          onAntiVoxGainChange={voxHandlers.onAntiVoxGainChange}
+          onVoxDelayChange={voxHandlers.onVoxDelayChange}
+        />
+      </CollapsiblePanel>
+    {/if}
+
     {#if hasCapability('cw')}
       <CollapsiblePanel title="CW" panelId="cw">
         <CwPanel
           cwPitch={cw.cwPitch}
           keySpeed={cw.keySpeed}
           breakIn={cw.breakIn}
+          breakInDelay={cw.breakInDelay}
           apfMode={cw.apfMode}
           twinPeak={cw.twinPeak}
           currentMode={cw.currentMode}
           onCwPitchChange={cwHandlers.onCwPitchChange}
           onKeySpeedChange={cwHandlers.onKeySpeedChange}
           onBreakInToggle={cwHandlers.onBreakInToggle}
+          onBreakInModeChange={cwHandlers.onBreakInModeChange}
+          onBreakInDelayChange={cwHandlers.onBreakInDelayChange}
           onApfChange={cwHandlers.onApfChange}
           onTwinPeakToggle={cwHandlers.onTwinPeakToggle}
           onAutoTune={cwHandlers.onAutoTune}

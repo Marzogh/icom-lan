@@ -37,6 +37,7 @@ _CMD_MEMORY_MODE = 0x08  # Memory mode (select channel)
 _CMD_MEMORY_WRITE = 0x09  # Memory write
 _CMD_MEMORY_TO_VFO = 0x0A  # Memory to VFO
 _CMD_MEMORY_CLEAR = 0x0B  # Memory clear
+_CMD_TX_BAND_EDGE = 0x1E  # TX band edge frequencies
 _CMD_SELECTED_FREQ = 0x25  # Selected/Unselected receiver frequency
 _CMD_SELECTED_MODE = 0x26  # Selected/Unselected receiver mode
 _CMD_ACK = 0xFB

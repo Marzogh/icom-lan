@@ -126,6 +126,7 @@ from ..radio_poller import (
     SetUtcOffset,
     QuickSplit,
     QuickDualWatch,
+    Speak,
 )
 from ..runtime_helpers import (
     build_public_state_payload,
@@ -303,6 +304,7 @@ class ControlHandler:
             "set_data3_mod_input",
             "set_audio_peak_filter",
             "set_digisel_shift",
+            "speak",
             # Issue #410 — system/config
             "get_ref_adjust",
             "set_ref_adjust",
@@ -1596,6 +1598,10 @@ class ControlHandler:
                 self._ensure_capability("vox", "set_vox_delay")
                 q.put(SetVoxDelay(level))
                 return {"level": level}
+            case "speak":
+                mode = int(params.get("mode", 0))
+                q.put(Speak(mode))
+                return {"mode": mode}
             case "set_dial_lock":
                 on = bool(params.get("on", False))
                 q.put(SetDialLock(on))

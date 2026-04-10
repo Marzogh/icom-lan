@@ -1037,6 +1037,16 @@ class CivRuntime:
                             )
                             self._notify_change("dual_watch_changed", {"on": new_dw})
 
+            elif cmd == 0x1E:
+                if frame.sub == 0x01 and len(frame.data) >= 10:
+                    from .commands.tx_band import parse_tx_band_edge_response
+                    from .radio_state import TxBandEdge
+
+                    start_hz, end_hz = parse_tx_band_edge_response(frame.data)
+                    edge = TxBandEdge(start_hz=start_hz, end_hz=end_hz)
+                    if edge not in rs.tx_band_edges:
+                        rs.tx_band_edges.append(edge)
+
         except (ValueError, IndexError, KeyError, AttributeError, TypeError) as exc:
             logger.debug("civ-rx: state update failed for cmd=0x%02x sub=0x%02x: %s", frame.command or 0, frame.sub or 0, exc)
         except Exception:

@@ -32,6 +32,7 @@ export interface ReceiverState {
   ifShift?: number;
   contour?: number;
   nbLevel?: number;
+  manualNotchWidth?: number;
   digiselShift?: number;
   afMute?: boolean;
 }
@@ -124,6 +125,7 @@ export interface ServerState {
   dashRatio?: number;
   nbDepth?: number;
   nbWidth?: number;
+  voxDelay?: number;
   txAntenna?: number;
   rxAntenna1?: boolean;
   rxAntenna2?: boolean;

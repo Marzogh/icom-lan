@@ -762,6 +762,12 @@ class QuickDualWatch:
     pass
 
 
+@dataclass(frozen=True, slots=True)
+class Speak:
+    """Trigger voice synthesizer: 0=all, 1=freq+S, 2=mode."""
+    mode: int = 0
+
+
 Command = (
     SetFreq
     | SetMode
@@ -876,6 +882,7 @@ Command = (
     | SetUtcOffset
     | QuickSplit
     | QuickDualWatch
+    | Speak
 )
 
 
