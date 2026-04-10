@@ -59,7 +59,7 @@
   let scopePixels = $state<Uint8Array | null>(null);
   let enableAvg = $state(true);
   let enablePeakHold = $state(true);
-  let refLevel = $state(0);
+  let brtLevel = $state(0);
   let colorScheme = $state<ColorSchemeName>('classic');
   let spectrumPush: ((data: Uint8Array) => void) | null = null;
   let waterfallPush: ((data: Uint8Array) => void) | null = null;
@@ -115,7 +115,7 @@
     ...defaultWaterfallOptions,
     spanHz,
     centerHz,
-    refLevel,
+    refLevel: brtLevel,
     colorScheme,
   });
 
@@ -373,7 +373,7 @@
 />
 
 <div class="spectrum-panel" class:fullscreen onwheel={handleWheel}>
-  <SpectrumToolbar bind:enableAvg bind:enablePeakHold bind:refLevel bind:colorScheme bind:fullscreen bind:showBandPlan bind:hiddenLayers bind:showEiBi />
+  <SpectrumToolbar bind:enableAvg bind:enablePeakHold bind:brtLevel bind:colorScheme bind:fullscreen bind:showBandPlan bind:hiddenLayers bind:showEiBi />
   <div class="spectrum-with-scales">
     <div class="db-scale">
       {#each DB_TICKS as tick}

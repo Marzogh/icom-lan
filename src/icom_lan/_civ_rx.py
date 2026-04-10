@@ -757,6 +757,12 @@ class CivRuntime:
                     )
                     if frame.sub == 0x02:
                         rs.receiver(rs.active).s_meter = raw
+                    elif frame.sub == 0x11:
+                        rs.power_meter = raw
+                    elif frame.sub == 0x12:
+                        rs.swr_meter = raw
+                    elif frame.sub == 0x13:
+                        rs.alc_meter = raw
                     elif frame.sub == 0x14:
                         rs.comp_meter = raw
                     elif frame.sub == 0x15:

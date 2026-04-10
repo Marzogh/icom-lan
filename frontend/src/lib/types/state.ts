@@ -100,6 +100,9 @@ export interface ServerState {
   compMeter?: number;
   vdMeter?: number;
   idMeter?: number;
+  powerMeter?: number;
+  swrMeter?: number;
+  alcMeter?: number;
   cwPitch?: number;
   micGain?: number;
   keySpeed?: number;

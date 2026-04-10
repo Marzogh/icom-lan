@@ -1351,6 +1351,27 @@ def test_update_radio_state_id_meter(radio_with_state: IcomRadio) -> None:
     assert radio_with_state._radio_state.id_meter == 55
 
 
+def test_update_radio_state_power_meter(radio_with_state: IcomRadio) -> None:
+    """Power meter (0x15 0x11) → RadioState.power_meter."""
+    frame = CivFrame(0xE0, 0x98, 0x15, 0x11, b"\x01\x50")
+    radio_with_state._civ_runtime._update_radio_state_from_frame(frame)
+    assert radio_with_state._radio_state.power_meter == 150
+
+
+def test_update_radio_state_swr_meter(radio_with_state: IcomRadio) -> None:
+    """SWR meter (0x15 0x12) → RadioState.swr_meter."""
+    frame = CivFrame(0xE0, 0x98, 0x15, 0x12, b"\x00\x48")
+    radio_with_state._civ_runtime._update_radio_state_from_frame(frame)
+    assert radio_with_state._radio_state.swr_meter == 48
+
+
+def test_update_radio_state_alc_meter(radio_with_state: IcomRadio) -> None:
+    """ALC meter (0x15 0x13) → RadioState.alc_meter."""
+    frame = CivFrame(0xE0, 0x98, 0x15, 0x13, b"\x01\x20")
+    radio_with_state._civ_runtime._update_radio_state_from_frame(frame)
+    assert radio_with_state._radio_state.alc_meter == 120
+
+
 def test_update_radio_state_various_squelch(radio_with_state: IcomRadio) -> None:
     """Various squelch (0x15 0x05) → ReceiverState.s_meter_sql_open."""
     frame = CivFrame(0xE0, 0x98, 0x15, 0x05, b"\x01")

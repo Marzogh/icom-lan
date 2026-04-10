@@ -128,7 +128,14 @@ describe('extractMeterState', () => {
     expect(result.sValue).toBe(180);
   });
 
-  it('extracts tx values from radioState.tx', () => {
+  it('extracts tx values from top-level meter fields', () => {
+    const result = extractMeterState({ powerMeter: 200, swrMeter: 30, alcMeter: 64 });
+    expect(result.rfPower).toBe(200);
+    expect(result.swr).toBe(30);
+    expect(result.alc).toBe(64);
+  });
+
+  it('falls back to legacy tx sub-object', () => {
     const result = extractMeterState({ tx: { rfPower: 200, swr: 30, alc: 64 } });
     expect(result.rfPower).toBe(200);
     expect(result.swr).toBe(30);
@@ -139,6 +146,11 @@ describe('extractMeterState', () => {
     const result = extractMeterState({ txActive: true, meterSource: 'SWR' });
     expect(result.txActive).toBe(true);
     expect(result.meterSource).toBe('SWR');
+  });
+
+  it('extracts txActive from ptt field', () => {
+    const result = extractMeterState({ ptt: true });
+    expect(result.txActive).toBe(true);
   });
 });
 

@@ -112,6 +112,9 @@ class RadioState:
     comp_meter: int = 0  # raw 0-255
     vd_meter: int = 0  # raw 0-255 (supply voltage)
     id_meter: int = 0  # raw 0-255 (drain current)
+    power_meter: int = 0  # raw 0-255 (CI-V 0x15/0x11)
+    swr_meter: int = 0  # raw 0-255 (CI-V 0x15/0x12)
+    alc_meter: int = 0  # raw 0-255 (CI-V 0x15/0x13)
     cw_pitch: int = 0  # Hz
     mic_gain: int = 0  # 0-255
     key_speed: int = 0  # WPM
@@ -160,6 +163,9 @@ class RadioState:
             "comp_meter": self.comp_meter,
             "vd_meter": self.vd_meter,
             "id_meter": self.id_meter,
+            "power_meter": self.power_meter,
+            "swr_meter": self.swr_meter,
+            "alc_meter": self.alc_meter,
             "cw_pitch": self.cw_pitch,
             "mic_gain": self.mic_gain,
             "key_speed": self.key_speed,

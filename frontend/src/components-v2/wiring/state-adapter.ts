@@ -387,16 +387,12 @@ export interface MeterProps {
 
 export function toMeterProps(state: ServerState | null): MeterProps {
   const mainRx = state?.main;
-  const txMeters = (state as (ServerState & {
-    tx?: { rfPower?: number; swr?: number; alc?: number };
-    meterSource?: string;
-  }) | null)?.tx;
   return {
     sValue: mainRx?.sMeter ?? 0,
     signal: mainRx?.sMeter ?? 0,
-    rfPower: txMeters?.rfPower ?? state?.powerLevel ?? 0,
-    swr: txMeters?.swr ?? 0,
-    alc: txMeters?.alc ?? 0,
+    rfPower: state?.powerMeter ?? 0,
+    swr: state?.swrMeter ?? 0,
+    alc: state?.alcMeter ?? 0,
     comp: state?.compMeter ?? 0,
     vd: state?.vdMeter ?? 0,
     id: state?.idMeter ?? 0,

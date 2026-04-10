@@ -36,11 +36,11 @@ export function extractVfoState(radioState: any, receiver: 'main' | 'sub'): VfoS
  */
 export function extractMeterState(radioState: any) {
   return {
-    sValue: radioState?.main?.sValue ?? 0,
-    rfPower: radioState?.tx?.rfPower ?? 0,
-    swr: radioState?.tx?.swr ?? 0,
-    alc: radioState?.tx?.alc ?? 0,
-    txActive: radioState?.txActive ?? false,
+    sValue: radioState?.main?.sValue ?? radioState?.main?.sMeter ?? 0,
+    rfPower: radioState?.powerMeter ?? radioState?.tx?.rfPower ?? 0,
+    swr: radioState?.swrMeter ?? radioState?.tx?.swr ?? 0,
+    alc: radioState?.alcMeter ?? radioState?.tx?.alc ?? 0,
+    txActive: radioState?.txActive ?? radioState?.ptt ?? false,
     meterSource: radioState?.meterSource ?? 'S',
   };
 }

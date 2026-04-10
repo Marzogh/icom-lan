@@ -73,6 +73,9 @@ def test_radio_state_defaults() -> None:
     assert rs.split is False
     assert rs.dual_watch is False
     assert rs.overflow is False
+    assert rs.power_meter == 0
+    assert rs.swr_meter == 0
+    assert rs.alc_meter == 0
     assert rs.cw_pitch == 0
     assert rs.mic_gain == 0
     assert rs.key_speed == 0
@@ -160,6 +163,9 @@ def test_to_dict_structure() -> None:
         "comp_meter",
         "vd_meter",
         "id_meter",
+        "power_meter",
+        "swr_meter",
+        "alc_meter",
         "cw_pitch",
         "mic_gain",
         "key_speed",

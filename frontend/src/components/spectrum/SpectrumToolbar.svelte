@@ -14,7 +14,7 @@
   let {
     enableAvg = $bindable(true),
     enablePeakHold = $bindable(true),
-    refLevel = $bindable(0),
+    brtLevel = $bindable(0),
     colorScheme = $bindable('classic' as ColorSchemeName),
     fullscreen = $bindable(false),
     showBandPlan = $bindable(true),
@@ -108,10 +108,14 @@
 
   let scopeControls = $derived(radio.current?.scopeControls);
 
-  function toggleScopeMode() {
-    const cur = scopeControls?.mode ?? 0;
-    sendCommand('set_scope_mode', { mode: cur === 0 ? 1 : 0 });
-  }
+  // Scope mode labels: 0=Center, 1=Fixed, 2=Scroll-Center, 3=Scroll-Fixed
+  const MODE_BUTTONS: [number, string][] = [[0, 'CTR'], [1, 'FIX'], [2, 'S-C'], [3, 'S-F']];
+
+  // SPAN is only meaningful in center modes (0=CTR, 2=S-C)
+  let spanApplicable = $derived(scopeControls?.mode === 0 || scopeControls?.mode === 2);
+
+  // EDGE selector is shown in FIX (1) and SCROLL-F (3) modes
+  let edgeApplicable = $derived(scopeControls?.mode === 1 || scopeControls?.mode === 3);
 
   function cycleSpan(delta: -1 | 1) {
     const cur = scopeControls?.span ?? 3;
@@ -169,24 +173,54 @@
   </div>
   <div class="toolbar-separator"></div>
   <div class="toolbar-group">
-    <span class="toolbar-label">REF</span>
-    <button class="toolbar-btn small" onclick={() => (refLevel = Math.max(-30, refLevel - 5))}>−</button>
-    <span class="toolbar-value ref-value">{refLevel > 0 ? '+' : ''}{refLevel}</span>
-    <button class="toolbar-btn small" onclick={() => (refLevel = Math.min(30, refLevel + 5))}>+</button>
+    <span class="toolbar-label">BRT</span>
+    <button class="toolbar-btn small" onclick={() => (brtLevel = Math.max(-30, brtLevel - 5))}>−</button>
+    <span class="toolbar-value ref-value">{brtLevel > 0 ? '+' : ''}{brtLevel}</span>
+    <button class="toolbar-btn small" onclick={() => (brtLevel = Math.min(30, brtLevel + 5))}>+</button>
   </div>
   {#if hasCapability('scope')}
     <div class="toolbar-separator"></div>
-    <div class="toolbar-group step-group">
-      <button class="toolbar-btn" onclick={toggleScopeMode} title="Toggle scope mode">
-        {scopeControls?.mode === 1 ? 'FIX' : 'CTR'}
-      </button>
-      <button class="toolbar-btn small step-arrow" onclick={() => cycleSpan(-1)} title="Decrease span">◀</button>
-      <button class="toolbar-btn step-control" onclick={() => cycleSpan(1)} title="Scope span">
-        <span class="toolbar-label">SPAN</span>
-        <span class="toolbar-value">{SPAN_LABELS[scopeControls?.span ?? 3] ?? '±25k'}</span>
-      </button>
-      <button class="toolbar-btn small step-arrow" onclick={() => cycleSpan(1)} title="Increase span">▶</button>
+    <div class="toolbar-group">
+      <span class="toolbar-label">REF</span>
+      <button class="toolbar-btn small" onclick={() => sendCommand('set_scope_ref', { ref: Math.max(-30, (scopeControls?.refDb ?? 0) - 5) })}>−</button>
+      <span class="toolbar-value ref-value">{(scopeControls?.refDb ?? 0) > 0 ? '+' : ''}{scopeControls?.refDb ?? 0}</span>
+      <button class="toolbar-btn small" onclick={() => sendCommand('set_scope_ref', { ref: Math.min(10, (scopeControls?.refDb ?? 0) + 5) })}>+</button>
     </div>
+    <div class="toolbar-separator"></div>
+    <div class="toolbar-group">
+      {#each MODE_BUTTONS as [m, label]}
+        <button
+          class="toolbar-btn small"
+          class:active={scopeControls?.mode === m}
+          onclick={() => sendCommand('set_scope_mode', { mode: m })}
+          title="Scope mode: {label}"
+        >{label}</button>
+      {/each}
+    </div>
+    {#if edgeApplicable}
+      <div class="toolbar-separator"></div>
+      <div class="toolbar-group">
+        <span class="toolbar-label">EDGE</span>
+        {#each [1, 2, 3, 4] as e}
+          <button
+            class="toolbar-btn small"
+            class:active={scopeControls?.edge === e}
+            onclick={() => sendCommand('set_scope_fixed_edge', { edge: e })}
+          >{e}</button>
+        {/each}
+      </div>
+    {/if}
+    {#if spanApplicable}
+      <div class="toolbar-separator"></div>
+      <div class="toolbar-group step-group">
+        <button class="toolbar-btn small step-arrow" onclick={() => cycleSpan(-1)} title="Decrease span">◀</button>
+        <button class="toolbar-btn step-control" onclick={() => cycleSpan(1)} title="Scope span">
+          <span class="toolbar-label">SPAN</span>
+          <span class="toolbar-value">{SPAN_LABELS[scopeControls?.span ?? 3] ?? '±25k'}</span>
+        </button>
+        <button class="toolbar-btn small step-arrow" onclick={() => cycleSpan(1)} title="Increase span">▶</button>
+      </div>
+    {/if}
     <div class="toolbar-separator"></div>
     <div class="toolbar-group step-group">
       <button class="toolbar-btn small step-arrow" onclick={() => cycleSpeed(-1)} title="Decrease speed">◀</button>
