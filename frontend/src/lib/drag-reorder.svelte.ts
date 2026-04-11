@@ -21,12 +21,18 @@ export function loadPanelOrder(storageKey: string, defaults: string[]): string[]
     const stored = localStorage.getItem(storageKey);
     if (stored) {
       const parsed = JSON.parse(stored);
-      if (
-        Array.isArray(parsed) &&
-        parsed.length === defaults.length &&
-        defaults.every((id) => parsed.includes(id))
-      ) {
-        return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        // Accept variable-length orders (cross-sidebar moves change panel count).
+        // Filter to strings only, deduplicate, ignore unknowns at render time.
+        const seen = new Set<string>();
+        const unique: string[] = [];
+        for (const id of parsed) {
+          if (typeof id === 'string' && !seen.has(id)) {
+            seen.add(id);
+            unique.push(id);
+          }
+        }
+        if (unique.length > 0) return unique;
       }
     }
   } catch {
@@ -55,6 +61,7 @@ interface DragInstance {
   dragStyle(panelId: string): string;
   handleDragStart(panelId: string, event: PointerEvent): void;
   reset(): void;
+  resetAll(): void;
   _setIncoming(panelId: string | null, index: number): void;
   _acceptPanel(panelId: string, atIndex: number): void;
   _removePanel(panelId: string): void;
@@ -229,6 +236,13 @@ export function createDragReorder(options: DragReorderOptions): DragInstance {
     }
   }
 
+  function resetAll() {
+    reset();
+    for (const other of _registry) {
+      if (other !== instance) other.reset();
+    }
+  }
+
   const instance: DragInstance = {
     get order() {
       return order;
@@ -244,6 +258,7 @@ export function createDragReorder(options: DragReorderOptions): DragInstance {
     dragStyle,
     handleDragStart,
     reset,
+    resetAll,
     _setIncoming,
     _acceptPanel,
     _removePanel,
