@@ -1,6 +1,6 @@
 <script lang="ts">
   import { radio } from '$lib/stores/radio.svelte';
-  import { isAudioFftScope, hasAudioFft, hasDualReceiver, getCapabilities } from '$lib/stores/capabilities.svelte';
+  import { isAudioFftScope, hasAudioFft, hasDualReceiver, getCapabilities, hasCapability } from '$lib/stores/capabilities.svelte';
   import { resolveFilterModeConfig } from '../../wiring/state-adapter';
   import AmberFrequency from './AmberFrequency.svelte';
   import AmberSmeter from './AmberSmeter.svelte';
@@ -158,41 +158,41 @@
       <AmberSmeter value={sValue} {txActive} />
     </div>
 
-    <!-- ═══ Indicators (below S-meter) — grouped by function ═══ -->
+    <!-- ═══ Indicators (below S-meter) — gated by capabilities ═══ -->
     <div class="lcd-ind-row">
-      <!-- TX group -->
+      <!-- TX group (always shown) -->
       <span class="lcd-ind" class:active={txActive} class:ind-tx={txActive}>TX</span>
-      <span class="lcd-ind" class:active={voxActive}>VOX</span>
-      <span class="lcd-ind" class:active={compActive}>PROC{compActive ? ` ${compLevel}` : ''}</span>
+      {#if hasCapability('vox')}<span class="lcd-ind" class:active={voxActive}>VOX</span>{/if}
+      {#if hasCapability('compressor')}<span class="lcd-ind" class:active={compActive}>PROC{compActive ? ` ${compLevel}` : ''}</span>{/if}
 
       <span class="ind-sep"></span>
 
       <!-- RF front-end -->
-      <span class="lcd-ind" class:active={attActive}>ATT</span>
-      <span class="lcd-ind active">{preamp === 0 ? 'IPO' : preamp === 1 ? 'AMP1' : 'AMP2'}</span>
-      <span class="lcd-ind" class:active={digiSelActive}>DIGI-SEL</span>
-      <span class="lcd-ind" class:active={ipPlusActive}>IP+</span>
-      <span class="lcd-ind" class:active={atuActive}>ATU</span>
+      {#if hasCapability('attenuator')}<span class="lcd-ind" class:active={attActive}>ATT</span>{/if}
+      {#if hasCapability('preamp')}<span class="lcd-ind active">{preamp === 0 ? 'IPO' : preamp === 1 ? 'AMP1' : 'AMP2'}</span>{/if}
+      {#if hasCapability('digisel')}<span class="lcd-ind" class:active={digiSelActive}>DIGI-SEL</span>{/if}
+      {#if hasCapability('ip_plus')}<span class="lcd-ind" class:active={ipPlusActive}>IP+</span>{/if}
+      {#if hasCapability('tuner')}<span class="lcd-ind" class:active={atuActive}>ATU</span>{/if}
 
       <span class="ind-sep"></span>
 
       <!-- DSP / filters -->
-      <span class="lcd-ind" class:active={nbActive}>NB{nbActive ? ` ${nbLevel}` : ''}</span>
-      <span class="lcd-ind" class:active={nrActive}>NR{nrActive ? ` ${nrLevel}` : ''}</span>
-      <span class="lcd-ind" class:active={contourActive}>CONT</span>
-      <span class="lcd-ind" class:active={notchActive}>NOTCH</span>
-      <span class="lcd-ind" class:active={anfActive}>ANF</span>
+      {#if hasCapability('nb')}<span class="lcd-ind" class:active={nbActive}>NB{nbActive ? ` ${nbLevel}` : ''}</span>{/if}
+      {#if hasCapability('nr')}<span class="lcd-ind" class:active={nrActive}>NR{nrActive ? ` ${nrLevel}` : ''}</span>{/if}
+      {#if hasCapability('contour')}<span class="lcd-ind" class:active={contourActive}>CONT</span>{/if}
+      {#if hasCapability('notch')}<span class="lcd-ind" class:active={notchActive}>NOTCH</span>{/if}
+      {#if hasCapability('notch')}<span class="lcd-ind" class:active={anfActive}>ANF</span>{/if}
       <span class="lcd-ind active">AGC {agcLabel(agcMode)}</span>
 
       <span class="ind-sep"></span>
 
       <!-- VFO / system -->
-      <span class="lcd-ind" class:active={rfgReduced}>RFG</span>
-      <span class="lcd-ind" class:active={sqlActive}>SQL</span>
-      <span class="lcd-ind" class:active={ritActive}>RIT</span>
-      <span class="lcd-ind" class:active={splitActive}>SPLIT</span>
+      {#if hasCapability('rf_gain')}<span class="lcd-ind" class:active={rfgReduced}>RFG</span>{/if}
+      {#if hasCapability('squelch')}<span class="lcd-ind" class:active={sqlActive}>SQL</span>{/if}
+      {#if hasCapability('rit')}<span class="lcd-ind" class:active={ritActive}>RIT</span>{/if}
+      {#if hasCapability('split')}<span class="lcd-ind" class:active={splitActive}>SPLIT</span>{/if}
       {#if dataActive}<span class="lcd-ind active">DATA</span>{/if}
-      <span class="lcd-ind" class:active={lockActive}>LOCK</span>
+      {#if hasCapability('dial_lock')}<span class="lcd-ind" class:active={lockActive}>LOCK</span>{/if}
     </div>
 
     <!-- ═══ VFO A + AF Scope row ═══ -->
