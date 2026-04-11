@@ -34,19 +34,21 @@ export class RxPlayer {
 
   start(): void {
     if (this.ctx) {
-      // Resume if suspended (browser autoplay policy)
       if (this.ctx.state === 'suspended') this.ctx.resume();
       return;
     }
     const Ctx = globalThis.AudioContext ?? (globalThis as any).webkitAudioContext;
     if (!Ctx) return;
     this.ctx = new Ctx({ sampleRate: SAMPLE_RATE });
-    // Must resume — Chrome/Safari suspend AudioContext by default
-    if (this.ctx.state === 'suspended') this.ctx.resume();
     this.gain = this.ctx.createGain();
     this.gain.gain.value = this._volume;
     this.gain.connect(this.ctx.destination);
     this.nextPlayTime = 0;
+    // Resume suspended context. When it transitions to 'running',
+    // playPcm16/decodeOpus will start scheduling buffers automatically.
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {});
+    }
   }
 
   stop(): void {
@@ -84,11 +86,7 @@ export class RxPlayer {
 
   private playPcm16(payload: Uint8Array, sr: number, ch: number): void {
     if (!this.ctx || !this.gain) return;
-    // Wait for AudioContext to resume (browser autoplay policy)
-    if (this.ctx.state === 'suspended') {
-      this.ctx.resume();
-      return; // drop frame until context is running
-    }
+    if (this.ctx.state === 'suspended') return; // wait for resume
     const channels = ch === 2 ? 2 : 1;
     const frameCount = Math.floor(payload.byteLength / (2 * channels));
     if (frameCount <= 0) return;
@@ -108,10 +106,7 @@ export class RxPlayer {
 
   private decodeOpus(payload: Uint8Array, sr: number, ch: number): void {
     if (!this.ctx || !this.gain) return;
-    if (this.ctx.state === 'suspended') {
-      this.ctx.resume();
-      return;
-    }
+    if (this.ctx.state === 'suspended') return;
     if (typeof AudioDecoder === 'undefined') return;
 
     if (!this.decoder) {
