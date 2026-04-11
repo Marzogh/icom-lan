@@ -76,12 +76,19 @@
   let nbActive = $derived((rx?.nb ?? false) || nbLevel > 0);
   let nrActive = $derived((rx?.nr ?? false) || nrLevel > 0);
   let agcMode = $derived(rx?.agc ?? 0);
-  let notchActive = $derived(rx?.autoNotch ?? false);
+  let notchActive = $derived(rx?.manualNotch ?? false);
   let compActive = $derived(radioState?.compressorOn ?? false);
   let compLevel = $derived(radioState?.compressorLevel ?? 0);
   let lockActive = $derived(radioState?.dialLock ?? false);
   let contourActive = $derived((rx?.contour ?? 0) > 0);
   let contourLevel = $derived(rx?.contour ?? 0);
+  let digiSelActive = $derived(rx?.digisel ?? false);
+  let ipPlusActive = $derived(rx?.ipplus ?? false);
+  let anfActive = $derived(rx?.autoNotch ?? false);
+  let manualNotchActive = $derived(rx?.manualNotch ?? false);
+  let rfgReduced = $derived((rx?.rfGain ?? 255) < 255);
+  let sqlActive = $derived((rx?.squelch ?? 0) > 0);
+  let dataActive = $derived(!!rx?.dataMode);
   let filterWidthHz = $derived(rx?.filterWidth ?? 2400);
   let filterWidthMax = $derived.by(() => {
     const caps = getCapabilities();
@@ -163,6 +170,8 @@
       <!-- RF front-end -->
       <span class="lcd-ind" class:active={attActive}>ATT</span>
       <span class="lcd-ind active">{preamp === 0 ? 'IPO' : preamp === 1 ? 'AMP1' : 'AMP2'}</span>
+      <span class="lcd-ind" class:active={digiSelActive}>DIGI-SEL</span>
+      <span class="lcd-ind" class:active={ipPlusActive}>IP+</span>
       <span class="lcd-ind" class:active={atuActive}>ATU</span>
 
       <span class="ind-sep"></span>
@@ -172,13 +181,17 @@
       <span class="lcd-ind" class:active={nrActive}>NR{nrActive ? ` ${nrLevel}` : ''}</span>
       <span class="lcd-ind" class:active={contourActive}>CONT</span>
       <span class="lcd-ind" class:active={notchActive}>NOTCH</span>
+      <span class="lcd-ind" class:active={anfActive}>ANF</span>
       <span class="lcd-ind active">AGC {agcLabel(agcMode)}</span>
 
       <span class="ind-sep"></span>
 
       <!-- VFO / system -->
+      <span class="lcd-ind" class:active={rfgReduced}>RFG</span>
+      <span class="lcd-ind" class:active={sqlActive}>SQL</span>
       <span class="lcd-ind" class:active={ritActive}>RIT</span>
       <span class="lcd-ind" class:active={splitActive}>SPLIT</span>
+      {#if dataActive}<span class="lcd-ind active">DATA</span>{/if}
       <span class="lcd-ind" class:active={lockActive}>LOCK</span>
     </div>
 
