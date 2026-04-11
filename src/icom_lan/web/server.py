@@ -643,7 +643,9 @@ class WebServer:
         """Called after soft_reconnect — refetch state and re-enable scope."""
         # Re-fetch initial state so UI shows fresh values after reconnect
         if self._radio is not None and hasattr(self._radio, "_fetch_initial_state"):
-            asyncio.ensure_future(self._radio._fetch_initial_state())
+            coro = self._radio._fetch_initial_state()
+            if coro is not None and asyncio.iscoroutine(coro):
+                asyncio.ensure_future(coro)
         if (
             self._scope_handlers
             and self._radio is not None
