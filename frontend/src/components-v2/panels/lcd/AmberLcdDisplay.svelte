@@ -68,6 +68,7 @@
   let splitActive = $derived(radioState?.split ?? false);
   let voxActive = $derived(radioState?.voxOn ?? false);
   let atuActive = $derived((radioState?.tunerStatus ?? 0) > 0);
+  let atuTuning = $derived((radioState?.tunerStatus ?? 0) === 2);
   let preamp = $derived(rx?.preamp ?? 0);
   let attActive = $derived((rx?.att ?? 0) > 0);
   // FTX-1: no separate NB/NR on/off — level > 0 means active
@@ -163,7 +164,7 @@
       <!-- RF front-end -->
       <span class="lcd-ind" class:active={attActive}>ATT</span>
       <span class="lcd-ind active">{preamp === 0 ? 'IPO' : preamp === 1 ? 'AMP1' : 'AMP2'}</span>
-      <span class="lcd-ind" class:active={atuActive}>ATU</span>
+      <span class="lcd-ind" class:active={atuActive} class:ind-tuning={atuTuning}>{atuTuning ? 'TUNE' : 'ATU'}</span>
 
       <span class="ind-sep"></span>
 
@@ -319,6 +320,13 @@
     color: #5A0800;
     border-color: rgba(90, 8, 0, 0.5);
     font-size: 15px;
+  }
+  .lcd-ind.ind-tuning {
+    animation: lcd-blink 0.6s steps(1) infinite;
+  }
+  @keyframes lcd-blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0.15; }
   }
 
   /* ── VFO + Scope row ── */
