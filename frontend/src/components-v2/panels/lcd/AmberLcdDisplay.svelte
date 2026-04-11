@@ -1,12 +1,13 @@
 <script lang="ts">
   import { radio } from '$lib/stores/radio.svelte';
-  import { isAudioFftScope, hasAudioFft, hasDualReceiver, getCapabilities } from '$lib/stores/capabilities.svelte';
+  import { isAudioFftScope, hasAudioFft, hasDualReceiver, getCapabilities, hasCapability } from '$lib/stores/capabilities.svelte';
   import { resolveFilterModeConfig } from '../../wiring/state-adapter';
   import AmberFrequency from './AmberFrequency.svelte';
   import AmberSmeter from './AmberSmeter.svelte';
   import AmberAfScope from './AmberAfScope.svelte';
-  import { getChannel } from '$lib/transport/ws-client';
+  import { getChannel, sendCommand } from '$lib/transport/ws-client';
   import { markScopeFrame } from '$lib/stores/connection.svelte';
+  import { hasCapability } from '$lib/stores/capabilities.svelte';
 
 
   interface ScopeFrame {
@@ -66,6 +67,8 @@
   let ritActive = $derived(radioState?.ritOn ?? false);
   let ritOffset = $derived(radioState?.ritFreq ?? 0);
   let splitActive = $derived(radioState?.split ?? false);
+  let dualWatchActive = $derived(radioState?.dualWatch ?? false);
+  let xitActive = $derived(radioState?.ritTx ?? false);
   let voxActive = $derived(radioState?.voxOn ?? false);
   let atuActive = $derived((radioState?.tunerStatus ?? 0) > 0);
   let atuTuning = $derived((radioState?.tunerStatus ?? 0) === 2);
@@ -77,12 +80,19 @@
   let nbActive = $derived((rx?.nb ?? false) || nbLevel > 0);
   let nrActive = $derived((rx?.nr ?? false) || nrLevel > 0);
   let agcMode = $derived(rx?.agc ?? 0);
-  let notchActive = $derived(rx?.autoNotch ?? false);
+  let notchActive = $derived(rx?.manualNotch ?? false);
   let compActive = $derived(radioState?.compressorOn ?? false);
   let compLevel = $derived(radioState?.compressorLevel ?? 0);
   let lockActive = $derived(radioState?.dialLock ?? false);
   let contourActive = $derived((rx?.contour ?? 0) > 0);
   let contourLevel = $derived(rx?.contour ?? 0);
+  let digiSelActive = $derived(rx?.digisel ?? false);
+  let ipPlusActive = $derived(rx?.ipplus ?? false);
+  let anfActive = $derived(rx?.autoNotch ?? false);
+  let manualNotchActive = $derived(rx?.manualNotch ?? false);
+  let rfgReduced = $derived((rx?.rfGain ?? 255) < 255);
+  let sqlActive = $derived((rx?.squelch ?? 0) > 0);
+  let dataActive = $derived(!!rx?.dataMode);
   let filterWidthHz = $derived(rx?.filterWidth ?? 2400);
   let filterWidthMax = $derived.by(() => {
     const caps = getCapabilities();
@@ -152,35 +162,41 @@
       <AmberSmeter value={sValue} {txActive} />
     </div>
 
-    <!-- ═══ Indicators (below S-meter) — grouped by function ═══ -->
+    <!-- ═══ Indicators (below S-meter) — gated by capabilities ═══ -->
     <div class="lcd-ind-row">
-      <!-- TX group -->
+      <!-- TX group (always shown) -->
       <span class="lcd-ind" class:active={txActive} class:ind-tx={txActive}>TX</span>
-      <span class="lcd-ind" class:active={voxActive}>VOX</span>
-      <span class="lcd-ind" class:active={compActive}>PROC{compActive ? ` ${compLevel}` : ''}</span>
+      {#if hasCapability('vox')}<span class="lcd-ind" class:active={voxActive}>VOX</span>{/if}
+      {#if hasCapability('compressor')}<span class="lcd-ind" class:active={compActive}>PROC{compActive ? ` ${compLevel}` : ''}</span>{/if}
 
       <span class="ind-sep"></span>
 
       <!-- RF front-end -->
-      <span class="lcd-ind" class:active={attActive}>ATT</span>
-      <span class="lcd-ind active">{preamp === 0 ? 'IPO' : preamp === 1 ? 'AMP1' : 'AMP2'}</span>
-      <span class="lcd-ind" class:active={atuActive} class:ind-tuning={atuTuning}>{atuTuning ? 'TUNE' : 'ATU'}</span>
+      {#if hasCapability('attenuator')}<span class="lcd-ind" class:active={attActive}>ATT</span>{/if}
+      {#if hasCapability('preamp')}<span class="lcd-ind active">{preamp === 0 ? 'IPO' : preamp === 1 ? 'AMP1' : 'AMP2'}</span>{/if}
+      {#if hasCapability('digisel')}<span class="lcd-ind" class:active={digiSelActive}>DIGI-SEL</span>{/if}
+      {#if hasCapability('ip_plus')}<span class="lcd-ind" class:active={ipPlusActive}>IP+</span>{/if}
+      {#if hasCapability('tuner')}<span class="lcd-ind" class:active={atuActive} class:ind-tuning={atuTuning}>{atuTuning ? 'TUNE' : 'ATU'}</span>{/if}
 
       <span class="ind-sep"></span>
 
       <!-- DSP / filters -->
-      <span class="lcd-ind" class:active={nbActive}>NB{nbActive ? ` ${nbLevel}` : ''}</span>
-      <span class="lcd-ind" class:active={nrActive}>NR{nrActive ? ` ${nrLevel}` : ''}</span>
-      <span class="lcd-ind" class:active={contourActive}>CONT</span>
-      <span class="lcd-ind" class:active={notchActive}>NOTCH</span>
+      {#if hasCapability('nb')}<span class="lcd-ind" class:active={nbActive}>NB{nbActive ? ` ${nbLevel}` : ''}</span>{/if}
+      {#if hasCapability('nr')}<span class="lcd-ind" class:active={nrActive}>NR{nrActive ? ` ${nrLevel}` : ''}</span>{/if}
+      {#if hasCapability('contour')}<span class="lcd-ind" class:active={contourActive}>CONT</span>{/if}
+      {#if hasCapability('notch')}<span class="lcd-ind" class:active={notchActive}>NOTCH</span>{/if}
+      {#if hasCapability('notch')}<span class="lcd-ind" class:active={anfActive}>ANF</span>{/if}
       <span class="lcd-ind active">AGC {agcLabel(agcMode)}</span>
 
       <span class="ind-sep"></span>
 
       <!-- VFO / system -->
-      <span class="lcd-ind" class:active={ritActive}>RIT</span>
-      <span class="lcd-ind" class:active={splitActive}>SPLIT</span>
-      <span class="lcd-ind" class:active={lockActive}>LOCK</span>
+      {#if hasCapability('rf_gain')}<span class="lcd-ind" class:active={rfgReduced}>RFG</span>{/if}
+      {#if hasCapability('squelch')}<span class="lcd-ind" class:active={sqlActive}>SQL</span>{/if}
+      {#if hasCapability('rit')}<span class="lcd-ind" class:active={ritActive}>RIT</span>{/if}
+      {#if hasCapability('split')}<span class="lcd-ind" class:active={splitActive}>SPLIT</span>{/if}
+      {#if dataActive}<span class="lcd-ind active">DATA</span>{/if}
+      {#if hasCapability('dial_lock')}<span class="lcd-ind" class:active={lockActive}>LOCK</span>{/if}
     </div>
 
     <!-- ═══ VFO A + AF Scope row ═══ -->
@@ -228,10 +244,26 @@
       </div>
     {/if}
 
-    <!-- ═══ RIT offset (if active) ═══ -->
-    {#if ritActive}
+    <!-- ═══ VFO controls ═══ -->
+    <div class="lcd-vfo-ctrl-row">
+      <button class="lcd-btn" onclick={() => sendCommand('vfo_swap', {})}>A↔B</button>
+      <button class="lcd-btn" onclick={() => sendCommand('vfo_equalize', {})}>A=B</button>
+      {#if hasCapability('dual_rx')}
+        <button class="lcd-btn" class:active={dualWatchActive} onclick={() => sendCommand('set_dual_watch', { on: !dualWatchActive })}>DW</button>
+      {/if}
+      {#if hasCapability('split')}
+        <button class="lcd-btn" class:active={splitActive} onclick={() => sendCommand('set_split', { on: !splitActive })}>SPLIT</button>
+      {/if}
+      {#if hasCapability('rit')}
+        <button class="lcd-btn" class:active={xitActive} onclick={() => sendCommand('set_rit_tx_status', { on: !xitActive })}>XIT</button>
+        <button class="lcd-btn" onclick={() => sendCommand('set_rit_frequency', { freq: 0 })}>CLR</button>
+      {/if}
+    </div>
+
+    <!-- ═══ RIT / XIT offset (if active) ═══ -->
+    {#if ritActive || xitActive}
       <div class="lcd-rit-row">
-        <span class="rit-label">RIT</span>
+        <span class="rit-label">{ritActive ? 'RIT' : 'XIT'}</span>
         <span class="rit-value">{ritOffset >= 0 ? '+' : ''}{ritOffset} Hz</span>
       </div>
     {/if}
@@ -327,6 +359,40 @@
   @keyframes lcd-blink {
     0%, 50% { opacity: 1; }
     51%, 100% { opacity: 0.15; }
+  }
+
+  /* ── VFO control buttons ── */
+  .lcd-vfo-ctrl-row {
+    display: flex;
+    gap: 6px;
+    padding: 2px 8px;
+    position: relative;
+    z-index: 2;
+  }
+  .lcd-btn {
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: rgba(0, 0, 0, 0.25);
+    background: transparent;
+    border: 1.5px solid rgba(0, 0, 0, 0.1);
+    border-radius: 3px;
+    padding: 1px 8px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .lcd-btn:hover {
+    color: rgba(26, 16, 0, 0.6);
+    border-color: rgba(26, 16, 0, 0.3);
+  }
+  .lcd-btn:active {
+    color: #1A1000;
+    border-color: rgba(26, 16, 0, 0.5);
+  }
+  .lcd-btn.active {
+    color: #1A1000;
+    border-color: rgba(26, 16, 0, 0.4);
   }
 
   /* ── VFO + Scope row ── */
