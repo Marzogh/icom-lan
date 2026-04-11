@@ -62,7 +62,36 @@
   let mode = $derived(rx?.mode ?? '---');
   let filter = $derived(rx?.filter ?? '');
   let sValue = $derived(rx?.sMeter ?? 0);
+  let subSValue = $derived(radioState?.sub?.sMeter ?? 0);
   let txActive = $derived(radioState?.ptt ?? false);
+  let poValue = $derived(radioState?.powerMeter ?? 0);
+  let swrValue = $derived(radioState?.swrMeter ?? 0);
+  let alcValue = $derived(radioState?.alcMeter ?? 0);
+  let compMeterValue = $derived(radioState?.compMeter ?? 0);
+
+  type MeterSource = 'S' | 'PO' | 'SWR' | 'ALC' | 'COMP';
+  const METER_SOURCES: MeterSource[] = ['S', 'PO', 'SWR', 'ALC', 'COMP'];
+  let userMeterSource = $state<MeterSource>('S');
+
+  // Auto-switch to PO during TX if user hasn't selected a TX meter
+  let activeMeterSource = $derived<MeterSource>(
+    txActive && userMeterSource === 'S' ? 'PO' : userMeterSource
+  );
+
+  let meterValue = $derived.by(() => {
+    switch (activeMeterSource) {
+      case 'PO': return poValue;
+      case 'SWR': return swrValue;
+      case 'ALC': return alcValue;
+      case 'COMP': return compMeterValue;
+      default: return sValue;
+    }
+  });
+
+  function cycleMeterSource() {
+    const idx = METER_SOURCES.indexOf(userMeterSource);
+    userMeterSource = METER_SOURCES[(idx + 1) % METER_SOURCES.length];
+  }
   let ritActive = $derived(radioState?.ritOn ?? false);
   let ritOffset = $derived(radioState?.ritFreq ?? 0);
   let splitActive = $derived(radioState?.split ?? false);
@@ -158,8 +187,14 @@
 
     <!-- ═══ S-Meter ═══ -->
     <div class="lcd-meter-row">
-      <AmberSmeter value={sValue} {txActive} />
+      <AmberSmeter value={meterValue} {txActive} source={activeMeterSource} />
+      <button class="lcd-meter-src-btn" onclick={cycleMeterSource}>{activeMeterSource}</button>
     </div>
+    {#if hasDualReceiver() && !txActive}
+      <div class="lcd-meter-row lcd-meter-sub">
+        <AmberSmeter value={subSValue} source="S" />
+      </div>
+    {/if}
 
     <!-- ═══ Indicators (below S-meter) — gated by capabilities ═══ -->
     <div class="lcd-ind-row">
@@ -481,6 +516,34 @@
   .lcd-meter-row {
     position: relative;
     z-index: 2;
+    display: flex;
+    align-items: center;
+  }
+  .lcd-meter-row :global(.lcd-smeter) {
+    flex: 1;
+  }
+  .lcd-meter-src-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    color: #1A1000;
+    background: transparent;
+    border: 1.5px solid rgba(26, 16, 0, 0.3);
+    border-radius: 3px;
+    padding: 2px 6px;
+    margin-right: 4px;
+    cursor: pointer;
+    min-width: 36px;
+    text-align: center;
+  }
+  .lcd-meter-src-btn:hover {
+    border-color: rgba(26, 16, 0, 0.5);
+  }
+  .lcd-meter-sub {
+    opacity: 0.6;
+    transform: scaleY(0.7);
+    transform-origin: top;
+    margin-top: -4px;
   }
 
   /* ── Sub VFO ── */

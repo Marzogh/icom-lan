@@ -1,12 +1,15 @@
 <script lang="ts">
   import { getCalibrationPoints, getS9Raw, rawToSUnit, rawToDbm } from '../../meters/smeter-scale';
 
+  type MeterSource = 'S' | 'PO' | 'SWR' | 'ALC' | 'COMP';
+
   interface Props {
-    value: number;      // Raw S-meter 0-255
+    value: number;      // Raw meter 0-255
     txActive?: boolean;
+    source?: MeterSource;
   }
 
-  let { value, txActive = false }: Props = $props();
+  let { value, txActive = false, source = 'S' }: Props = $props();
 
   const MAX_RAW = 255;
   const SEGMENTS = 192;
@@ -43,9 +46,13 @@
 
   let filledSegs = $derived(Math.round(Math.min(SEGMENTS, Math.max(0, (value / MAX_RAW) * SEGMENTS))));
 
-  let sReadout = $derived({
-    sUnit: rawToSUnit(value),
-    dbm: rawToDbm(value).toString(),
+  let sReadout = $derived.by(() => {
+    if (source === 'S') return { label: rawToSUnit(value), sub: rawToDbm(value) + ' dBm' };
+    if (source === 'PO') return { label: 'PO', sub: Math.round(value / 255 * 100) + 'W' };
+    if (source === 'SWR') return { label: 'SWR', sub: (1.0 + value / 255 * 8.9).toFixed(1) };
+    if (source === 'ALC') return { label: 'ALC', sub: Math.round(value / 255 * 100) + '%' };
+    if (source === 'COMP') return { label: 'COMP', sub: Math.round(value / 255 * 20) + 'dB' };
+    return { label: rawToSUnit(value), sub: rawToDbm(value) + ' dBm' };
   });
 </script>
 
@@ -87,8 +94,8 @@
 
   <!-- Readout -->
   <div class="meter-readout">
-    <span class="readout-s">{sReadout.sUnit}</span>
-    <span class="readout-dbm">{sReadout.dbm}<span class="readout-unit">dBm</span></span>
+    <span class="readout-s">{sReadout.label}</span>
+    <span class="readout-dbm">{sReadout.sub}</span>
   </div>
 </div>
 
