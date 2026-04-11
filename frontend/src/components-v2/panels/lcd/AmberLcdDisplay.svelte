@@ -7,7 +7,6 @@
   import AmberAfScope from './AmberAfScope.svelte';
   import { getChannel, sendCommand } from '$lib/transport/ws-client';
   import { markScopeFrame } from '$lib/stores/connection.svelte';
-  import { hasCapability } from '$lib/stores/capabilities.svelte';
 
 
   interface ScopeFrame {
