@@ -66,106 +66,118 @@
 </script>
 
 <aside class="left-sidebar" class:cross-drop-target={drag.isDropTarget}>
-  <CollapsiblePanel title="RF FRONT END" panelId="rf-front-end" dataPanel="rf-frontend"
-    draggable={true} onDragStart={drag.handleDragStart}
-    style={drag.dragStyle('rf-front-end')}>
-    <RfFrontEnd
-      rfGain={rfFrontEnd.rfGain}
-      squelch={rfFrontEnd.squelch}
-      att={rfFrontEnd.att}
-      pre={rfFrontEnd.pre}
-      digiSel={rfFrontEnd.digiSel}
-      ipPlus={rfFrontEnd.ipPlus}
-      onRfGainChange={rfHandlers.onRfGainChange}
-      onSquelchChange={rfHandlers.onSquelchChange}
-      onAttChange={rfHandlers.onAttChange}
-      onPreChange={rfHandlers.onPreChange}
-      onDigiSelToggle={rfHandlers.onDigiSelToggle}
-      onIpPlusToggle={rfHandlers.onIpPlusToggle}
-    />
-  </CollapsiblePanel>
+  {#if drag.order.includes('rf-front-end')}
+    <CollapsiblePanel title="RF FRONT END" panelId="rf-front-end" dataPanel="rf-frontend"
+      draggable={true} onDragStart={drag.handleDragStart}
+      style={drag.dragStyle('rf-front-end')}>
+      <RfFrontEnd
+        rfGain={rfFrontEnd.rfGain}
+        squelch={rfFrontEnd.squelch}
+        att={rfFrontEnd.att}
+        pre={rfFrontEnd.pre}
+        digiSel={rfFrontEnd.digiSel}
+        ipPlus={rfFrontEnd.ipPlus}
+        onRfGainChange={rfHandlers.onRfGainChange}
+        onSquelchChange={rfHandlers.onSquelchChange}
+        onAttChange={rfHandlers.onAttChange}
+        onPreChange={rfHandlers.onPreChange}
+        onDigiSelToggle={rfHandlers.onDigiSelToggle}
+        onIpPlusToggle={rfHandlers.onIpPlusToggle}
+      />
+    </CollapsiblePanel>
+  {/if}
 
-  <CollapsiblePanel title="MODE" panelId="mode"
-    draggable={true} onDragStart={drag.handleDragStart}
-    style={drag.dragStyle('mode')}>
-    <ModePanel
-      currentMode={mode.currentMode}
-      modes={mode.modes}
-      dataMode={mode.dataMode}
-      hasDataMode={mode.hasDataMode}
-      dataModeCount={mode.dataModeCount}
-      dataModeLabels={mode.dataModeLabels}
-      onModeChange={modeHandlers.onModeChange}
-      onDataModeChange={modeHandlers.onDataModeChange}
-    />
-  </CollapsiblePanel>
+  {#if drag.order.includes('mode')}
+    <CollapsiblePanel title="MODE" panelId="mode"
+      draggable={true} onDragStart={drag.handleDragStart}
+      style={drag.dragStyle('mode')}>
+      <ModePanel
+        currentMode={mode.currentMode}
+        modes={mode.modes}
+        dataMode={mode.dataMode}
+        hasDataMode={mode.hasDataMode}
+        dataModeCount={mode.dataModeCount}
+        dataModeLabels={mode.dataModeLabels}
+        onModeChange={modeHandlers.onModeChange}
+        onDataModeChange={modeHandlers.onDataModeChange}
+      />
+    </CollapsiblePanel>
+  {/if}
 
-  <CollapsiblePanel title="FILTER" panelId="filter"
-    draggable={true} onDragStart={drag.handleDragStart}
-    style={drag.dragStyle('filter')}>
-    <FilterPanel
-      currentMode={filter.currentMode}
-      currentFilter={filter.currentFilter}
-      filterShape={filter.filterShape}
-      filterLabels={filter.filterLabels}
-      filterWidth={filter.filterWidth}
-      filterWidthMin={filter.filterWidthMin}
-      filterWidthMax={filter.filterWidthMax}
-      filterConfig={filter.filterConfig}
-      ifShift={filter.ifShift}
-      hasPbt={filter.hasPbt}
-      pbtInner={filter.pbtInner}
-      pbtOuter={filter.pbtOuter}
-      onFilterChange={filterHandlers.onFilterChange}
-      onFilterWidthChange={filterHandlers.onFilterWidthChange}
-      onFilterShapeChange={filterHandlers.onFilterShapeChange}
-      onFilterPresetChange={filterHandlers.onFilterPresetChange}
-      onFilterDefaults={filterHandlers.onFilterDefaults}
-      onIfShiftChange={filterHandlers.onIfShiftChange}
-      onPbtInnerChange={filterHandlers.onPbtInnerChange}
-      onPbtOuterChange={filterHandlers.onPbtOuterChange}
-      onPbtReset={filterHandlers.onPbtReset}
-    />
-  </CollapsiblePanel>
+  {#if drag.order.includes('filter')}
+    <CollapsiblePanel title="FILTER" panelId="filter"
+      draggable={true} onDragStart={drag.handleDragStart}
+      style={drag.dragStyle('filter')}>
+      <FilterPanel
+        currentMode={filter.currentMode}
+        currentFilter={filter.currentFilter}
+        filterShape={filter.filterShape}
+        filterLabels={filter.filterLabels}
+        filterWidth={filter.filterWidth}
+        filterWidthMin={filter.filterWidthMin}
+        filterWidthMax={filter.filterWidthMax}
+        filterConfig={filter.filterConfig}
+        ifShift={filter.ifShift}
+        hasPbt={filter.hasPbt}
+        pbtInner={filter.pbtInner}
+        pbtOuter={filter.pbtOuter}
+        onFilterChange={filterHandlers.onFilterChange}
+        onFilterWidthChange={filterHandlers.onFilterWidthChange}
+        onFilterShapeChange={filterHandlers.onFilterShapeChange}
+        onFilterPresetChange={filterHandlers.onFilterPresetChange}
+        onFilterDefaults={filterHandlers.onFilterDefaults}
+        onIfShiftChange={filterHandlers.onIfShiftChange}
+        onPbtInnerChange={filterHandlers.onPbtInnerChange}
+        onPbtOuterChange={filterHandlers.onPbtOuterChange}
+        onPbtReset={filterHandlers.onPbtReset}
+      />
+    </CollapsiblePanel>
+  {/if}
 
-  <CollapsiblePanel title="AGC" panelId="agc"
-    draggable={true} onDragStart={drag.handleDragStart}
-    style={drag.dragStyle('agc')}>
-    <AgcPanel
-      agcMode={agc.agcMode}
-      onAgcModeChange={agcHandlers.onAgcModeChange}
-    />
-  </CollapsiblePanel>
+  {#if drag.order.includes('agc')}
+    <CollapsiblePanel title="AGC" panelId="agc"
+      draggable={true} onDragStart={drag.handleDragStart}
+      style={drag.dragStyle('agc')}>
+      <AgcPanel
+        agcMode={agc.agcMode}
+        onAgcModeChange={agcHandlers.onAgcModeChange}
+      />
+    </CollapsiblePanel>
+  {/if}
 
-  <CollapsiblePanel title="RIT / XIT" panelId="rit-xit"
-    draggable={true} onDragStart={drag.handleDragStart}
-    style={drag.dragStyle('rit-xit')}>
-    <RitXitPanel
-      ritActive={ritXit.ritActive}
-      ritOffset={ritXit.ritOffset}
-      xitActive={ritXit.xitActive}
-      xitOffset={ritXit.xitOffset}
-      hasRit={ritXit.hasRit}
-      hasXit={ritXit.hasXit}
-      onRitToggle={ritXitHandlers.onRitToggle}
-      onXitToggle={ritXitHandlers.onXitToggle}
-      onRitOffsetChange={ritXitHandlers.onRitOffsetChange}
-      onXitOffsetChange={ritXitHandlers.onXitOffsetChange}
-      onClear={ritXitHandlers.onClear}
-    />
-  </CollapsiblePanel>
+  {#if drag.order.includes('rit-xit')}
+    <CollapsiblePanel title="RIT / XIT" panelId="rit-xit"
+      draggable={true} onDragStart={drag.handleDragStart}
+      style={drag.dragStyle('rit-xit')}>
+      <RitXitPanel
+        ritActive={ritXit.ritActive}
+        ritOffset={ritXit.ritOffset}
+        xitActive={ritXit.xitActive}
+        xitOffset={ritXit.xitOffset}
+        hasRit={ritXit.hasRit}
+        hasXit={ritXit.hasXit}
+        onRitToggle={ritXitHandlers.onRitToggle}
+        onXitToggle={ritXitHandlers.onXitToggle}
+        onRitOffsetChange={ritXitHandlers.onRitOffsetChange}
+        onXitOffsetChange={ritXitHandlers.onXitOffsetChange}
+        onClear={ritXitHandlers.onClear}
+      />
+    </CollapsiblePanel>
+  {/if}
 
-  <CollapsiblePanel title="BAND" panelId="band"
-    draggable={true} onDragStart={drag.handleDragStart}
-    style={drag.dragStyle('band')}>
-    <BandSelector
-      currentFreq={band.currentFreq}
-      onBandSelect={bandHandlers.onBandSelect}
-      onPresetSelect={presetHandlers.onPresetSelect}
-    />
-  </CollapsiblePanel>
+  {#if drag.order.includes('band')}
+    <CollapsiblePanel title="BAND" panelId="band"
+      draggable={true} onDragStart={drag.handleDragStart}
+      style={drag.dragStyle('band')}>
+      <BandSelector
+        currentFreq={band.currentFreq}
+        onBandSelect={bandHandlers.onBandSelect}
+        onPresetSelect={presetHandlers.onPresetSelect}
+      />
+    </CollapsiblePanel>
+  {/if}
 
-  {#if antenna.antennaCount > 1}
+  {#if drag.order.includes('antenna') && antenna.antennaCount > 1}
     <CollapsiblePanel title="ANTENNA" panelId="antenna" dataPanel="antenna"
       draggable={true} onDragStart={drag.handleDragStart}
       style={drag.dragStyle('antenna')}>
@@ -181,22 +193,24 @@
     </CollapsiblePanel>
   {/if}
 
-  <CollapsiblePanel title="SCAN" panelId="scan"
-    draggable={true} onDragStart={drag.handleDragStart}
-    style={drag.dragStyle('scan')}>
-    <ScanPanel
-      scanning={scan.scanning}
-      scanType={scan.scanType}
-      scanResumeMode={scan.scanResumeMode}
-      onScanStart={scanHandlers.onScanStart}
-      onScanStop={scanHandlers.onScanStop}
-      onDfSpanChange={scanHandlers.onDfSpanChange}
-      onResumeChange={scanHandlers.onResumeChange}
-    />
-  </CollapsiblePanel>
+  {#if drag.order.includes('scan')}
+    <CollapsiblePanel title="SCAN" panelId="scan"
+      draggable={true} onDragStart={drag.handleDragStart}
+      style={drag.dragStyle('scan')}>
+      <ScanPanel
+        scanning={scan.scanning}
+        scanType={scan.scanType}
+        scanResumeMode={scan.scanResumeMode}
+        onScanStart={scanHandlers.onScanStart}
+        onScanStop={scanHandlers.onScanStop}
+        onDfSpanChange={scanHandlers.onDfSpanChange}
+        onResumeChange={scanHandlers.onResumeChange}
+      />
+    </CollapsiblePanel>
+  {/if}
 
   <div class="sidebar-footer" style="order:99">
-    <button type="button" class="reset-order-btn" onclick={drag.reset}>
+    <button type="button" class="reset-order-btn" onclick={drag.resetAll}>
       Reset panel order
     </button>
   </div>

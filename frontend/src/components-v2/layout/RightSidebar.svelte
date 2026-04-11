@@ -61,7 +61,7 @@
 </script>
 
 <aside class="right-sidebar" class:cross-drop-target={drag.isDropTarget}>
-  {#if showRx}
+  {#if showRx && drag.order.includes('rx-audio')}
     <CollapsiblePanel title="RX AUDIO" panelId="rx-audio" draggable onDragStart={drag.handleDragStart} style={drag.dragStyle('rx-audio')}>
       <RxAudioPanel
         monitorMode={rxAudio.monitorMode}
@@ -71,7 +71,9 @@
         onAfLevelChange={rxAudioHandlers.onAfLevelChange}
       />
     </CollapsiblePanel>
+  {/if}
 
+  {#if showRx && drag.order.includes('dsp')}
     <CollapsiblePanel title="DSP" panelId="dsp" draggable onDragStart={drag.handleDragStart} style={drag.dragStyle('dsp')}>
       <DspPanel
         nrMode={dsp.nrMode}
@@ -98,7 +100,7 @@
     </CollapsiblePanel>
   {/if}
 
-  {#if showTx}
+  {#if showTx && drag.order.includes('tx')}
     <CollapsiblePanel title="TX" panelId="tx" draggable onDragStart={drag.handleDragStart} style={drag.dragStyle('tx')}>
       <TxPanel
         txActive={tx.txActive}
@@ -126,33 +128,35 @@
         onPttOff={systemHandlers.onPttOff}
       />
     </CollapsiblePanel>
-
-    {#if hasCapability('cw')}
-      <CollapsiblePanel title="CW" panelId="cw" draggable onDragStart={drag.handleDragStart} style={drag.dragStyle('cw')}>
-        <CwPanel
-          cwPitch={cw.cwPitch}
-          keySpeed={cw.keySpeed}
-          breakIn={cw.breakIn}
-          breakInDelay={cw.breakInDelay}
-          apfMode={cw.apfMode}
-          twinPeak={cw.twinPeak}
-          currentMode={cw.currentMode}
-          onCwPitchChange={cwHandlers.onCwPitchChange}
-          onKeySpeedChange={cwHandlers.onKeySpeedChange}
-          onBreakInToggle={cwHandlers.onBreakInToggle}
-          onBreakInModeChange={cwHandlers.onBreakInModeChange}
-          onBreakInDelayChange={cwHandlers.onBreakInDelayChange}
-          onApfChange={cwHandlers.onApfChange}
-          onTwinPeakToggle={cwHandlers.onTwinPeakToggle}
-          onAutoTune={cwHandlers.onAutoTune}
-        />
-      </CollapsiblePanel>
-    {/if}
   {/if}
 
-  <CollapsiblePanel title="MEMORY" panelId="memory" draggable onDragStart={drag.handleDragStart} style={drag.dragStyle('memory')}>
-    <MemoryPanel />
-  </CollapsiblePanel>
+  {#if showTx && drag.order.includes('cw') && hasCapability('cw')}
+    <CollapsiblePanel title="CW" panelId="cw" draggable onDragStart={drag.handleDragStart} style={drag.dragStyle('cw')}>
+      <CwPanel
+        cwPitch={cw.cwPitch}
+        keySpeed={cw.keySpeed}
+        breakIn={cw.breakIn}
+        breakInDelay={cw.breakInDelay}
+        apfMode={cw.apfMode}
+        twinPeak={cw.twinPeak}
+        currentMode={cw.currentMode}
+        onCwPitchChange={cwHandlers.onCwPitchChange}
+        onKeySpeedChange={cwHandlers.onKeySpeedChange}
+        onBreakInToggle={cwHandlers.onBreakInToggle}
+        onBreakInModeChange={cwHandlers.onBreakInModeChange}
+        onBreakInDelayChange={cwHandlers.onBreakInDelayChange}
+        onApfChange={cwHandlers.onApfChange}
+        onTwinPeakToggle={cwHandlers.onTwinPeakToggle}
+        onAutoTune={cwHandlers.onAutoTune}
+      />
+    </CollapsiblePanel>
+  {/if}
+
+  {#if drag.order.includes('memory')}
+    <CollapsiblePanel title="MEMORY" panelId="memory" draggable onDragStart={drag.handleDragStart} style={drag.dragStyle('memory')}>
+      <MemoryPanel />
+    </CollapsiblePanel>
+  {/if}
 </aside>
 
 <style>
