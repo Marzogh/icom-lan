@@ -371,7 +371,8 @@ class ControlHandler:
         if self._server is not None:
             try:
                 initial_state = self._server.build_public_state()
-                msg = {"type": "state_update", "data": {"type": "full", "data": initial_state, "revision": 0}}
+                rev = self._server._delta_encoder.revision
+                msg = {"type": "state_update", "data": {"type": "full", "data": initial_state, "revision": rev}}
                 await self._ws.send_text(encode_json(msg))
             except Exception:
                 logger.debug("control: failed to send initial state", exc_info=True)

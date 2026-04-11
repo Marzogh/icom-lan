@@ -126,6 +126,11 @@ class DeltaEncoder:
 
         return result
 
+    @property
+    def revision(self) -> int:
+        """Current revision counter."""
+        return self._revision
+
     def reset(self) -> None:
         """Reset encoder state (e.g., on client reconnect)."""
         self._previous_state = None
