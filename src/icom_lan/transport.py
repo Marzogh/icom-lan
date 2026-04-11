@@ -109,6 +109,9 @@ class IcomTransport:
         self._packet_queue: asyncio.Queue[bytes] = asyncio.Queue(
             maxsize=PACKET_QUEUE_MAXSIZE
         )
+        # Optional callback invoked when queue pressure exceeds 75%.
+        # Expected signature: () -> int (returns number of items shed).
+        self._scope_shed_callback: Callable[[], int] | None = None
         self._raw_send = self._default_raw_send
         self.rx_packet_count: int = 0  # total packets received (incl. pings)
         self._last_tracked_send: float = 0.0  # monotonic time of last tracked send
@@ -616,6 +619,17 @@ class IcomTransport:
 
         try:
             self._packet_queue.put_nowait(data)
+            # Proactive shedding: when queue fills past 75%, ask the scope
+            # assembler to drop incomplete frames before we hit hard overflow.
+            cb = self._scope_shed_callback
+            if cb is not None and self.queue_pressure > 0.75:
+                shed = cb()
+                if shed:
+                    logger.warning(
+                        "Queue pressure %.0f%%: shed %d incomplete scope frame(s)",
+                        self.queue_pressure * 100,
+                        shed,
+                    )
         except asyncio.QueueFull:
             # Race: queue became full between check and put.
             # Drop the incoming packet only if it's scope.
