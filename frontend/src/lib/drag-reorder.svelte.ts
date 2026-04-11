@@ -265,5 +265,15 @@ export function createDragReorder(options: DragReorderOptions): DragInstance {
   };
 
   _registry.push(instance);
+
+  // Auto-unregister when the owning component is destroyed.
+  // In Svelte 5, $effect teardown runs on component unmount.
+  $effect(() => {
+    return () => {
+      const idx = _registry.indexOf(instance);
+      if (idx >= 0) _registry.splice(idx, 1);
+    };
+  });
+
   return instance;
 }
