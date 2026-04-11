@@ -699,6 +699,11 @@ class YaesuCatRadio:
         main, _ = await self._read_meter(5)
         return main
 
+    async def get_swr_meter(self) -> int:
+        """Get SWR meter raw reading (0–255)."""
+        main, _ = await self._read_meter(6)
+        return main
+
     async def get_swr(self) -> float:
         """Get SWR as a ratio (1.0–9.9).
 

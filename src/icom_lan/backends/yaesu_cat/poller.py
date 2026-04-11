@@ -496,8 +496,7 @@ class YaesuCatPoller:
             except Exception:
                 logger.debug("YaesuCatPoller: get_comp_meter failed", exc_info=True)
             try:
-                raw_swr, _ = await self._radio._read_meter(6)
-                state.swr_meter = raw_swr
+                state.swr_meter = await self._radio.get_swr_meter()
             except Exception:
                 logger.debug("YaesuCatPoller: get_swr failed", exc_info=True)
         else:

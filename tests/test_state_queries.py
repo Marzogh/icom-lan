@@ -56,12 +56,15 @@ class TestBuildStateQueries:
         scope_queries = [q for q in queries if q[0] == 0x27]
         assert len(scope_queries) > 0
 
-    def test_ic7300_no_scope_queries(self) -> None:
-        """IC-7300 is not IC-7610 — no 0x27 scope queries."""
+    def test_ic7300_has_scope_queries_if_capable(self) -> None:
+        """IC-7300 has scope capability — should include 0x27 queries."""
         profile = resolve_radio_profile(model="IC-7300")
         queries = build_state_queries(profile, _ic7300_caps())
         scope_queries = [q for q in queries if q[0] == 0x27]
-        assert len(scope_queries) == 0
+        if "scope" in _ic7300_caps():
+            assert len(scope_queries) > 0
+        else:
+            assert len(scope_queries) == 0
 
     def test_global_queries_present(self) -> None:
         """Power, PTT, split, RIT etc. must be in every query list."""

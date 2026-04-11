@@ -100,18 +100,19 @@ def build_state_queries(
                 # Single-receiver: plain CI-V query (only once, not per-rx)
                 queries.append((cmd_byte, sub_byte, None))
 
-        if profile.model == "IC-7610":
-            for cmd_byte, sub_byte in (
-                (0x16, 0x12),  # AGC mode
-                (0x16, 0x32),  # Audio peak filter
-                (0x16, 0x41),  # Auto notch
-                (0x16, 0x48),  # Manual notch
-                (0x16, 0x4F),  # Twin peak filter
-                (0x16, 0x56),  # Filter shape
-                (0x1A, 0x04),  # AGC time constant
-            ):
-                if profile.supports_cmd29(cmd_byte, sub_byte):
-                    queries.append((cmd_byte, sub_byte, receiver))
+        # Per-receiver feature queries that use cmd29 wrapping.
+        # Added for any radio whose profile declares cmd29 support for these.
+        for cmd_byte, sub_byte in (
+            (0x16, 0x12),  # AGC mode
+            (0x16, 0x32),  # Audio peak filter
+            (0x16, 0x41),  # Auto notch
+            (0x16, 0x48),  # Manual notch
+            (0x16, 0x4F),  # Twin peak filter
+            (0x16, 0x56),  # Filter shape
+            (0x1A, 0x04),  # AGC time constant
+        ):
+            if profile.supports_cmd29(cmd_byte, sub_byte):
+                queries.append((cmd_byte, sub_byte, receiver))
 
     # Global queries (not per-receiver)
     queries.extend(
@@ -167,11 +168,14 @@ def build_state_queries(
     for cmd, sub in _COMMON_FEATURE_QUERIES:
         queries.append((cmd, sub, None))
 
-    if profile.model == "IC-7610":
+    # Capability-gated optional queries
+    if "meters" in capabilities:
+        queries.append((0x15, 0x07, None))  # Overflow status
+    if "ssb_tx_bw" in capabilities:
+        queries.append((0x16, 0x58, None))  # SSB TX bandwidth
+    if "scope" in capabilities:
         queries.extend(
             [
-                (0x15, 0x07, None),  # Overflow status
-                (0x16, 0x58, None),  # SSB TX bandwidth
                 (0x27, 0x12, None),  # Scope receiver selection
                 (0x27, 0x13, None),  # Scope single/dual mode
                 (0x27, 0x14, None),  # Scope mode (center/fixed)
