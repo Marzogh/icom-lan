@@ -370,7 +370,12 @@ class RadioPoller:
         At pressure 0.5-0.7: linear interpolation from 1x to 2x gap.
         At pressure > 0.7: return 2x gap.
         """
-        pressure = self._radio.queue_pressure  # type: ignore[attr-defined]
+        try:
+            pressure = self._radio.queue_pressure  # type: ignore[attr-defined]
+            if not isinstance(pressure, (int, float)):
+                return self._gap
+        except (AttributeError, TypeError):
+            return self._gap
         if pressure < 0.5:
             return self._gap
         if pressure > PRESSURE_THRESHOLD:
@@ -540,7 +545,7 @@ class RadioPoller:
                 await self._civ(0x27, sub=sub, data=b"")
             except Exception:
                 pass
-            await asyncio.sleep(self._gap)
+            await asyncio.sleep(self._adaptive_gap())
 
         # Queries that require receiver prefix byte
         rx_byte = bytes([scope_rx])
@@ -549,7 +554,7 @@ class RadioPoller:
                 await self._civ(0x27, sub=sub, data=rx_byte)
             except Exception:
                 pass
-            await asyncio.sleep(self._gap)
+            await asyncio.sleep(self._adaptive_gap())
         logger.info("radio-poller: scope controls fetched (receiver=%d)", scope_rx)
 
     async def _initial_state_fetch(self) -> None:
@@ -578,13 +583,13 @@ class RadioPoller:
                         await self._execute(cmd)
                     except Exception:
                         pass
-                    await asyncio.sleep(self._gap)
+                    await asyncio.sleep(self._adaptive_gap())
             try:
                 await self._send_one_state_query(cmd_byte, sub_byte, receiver)
                 ok += 1
             except Exception:
                 pass  # non-fatal; regular rotation will retry
-            await asyncio.sleep(self._gap)
+            await asyncio.sleep(self._adaptive_gap())
         logger.info("radio-poller: initial state fetch done (%d/%d ok)", ok, len(self._STATE_QUERIES))
 
     async def _run(self) -> None:
@@ -614,7 +619,7 @@ class RadioPoller:
                                 type(cmd).__name__,
                                 exc_info=True,
                             )
-                        await asyncio.sleep(self._gap)
+                        await asyncio.sleep(self._adaptive_gap())
 
                 # If disconnected, back off to avoid log spam
                 if _backoff > 0:
