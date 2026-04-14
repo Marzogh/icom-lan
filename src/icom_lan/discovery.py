@@ -460,7 +460,12 @@ async def discover_lan_radios(timeout: float = 3.0) -> list[dict[str, object]]:
 
         # Broadcast on common Icom ports
         for port in [50001]:
-            sock.sendto(bytes(pkt), ("255.255.255.255", port))
+            try:
+                sock.sendto(bytes(pkt), ("255.255.255.255", port))
+            except OSError as exc:
+                logger.warning("discover: broadcast failed on port %d: %s", port, exc)
+                sock.close()
+                return []
 
         found: dict[str, dict[str, object]] = {}
         deadline = time.monotonic() + timeout

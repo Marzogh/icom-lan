@@ -84,7 +84,15 @@ async def _auto_discover_lan(timeout: float = _DISCOVER_TIMEOUT) -> str:
     from .discovery import discover_lan_radios
 
     print(f"No --host specified, scanning LAN for radios ({timeout:.0f}s)...")
-    radios = await discover_lan_radios(timeout=timeout)
+    try:
+        radios = await discover_lan_radios(timeout=timeout)
+    except OSError as exc:
+        print(
+            f"Error: LAN discovery failed: {exc}\n"
+            "  Network may be unavailable. Specify --host <IP> explicitly.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
     if len(radios) == 1:
         host = str(radios[0]["host"])
         print(f"  Found radio at {host}")
