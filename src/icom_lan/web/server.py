@@ -37,6 +37,7 @@ from ..audio_analyzer import AudioAnalyzer
 from ..audio_fft_scope import AudioFftScope
 from ..startup_checks import assert_radio_startup_ready
 from ._delta_encoder import DeltaEncoder
+from .discovery import DiscoveryResponder, RadioInfo
 from .dx_cluster import DXClusterClient, SpotBuffer
 from .handlers import AudioBroadcaster, AudioHandler, ControlHandler, ScopeHandler
 from .rtc import handle_rtc_offer, rtc_capability_info, webrtc_available
@@ -164,6 +165,8 @@ class WebConfig:
     tls_cert: str = ""  # path to cert PEM (empty = auto self-signed)
     tls_key: str = ""  # path to key PEM (empty = auto self-signed)
     tls: bool = False  # enable TLS (HTTPS with auto self-signed cert)
+    discovery: bool = True  # enable UDP discovery responder
+    discovery_port: int = 8470  # UDP port for discovery
 
 
 class ConnectionManager:
@@ -311,6 +314,8 @@ class WebServer:
         # Connection manager and zombie reaper
         self._conn_manager: ConnectionManager = ConnectionManager()
         self._zombie_reaper_task: asyncio.Task[None] | None = None
+        # UDP discovery responder
+        self._discovery: DiscoveryResponder | None = None
 
     def __del__(self) -> None:
         """Emit WARN if instance is collected while server is still running (forgotten teardown)."""
@@ -953,6 +958,26 @@ class WebServer:
                 self._config.dx_callsign,
             )
 
+        # Start UDP discovery responder
+        if self._config.discovery:
+            radio = self._radio
+
+            def _radio_provider() -> RadioInfo | None:
+                if radio is None:
+                    return None
+                return RadioInfo(
+                    model=getattr(radio, "model", None) or self._config.radio_model,
+                    connected=bool(getattr(radio, "connected", False)),
+                )
+
+            self._discovery = DiscoveryResponder(
+                web_port=self._config.port,
+                tls=self._config.tls,
+                radio_provider=_radio_provider,
+                discovery_port=self._config.discovery_port,
+            )
+            await self._discovery.start()
+
     # ------------------------------------------------------------------
     # Audio Bridge (virtual device integration)
     # ------------------------------------------------------------------
@@ -1037,7 +1062,12 @@ class WebServer:
         if self._audio_bridge is not None:
             await self.stop_audio_bridge()
 
-        # 3. Stop DX cluster
+        # 3. Stop discovery responder
+        if self._discovery is not None:
+            await self._discovery.stop()
+            self._discovery = None
+
+        # 4. Stop DX cluster
         if self._dx_client is not None:
             await self._dx_client.stop()
             self._dx_client = None
@@ -1049,7 +1079,7 @@ class WebServer:
                 pass
             self._dx_client_task = None
 
-        # 4. Cancel housekeeping tasks
+        # 5. Cancel housekeeping tasks
         for task in (self._zombie_reaper_task, self._scope_health_task, self._scope_reenable_task):
             if task is not None:
                 task.cancel()
@@ -1057,12 +1087,12 @@ class WebServer:
         self._scope_health_task = None
         self._scope_reenable_task = None
 
-        # 5. Cancel all background + client tasks first
+        # 6. Cancel all background + client tasks first
         all_tasks = list(self._bg_tasks) + list(self._client_tasks)
         for task in all_tasks:
             task.cancel()
 
-        # 6. Close TCP listener (now that client tasks are cancelled,
+        # 7. Close TCP listener (now that client tasks are cancelled,
         #    wait_closed() won't block on open connections)
         if self._server is not None:
             self._server.close()
@@ -1072,7 +1102,7 @@ class WebServer:
                 logger.warning("server.wait_closed() timed out after 2s")
             self._server = None
 
-        # 7. Wait for cancelled tasks to finish (with timeout)
+        # 8. Wait for cancelled tasks to finish (with timeout)
         if all_tasks:
             try:
                 await asyncio.wait_for(

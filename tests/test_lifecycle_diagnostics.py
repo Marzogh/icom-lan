@@ -100,7 +100,7 @@ async def _force_gc_ready(server: WebServer) -> None:
 
 async def test_web_server_gc_while_running_logs_warning() -> None:
     """When WebServer is collected while _server is still set (forgot stop()), a WARN is emitted."""
-    server = WebServer(config=WebConfig(port=0))
+    server = WebServer(config=WebConfig(port=0, discovery=False))
     await server.start()
     assert server._server is not None
     server._server.close()
@@ -137,7 +137,7 @@ async def test_web_server_gc_after_stop_does_not_log_warning(
 ) -> None:
     """When WebServer is stopped before GC, no WARN is emitted."""
     with caplog.at_level(logging.WARNING, logger="icom_lan.web.server"):
-        server = WebServer(config=WebConfig(port=0))
+        server = WebServer(config=WebConfig(port=0, discovery=False))
         await server.start()
         await server.stop()
         del server

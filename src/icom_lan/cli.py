@@ -832,6 +832,13 @@ def _build_parser() -> argparse.ArgumentParser:
         default=False,
         help="Enable HTTPS with auto-generated self-signed certificate (needed for LAN TX audio)",
     )
+    web_p.add_argument(
+        "--no-discovery",
+        dest="web_discovery",
+        action="store_false",
+        default=True,
+        help="Disable UDP discovery responder (enabled by default on port 8470)",
+    )
 
     # proxy
     proxy_p = sub.add_parser(
@@ -2345,6 +2352,7 @@ async def _cmd_web(radio: Radio, args: argparse.Namespace) -> int:
     if use_tls or tls_cert:
         config_kwargs["tls"] = True
 
+    config_kwargs["discovery"] = getattr(args, "web_discovery", True)
     config_kwargs["radio_model"] = getattr(radio, "model", "IC-7610")
     config = WebConfig(**config_kwargs)
     server = WebServer(radio, config)
