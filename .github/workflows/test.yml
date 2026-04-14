@@ -52,4 +52,51 @@ jobs:
         run: mypy --strict src/icom_lan/web
 
       - name: Run tests
-        run: pytest tests/test_*.py -v --tb=short --timeout=300 --timeout-method=thread
+        id: tests
+        run: |
+          pytest tests/test_*.py -v --tb=short --timeout=300 --timeout-method=thread \
+            | tee pytest-output.txt
+          # Extract counts for badge
+          SUMMARY=$(tail -1 pytest-output.txt)
+          PASSED=$(echo "$SUMMARY" | grep -oP '\d+ passed' | grep -oP '\d+' || echo "0")
+          echo "passed=$PASSED" >> "$GITHUB_OUTPUT"
+
+      - name: Extract version
+        if: matrix.python-version == '3.11' && github.ref == 'refs/heads/main'
+        id: version
+        run: |
+          VERSION=$(python -c "from importlib.metadata import version; print(version('icom-lan'))")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Update tests badge
+        if: matrix.python-version == '3.11' && github.ref == 'refs/heads/main' && always()
+        uses: schneegans/dynamic-badges-action@v1.7.0
+        with:
+          auth: ${{ secrets.GIST_TOKEN }}
+          gistID: bce917f4007ac491e527e142564fbbae
+          filename: icom-lan-tests.json
+          label: tests
+          message: "${{ steps.tests.outputs.passed }} passed"
+          color: ${{ steps.tests.outcome == 'success' && 'brightgreen' || 'red' }}
+
+      - name: Update version badge
+        if: matrix.python-version == '3.11' && github.ref == 'refs/heads/main' && always()
+        uses: schneegans/dynamic-badges-action@v1.7.0
+        with:
+          auth: ${{ secrets.GIST_TOKEN }}
+          gistID: bce917f4007ac491e527e142564fbbae
+          filename: icom-lan-version.json
+          label: version
+          message: "v${{ steps.version.outputs.version }}"
+          color: blue
+
+      - name: Update mypy badge
+        if: matrix.python-version == '3.11' && github.ref == 'refs/heads/main' && always()
+        uses: schneegans/dynamic-badges-action@v1.7.0
+        with:
+          auth: ${{ secrets.GIST_TOKEN }}
+          gistID: bce917f4007ac491e527e142564fbbae
+          filename: icom-lan-mypy.json
+          label: mypy
+          message: "0 errors"
+          color: blue

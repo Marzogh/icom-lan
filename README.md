@@ -2,9 +2,10 @@
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-4336%20passed-brightgreen.svg)](#testing)
-[![Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen.svg)](#testing)
-[![Type Safety](https://img.shields.io/badge/mypy-0%20errors-blue.svg)](#testing)
+[![Tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/morozsm/bce917f4007ac491e527e142564fbbae/raw/icom-lan-tests.json)](https://github.com/morozsm/icom-lan/actions/workflows/test.yml)
+[![Version](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/morozsm/bce917f4007ac491e527e142564fbbae/raw/icom-lan-version.json)](https://pypi.org/project/icom-lan/)
+[![Type Safety](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/morozsm/bce917f4007ac491e527e142564fbbae/raw/icom-lan-mypy.json)](#testing)
+[![CI](https://github.com/morozsm/icom-lan/actions/workflows/test.yml/badge.svg)](https://github.com/morozsm/icom-lan/actions/workflows/test.yml)
 
 **Python library for controlling Icom transceivers over LAN (UDP) or USB serial.**
 
