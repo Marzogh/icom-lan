@@ -124,7 +124,7 @@ class NRScipyNode:
         clean_spectrum = clean_mag * np.exp(1j * phase)
         result = fft.irfft(clean_spectrum, n=n)
 
-        return result.astype(np.float32)
+        return result.astype(np.float32)  # type: ignore[no-any-return]
 
     def get_params(self) -> dict[str, Any]:
         """Return current node parameters."""

@@ -163,6 +163,9 @@ class ControlPhaseHost(Protocol):
     _civ_send_seq: int
     _audio_send_seq: int
 
+    # Scope assembler (shared with CivRuntimeHost; used to set shed callback)
+    _scope_assembler: "ScopeAssembler"
+
     # Pre-bound sockets for CI-V and audio (set during connect, consumed by open)
     _civ_sock_pending: Any  # socket.socket | None
     _audio_sock_pending: Any  # socket.socket | None

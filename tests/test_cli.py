@@ -1,7 +1,6 @@
 """Tests for CLI module — parser, frequency parsing, main entry."""
 
 import argparse
-import asyncio
 import io
 from unittest.mock import AsyncMock, MagicMock, patch
 

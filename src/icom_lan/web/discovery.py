@@ -167,7 +167,8 @@ def _get_local_ip_for(remote_addr: str) -> str:
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         s.connect((remote_addr, 1))  # doesn't send anything
-        return s.getsockname()[0]
+        host: str = s.getsockname()[0]
+        return host
     except Exception:
         return "127.0.0.1"
     finally:

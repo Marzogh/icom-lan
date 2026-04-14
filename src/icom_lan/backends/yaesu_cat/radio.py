@@ -609,6 +609,33 @@ class YaesuCatRadio:
         else:
             self._state.sub.mode = mode
 
+    # -- Data mode ---------------------------------------------------------
+
+    async def get_data_mode(self) -> bool:
+        """Whether DATA mode is active.
+
+        On Yaesu radios, DATA mode is embedded in the mode string (e.g.
+        ``USB-D``).  We derive it from the current mode name rather than
+        issuing a separate CAT query.
+        """
+        mode = self._state.main.mode or ""
+        return mode.endswith("-D") or "DATA" in mode.upper()
+
+    async def set_data_mode(self, on: int | bool, receiver: int = 0) -> None:
+        """Toggle DATA mode.
+
+        On Yaesu radios this is done by switching the operating mode
+        (e.g. USB ↔ USB-D).  A full implementation requires the rig
+        profile to map mode pairs.  For now, log a warning if the
+        profile lacks a ``set_data_mode`` CAT command.
+        """
+        if self.has_write_command("set_data_mode"):
+            await self._write("set_data_mode", state="1" if on else "0")
+        else:
+            logger.warning(
+                "set_data_mode: no CAT command defined for %s", self.model
+            )
+
     # -- Power switch (PS) -------------------------------------------------
 
     async def get_powerstat(self) -> bool:
@@ -618,7 +645,7 @@ class YaesuCatRadio:
             ``True`` if the radio is powered on, ``False`` otherwise.
         """
         result = await self._query("get_powerstat")
-        return result["state"] == "1"
+        return bool(result["state"] == "1")
 
     async def set_powerstat(self, on: bool) -> None:
         """Set the power switch state.
