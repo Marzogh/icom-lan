@@ -9,7 +9,14 @@ import numpy as np
 
 from icom_lan.dsp.exceptions import DSPBackendUnavailable
 
+try:
+    import scipy  # noqa: F401
+    _HAS_SCIPY = True
+except ImportError:
+    _HAS_SCIPY = False
 
+
+@unittest.skipUnless(_HAS_SCIPY, "scipy not installed")
 class TestNRScipyNode(unittest.TestCase):
     """Tests for NRScipyNode spectral subtraction noise reduction."""
 
