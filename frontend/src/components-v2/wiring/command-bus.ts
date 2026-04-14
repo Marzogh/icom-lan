@@ -423,7 +423,9 @@ export function makeCwPanelHandlers() {
       patchActiveReceiver({ twinPeakFilter: next }, true);
       cmd('set_twin_peak', { on: next, receiver });
     },
-    // onAutoTune: removed — see #671 for software CW auto-tune
+    onAutoTune: () => {
+      cmd('cw_auto_tune', {});
+    },
     onWpmChange: (speed: number) => {
       patchRadioState({ keySpeed: speed });
       cmd('set_key_speed', { speed });

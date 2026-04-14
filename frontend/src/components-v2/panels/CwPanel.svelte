@@ -24,6 +24,7 @@
   const onBreakInDelayChange = handlers.onBreakInDelayChange;
   const onApfChange = handlers.onApfChange;
   const onTwinPeakToggle = handlers.onTwinPeakToggle;
+  const onAutoTune = handlers.onAutoTune;
   let showBreakIn = $derived(hasCapability('break_in'));
   let showApf = $derived(hasCapability('apf'));
   let showTwinPeak = $derived(hasCapability('twin_peak'));
@@ -102,7 +103,11 @@
       />
     {/if}
 
-    <!-- AUTO TUNE: removed — see #671 for software implementation -->
+    <div class="toggle-row">
+      <HardwareButton indicator="edge-left" color="green" onclick={() => onAutoTune()}>
+        AUTO TUNE
+      </HardwareButton>
+    </div>
   </div>
 {/if}
 
