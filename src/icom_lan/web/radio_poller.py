@@ -371,9 +371,10 @@ class RadioPoller:
         At pressure > 0.7: return 2x gap.
         """
         try:
-            pressure = self._radio.queue_pressure  # type: ignore[attr-defined]
-            if not isinstance(pressure, (int, float)):
+            raw = self._radio.queue_pressure  # type: ignore[attr-defined]
+            if not isinstance(raw, (int, float)):
                 return self._gap
+            pressure: float = float(raw)
         except (AttributeError, TypeError):
             return self._gap
         if pressure < 0.5:
@@ -381,7 +382,7 @@ class RadioPoller:
         if pressure > PRESSURE_THRESHOLD:
             return self._gap * 2.0
         # Linear interpolation between 0.5 and threshold
-        t = (pressure - 0.5) / (PRESSURE_THRESHOLD - 0.5)
+        t: float = (pressure - 0.5) / (PRESSURE_THRESHOLD - 0.5)
         return self._gap * (1.0 + t)
 
     def bump_revision(self) -> None:
@@ -477,11 +478,12 @@ class RadioPoller:
         )
 
     def _build_state_queries(self) -> list[tuple[int, int | None, int | None]]:
-        return build_state_queries(
+        result: list[tuple[int, int | None, int | None]] = build_state_queries(
             self._profile,
             self._caps,
             is_serial=self._is_serial,
         )
+        return result
 
     # Scope sub-commands that require a receiver prefix byte in READ queries.
     # Without the prefix, IC-7610 silently ignores the query.
