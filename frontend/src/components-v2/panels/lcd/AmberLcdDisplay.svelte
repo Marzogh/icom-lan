@@ -277,6 +277,7 @@
     align-items: stretch;
     padding: 4px;
     box-sizing: border-box;
+    min-height: 0;
   }
 
   .lcd-screen {
@@ -293,6 +294,7 @@
     box-shadow:
       inset 0 0 50px rgba(0, 0, 0, 0.06),
       0 0 8px rgba(0, 0, 0, 0.5);
+    min-height: 0;
   }
 
   .lcd-scanlines {
@@ -318,6 +320,8 @@
     position: relative;
     z-index: 2;
     padding: 2px 0;
+    flex-shrink: 1;
+    overflow: hidden;
   }
 
   .ind-sep {
@@ -365,6 +369,9 @@
     padding: 2px 8px;
     position: relative;
     z-index: 2;
+    flex-shrink: 1;
+    flex-wrap: wrap;
+    min-height: 0;
   }
   .lcd-btn {
     font-family: 'JetBrains Mono', 'Courier New', monospace;
@@ -399,6 +406,8 @@
     gap: 12px;
     position: relative;
     z-index: 2;
+    flex-shrink: 0;
+    min-height: 0;
   }
 
   /* ── VFO rows ── */
@@ -481,6 +490,8 @@
     z-index: 2;
     display: flex;
     align-items: center;
+    flex-shrink: 1;
+    min-height: 0;
   }
   .lcd-meter-row :global(.lcd-smeter) {
     flex: 1;
@@ -544,6 +555,8 @@
     z-index: 2;
     flex: 0 0 30%;
     height: 96px;
+    max-height: 100%;
+    min-height: 0;
   }
 
   /* ── TX glow ── */

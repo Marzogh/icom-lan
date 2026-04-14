@@ -88,6 +88,7 @@
     display: grid;
     grid-template-rows: 28px minmax(0, 1fr);
     height: 100vh;
+    height: 100dvh;
     background:
       linear-gradient(180deg, var(--v2-bg-gradient-start) 0%, var(--v2-bg-darkest) 100%),
       var(--v2-bg-app, var(--v2-bg-darker));
