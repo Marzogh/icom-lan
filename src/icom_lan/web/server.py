@@ -33,6 +33,7 @@ from typing import TYPE_CHECKING, Any, cast
 from .. import __version__
 from ..radio_state import RadioState
 from ..capabilities import CAP_AUDIO, CAP_SCOPE
+from ..audio_analyzer import AudioAnalyzer
 from ..audio_fft_scope import AudioFftScope
 from ..startup_checks import assert_radio_startup_ready
 from ._delta_encoder import DeltaEncoder
@@ -265,6 +266,13 @@ class WebServer:
                 self._audio_fft_scope.on_frame(self._broadcast_scope)
                 self._audio_broadcaster.set_pcm_tap(self._audio_fft_scope.feed_audio)
             logger.info("Audio FFT scope available (has_audio=%s, has_hw_scope=%s)", _has_audio, _has_scope)
+        # Audio analyzer: lightweight SNR estimator, tapped from PCM stream.
+        self._audio_analyzer: AudioAnalyzer | None = None
+        if radio is not None and _has_audio:
+            self._audio_analyzer = AudioAnalyzer()
+            self._audio_analyzer_tap = self._audio_broadcaster._tap_registry.register(
+                "audio-analyzer", self._audio_analyzer.feed_audio
+            )
         self._command_queue: CommandQueue = CommandQueue()
         self._radio_poller: RadioPoller | None = None
         self._yaesu_poller: Any | None = None  # YaesuCatPoller (lazy)
@@ -1384,6 +1392,8 @@ class WebServer:
             await self._serve_band_plan_segments(writer, query or {})
         elif path == "/api/v1/band-plan/layers":
             await self._serve_band_plan_layers(writer)
+        elif path == "/api/v1/audio/analysis":
+            await self._serve_audio_analysis(writer, headers)
         elif path == "/" or path == "/index.html":
             await self._serve_static(writer, "index.html")
         elif path.startswith("/"):
@@ -1482,6 +1492,20 @@ class WebServer:
         revision = int(body_dict.get("revision", 0))
         body = json.dumps(body_dict, separators=(",", ":")).encode()
         await _send_json(writer, body, headers, etag=f'"{revision}"')
+
+    async def _serve_audio_analysis(
+        self, writer: asyncio.StreamWriter, headers: dict[str, str] | None = None
+    ) -> None:
+        """GET /api/v1/audio/analysis -- return current audio analysis snapshot."""
+        if self._audio_analyzer is None:
+            body = json.dumps(
+                {"error": "unavailable", "message": "Audio analyzer not active"},
+                separators=(",", ":"),
+            ).encode()
+            await _send_response(writer, 404, "Not Found", body, {"Content-Type": "application/json"})
+            return
+        body = json.dumps(self._audio_analyzer.to_dict(), separators=(",", ":")).encode()
+        await _send_json(writer, body, headers)
 
     def _get_meter_cal_payload(self) -> dict[str, Any]:
         """Extract meter calibration from radio backend or profile."""
