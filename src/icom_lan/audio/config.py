@@ -146,8 +146,13 @@ def load_audio_config(path: Path | str | None = None) -> AudioConfig:
     try:
         with open(config_path, "rb") as f:
             data = tomllib.load(f)
-    except Exception:
+    except Exception as exc:
+        import sys as _sys
         logger.warning("Failed to parse %s", config_path, exc_info=True)
+        print(
+            f"Warning: failed to parse {config_path}: {exc} — using defaults",
+            file=_sys.stderr,
+        )
         return AudioConfig()
 
     logger.info("Loaded audio config from %s", config_path)

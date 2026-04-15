@@ -7,6 +7,7 @@ and buffer behaviour without modifying code.
 
 import logging
 import os
+import sys
 
 __all__ = [
     "get_audio_sample_rate",
@@ -40,20 +41,14 @@ def _read_positive_int(var: str) -> int:
     try:
         value = int(raw)
     except ValueError:
-        logger.warning(
-            "env_config: %s=%r is not a valid integer, using default %d",
-            var,
-            raw,
-            default,
-        )
+        msg = f"env_config: {var}={raw!r} is not a valid integer, using default {default}"
+        logger.warning(msg)
+        print(f"Warning: {msg}", file=sys.stderr)
         return default
     if value <= 0:
-        logger.warning(
-            "env_config: %s=%d must be > 0, using default %d",
-            var,
-            value,
-            default,
-        )
+        msg = f"env_config: {var}={value} must be > 0, using default {default}"
+        logger.warning(msg)
+        print(f"Warning: {msg}", file=sys.stderr)
         return default
     return value
 
@@ -72,21 +67,20 @@ def get_audio_sample_rate() -> int:
     try:
         value = int(raw)
     except ValueError:
-        logger.warning(
-            "env_config: ICOM_AUDIO_SAMPLE_RATE=%r is not a valid integer, "
-            "using default %d",
-            raw,
-            default,
+        msg = (
+            f"env_config: ICOM_AUDIO_SAMPLE_RATE={raw!r} is not a valid integer, "
+            f"using default {default}"
         )
+        logger.warning(msg)
+        print(f"Warning: {msg}", file=sys.stderr)
         return default
     if value not in _SUPPORTED_SAMPLE_RATES:
-        logger.warning(
-            "env_config: ICOM_AUDIO_SAMPLE_RATE=%d is not in supported rates %s, "
-            "using default %d",
-            value,
-            _SUPPORTED_SAMPLE_RATES,
-            default,
+        msg = (
+            f"env_config: ICOM_AUDIO_SAMPLE_RATE={value} is not in supported rates "
+            f"{_SUPPORTED_SAMPLE_RATES}, using default {default}"
         )
+        logger.warning(msg)
+        print(f"Warning: {msg}", file=sys.stderr)
         return default
     return value
 

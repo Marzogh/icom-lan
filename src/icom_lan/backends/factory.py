@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from ..radio import IcomRadio  # noqa: TID251
 from ..radio_protocol import Radio
 from .config import BackendConfig, LanBackendConfig, SerialBackendConfig, YaesuCatBackendConfig
@@ -74,6 +76,9 @@ def create_radio(config: BackendConfig) -> Radio:
             serial_class = Ic9700SerialRadio
         else:
             # Default to IC-7610 for compatibility
+            logging.getLogger(__name__).warning(
+                "Unknown model %r, defaulting to IC-7610", model,
+            )
             serial_class = Icom7610SerialRadio
 
         return serial_class(

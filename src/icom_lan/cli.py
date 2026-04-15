@@ -1283,6 +1283,7 @@ async def _run(args: argparse.Namespace) -> int:
                 return await _cmd_status(radio, args)
     except Exception as exc:
         print(f"Error: {exc}", file=sys.stderr)
+        logger.debug("Traceback:", exc_info=True)
         return 1
 
 
@@ -1450,6 +1451,21 @@ async def _cmd_audio_rx(radio: Radio, args: argparse.Namespace) -> int:
     seconds_error = _validate_positive_seconds(args.seconds)
     if seconds_error is not None:
         print(f"Error: {seconds_error}", file=sys.stderr)
+        return 1
+
+    # Validate output path is writable before starting capture
+    out_path = Path(args.output_file)
+    if not out_path.parent.exists():
+        print(
+            f"Error: output directory does not exist: {out_path.parent}",
+            file=sys.stderr,
+        )
+        return 1
+    try:
+        out_path.touch()
+        out_path.unlink()
+    except OSError as exc:
+        print(f"Error: cannot write to {out_path}: {exc}", file=sys.stderr)
         return 1
 
     frame_bytes = _audio_frame_bytes(args.sample_rate, args.channels)
@@ -1865,7 +1881,15 @@ async def _cmd_att(radio: Radio, args: argparse.Namespace) -> int:
             await radio.set_attenuator_level(0)
             print("Attenuator: OFF (0 dB)")
         else:
-            db = int(val)
+            try:
+                db = int(val)
+            except ValueError:
+                print(
+                    f"Error: invalid attenuator value {val!r}. "
+                    "Use 'on', 'off', or a dB value (e.g. 0, 6, 12, 18).",
+                    file=sys.stderr,
+                )
+                return 1
             await radio.set_attenuator_level(db)
             print(f"Attenuator: {db} dB")
     else:
@@ -1891,7 +1915,20 @@ async def _cmd_preamp(radio: Radio, args: argparse.Namespace) -> int:
         if val == "off":
             level = 0
         else:
-            level = int(val)
+            try:
+                level = int(val)
+            except ValueError:
+                print(
+                    f"Error: invalid preamp value {val!r}. Use 'off', 0, 1, or 2.",
+                    file=sys.stderr,
+                )
+                return 1
+            if level not in (0, 1, 2):
+                print(
+                    f"Error: preamp level must be 0, 1, or 2 (got {level}).",
+                    file=sys.stderr,
+                )
+                return 1
         await radio.set_preamp(level)
         print(f"Preamp: {_PREAMP_NAMES.get(level, str(level))}")
     else:
@@ -2017,6 +2054,15 @@ async def _cmd_levels(radio: Radio, args: argparse.Namespace) -> int:
     receiver = args.receiver
     result = {}
 
+    # Validate ranges
+    for name, val in [
+        ("--nr", args.nr), ("--nb", args.nb), ("--mic-gain", args.mic_gain),
+        ("--drive-gain", args.drive_gain), ("--comp-level", args.comp_level),
+    ]:
+        if val is not None and not 0 <= val <= 255:
+            print(f"Error: {name} must be 0-255 (got {val})", file=sys.stderr)
+            return 1
+
     # Set levels if provided
     if args.nr is not None:
         await radio.set_nr_level(args.nr, receiver)
@@ -2133,6 +2179,7 @@ async def _cmd_scope(radio: Radio, args: argparse.Namespace) -> int:
                 print(f"Saved scope image to {args.output}")
     except Exception as exc:
         print(f"Error: {exc}", file=sys.stderr)
+        logger.debug("Traceback:", exc_info=True)
         return 1
     finally:
         # Always disable scope data output when CLI is done
@@ -2290,9 +2337,19 @@ async def _cmd_serve(radio: Radio, args: argparse.Namespace) -> int:
     log_level = getattr(args, "log_level", "INFO")
     _logging.getLogger("icom_lan").setLevel(getattr(_logging, log_level))
 
+    # Validate port is available before connecting to radio.
+    check_ports_available([args.serve_port])
+
     # Configure JSON audit log if a path was provided.
     audit_log_path: str | None = getattr(args, "audit_log", None)
     if audit_log_path:
+        parent = Path(audit_log_path).parent
+        if not parent.is_dir():
+            print(
+                f"Error: audit log directory does not exist: {parent}",
+                file=sys.stderr,
+            )
+            return 1
         fh = _logging.FileHandler(audit_log_path)
         fh.setFormatter(RigctldAuditFormatter())
         audit_logger = _logging.getLogger(AUDIT_LOGGER_NAME)
@@ -2326,6 +2383,12 @@ async def _cmd_web(radio: Radio, args: argparse.Namespace) -> int:
     from .web.server import WebConfig, WebServer
 
     static_dir = pathlib.Path(args.web_static_dir) if args.web_static_dir else None
+    if static_dir is not None and not static_dir.is_dir():
+        print(
+            f"Error: --static-dir does not exist or is not a directory: {static_dir}",
+            file=sys.stderr,
+        )
+        return 1
     config_kwargs: dict[str, Any] = {
         "host": args.web_host,
         "port": args.web_port,
@@ -2344,7 +2407,14 @@ async def _cmd_web(radio: Radio, args: argparse.Namespace) -> int:
             return 1
         config_kwargs["dx_cluster_host"] = host_part
         config_kwargs["dx_cluster_port"] = int(port_str)
-        config_kwargs["dx_callsign"] = getattr(args, "callsign", None) or ""
+        callsign = getattr(args, "callsign", None) or ""
+        if not callsign:
+            print(
+                "Error: --dx-cluster requires --callsign to log in to the cluster.",
+                file=sys.stderr,
+            )
+            return 1
+        config_kwargs["dx_callsign"] = callsign
 
     auth_token = getattr(args, "auth_token", "")
     if auth_token:
@@ -2353,6 +2423,12 @@ async def _cmd_web(radio: Radio, args: argparse.Namespace) -> int:
     tls_cert = getattr(args, "tls_cert", "")
     tls_key = getattr(args, "tls_key", "")
     use_tls = getattr(args, "tls", False)
+    if bool(tls_cert) != bool(tls_key):
+        print(
+            "Error: --tls-cert and --tls-key must both be provided.",
+            file=sys.stderr,
+        )
+        return 1
     if tls_cert:
         config_kwargs["tls_cert"] = tls_cert
     if tls_key:
@@ -2385,8 +2461,13 @@ async def _cmd_web(radio: Radio, args: argparse.Namespace) -> int:
             direction = "RX only" if rx_only else "RX+TX"
             bridge_info = f"active ({direction})"
         except Exception as exc:
-            bridge_info = f"FAILED: {exc}"
-            print(f"Warning: audio bridge failed: {exc}", file=sys.stderr)
+            print(f"Error: audio bridge failed: {exc}", file=sys.stderr)
+            print(
+                "The --bridge flag was explicitly requested. "
+                "Fix the device configuration or remove --bridge to start without it.",
+                file=sys.stderr,
+            )
+            return 1
 
     # Detect loopback device availability for hint (only when bridge not requested)
     loopback_hint: str | None = None
@@ -2471,16 +2552,19 @@ async def _cmd_discover(_radio: Radio, args: argparse.Namespace) -> int:
         for r in _serial_raw
     ]
 
+    scan_failed = False
     if isinstance(lan_result, BaseException):
-        print(f"  Warning: LAN discovery failed — {lan_result}", file=sys.stderr)
+        print(f"  Error: LAN discovery failed — {lan_result}", file=sys.stderr)
+        scan_failed = True
     if isinstance(serial_result, BaseException):
-        print(f"  Warning: Serial discovery failed — {serial_result}", file=sys.stderr)
+        print(f"  Error: Serial discovery failed — {serial_result}", file=sys.stderr)
+        scan_failed = True
 
     grouped = dedupe_radios(lan_radios, serial_radios)
 
     if not grouped:
         print("No radios found.")
-        return 0
+        return 1 if scan_failed else 0
 
     total_connections = sum(len(r["lan"]) + len(r["serial"]) for r in grouped)
     n_radios = len(grouped)
