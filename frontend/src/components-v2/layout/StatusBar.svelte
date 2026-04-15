@@ -46,9 +46,9 @@
   }
 
   function handleConnectionToggle() {
-    const isConnected = radioState === 'connected';
-    const action = isConnected ? 'Disconnect from' : 'Connect to';
-    if (!confirm(`${action} radio?`)) return;
+    const isConnected = controlState === 'connected';
+    const action = isConnected ? 'Disconnect' : 'Connect';
+    if (!confirm(`${action}?`)) return;
     if (isConnected) {
       runtime.system.disconnect();
     } else {
@@ -193,10 +193,10 @@
       type="button"
       class="control-btn"
       onclick={handleConnectionToggle}
-      title={radioState === 'connected' ? 'Disconnect from radio' : 'Connect to radio'}
+      title={controlState === 'connected' ? 'Disconnect' : 'Connect'}
     >
       <Unplug size={14} strokeWidth={2} />
-      <span class="btn-label">{radioState === 'connected' ? 'Disconnect' : 'Connect'}</span>
+      <span class="btn-label">{controlState === 'connected' ? 'Disconnect' : 'Connect'}</span>
     </button>
     <button
       type="button"
