@@ -49,10 +49,25 @@ function _persistState(): void {
   }
   storage.setItem(STORAGE_STEP_KEY, String(_step));
   storage.setItem(STORAGE_AUTO_KEY, String(_autoStep));
+  _syncToCompanion(_step);
+}
+
+/** Notify the companion (if present) about the tuning step change. */
+function _syncToCompanion(hz: number): void {
+  fetch('/api/local/v1/rc28/tuning-step', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tuning_step_hz: hz }),
+  }).catch(() => {
+    // Companion not running or endpoint not available — ignore.
+  });
 }
 
 let _step = $state(_readStoredStep());
 let _autoStep = $state(_readStoredAutoStep()); // auto-select step based on mode
+
+// Sync initial step to companion on load.
+_syncToCompanion(_readStoredStep());
 
 export function getTuningStep(): number {
   return _step;
