@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.3] — 2026-04-16
+
+### Fixed
+- **Web UI:** resolve 33 issues across controls, sync, errors, layout, a11y, and
+  performance — wiring layer (DW/VFO targeting), control panels (freq keyboard,
+  ATU/ATT/APF), canvas perf (rAF idle loop, DX cap, gradient cache), error
+  notifications (Toast mounted in v2 layouts), connection state (WS reconnect,
+  scope/audio indicators), waterfall resize preservation (#693, #694–#702)
+- **DSP pipeline:** add sample rate validation and auto-resampling for RNNoise (#692)
+- **Audio broadcaster:** resolve subscriber leak and pong-timeout loop (#687, #690)
+- **Audio WebSocket:** fix crash loop on PTT (#684, #688)
+- **CLI:** hard errors for invalid inputs, silent ignores, startup ordering (#689)
+- **CLI:** hard errors for explicitly requested features with validation (#686)
+
 ## [0.16.2] — 2026-04-15
 
 ### Added
@@ -472,7 +486,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Transport layer, authentication, CI-V commands, meters, PTT, keep-alive.
 - Clean-room Icom LAN UDP protocol implementation.
 
-[Unreleased]: https://github.com/morozsm/icom-lan/compare/v0.16.2...HEAD
+[Unreleased]: https://github.com/morozsm/icom-lan/compare/v0.16.3...HEAD
+[0.16.3]: https://github.com/morozsm/icom-lan/compare/v0.16.2...v0.16.3
 [0.16.2]: https://github.com/morozsm/icom-lan/compare/v0.16.1...v0.16.2
 [0.16.1]: https://github.com/morozsm/icom-lan/compare/v0.16.0...v0.16.1
 [0.16.0]: https://github.com/morozsm/icom-lan/compare/v0.15.1...v0.16.0
