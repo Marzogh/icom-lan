@@ -234,8 +234,8 @@ defaults = [15000, 10000, 7000]
 scheme = "ab"
 main_select = [0x00]  # VFO A
 sub_select = [0x01]   # VFO B
-swap = [0xB0]
-equal = [0xA0]
+swap_ab = [0xB0]
+equal_ab = [0xA0]
 
 # ── Frequency Ranges ─────────────────────────────────────────────
 

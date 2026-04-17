@@ -179,8 +179,8 @@ width_max_hz = 10000
 scheme = "ab"
 main_select = [0x00]
 sub_select = [0x01]
-swap = [0xB0]
-equal = [0xA0]
+swap_ab = [0xB0]
+equal_ab = [0xA0]
 
 # ── Frequency Ranges (BSR from wfview IC-705.rig Bands\*) ───────
 
