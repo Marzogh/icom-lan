@@ -58,6 +58,7 @@ dev = [
     "pytest-cov>=7.0.0",
     "pytest-timeout>=2.0",
     "ruff>=0.15.2",
+    "types-pyserial>=3.5",
 ]
 
 [tool.hatch.build.targets.wheel.force-include]
@@ -105,6 +106,20 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["scipy", "scipy.*"]
+ignore_missing_imports = true
+
+# Optional audio / bridge / DSP deps (installed via ``[audio]`` /
+# ``[bridge]`` / ``[dsp]`` extras).  Ignore missing stubs so mypy runs
+# cleanly against the default (non-extras) install that CI uses.
+[[tool.mypy.overrides]]
+module = [
+    "numpy",
+    "numpy.*",
+    "sounddevice",
+    "sounddevice.*",
+    "opuslib",
+    "opuslib.*",
+]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

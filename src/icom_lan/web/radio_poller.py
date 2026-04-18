@@ -1294,8 +1294,13 @@ class RadioPoller:
                 if is_sub:
                     self._ensure_receiver_supported(1, operation="select_vfo")
                 current = self._current_active()
-                target = "SUB" if is_sub else "MAIN"
-                if target != current:
+                # NB: local is intentionally named ``target_name`` — the
+                # enclosing ``match`` has earlier branches that bind
+                # ``target`` to ``ReceiverState | None`` (``self._radio_state.
+                # sub`` / ``.main``).  Reusing the name here would confuse
+                # mypy's type narrowing across branches.
+                target_name = "SUB" if is_sub else "MAIN"
+                if target_name != current:
                     code = (
                         self._profile.vfo_sub_code
                         if is_sub
@@ -1308,11 +1313,13 @@ class RadioPoller:
                         )
                     await self._civ(0x07, data=bytes([code]))
                     logger.info(
-                        "radio-poller: select VFO=%s (0x07 0x%02X)", target, code
+                        "radio-poller: select VFO=%s (0x07 0x%02X)",
+                        target_name,
+                        code,
                     )
                     rs = getattr(self._radio, "_radio_state", None)
                     if rs is not None and hasattr(rs, "active"):
-                        rs.active = target
+                        rs.active = target_name
                     # Scope follows the selected receiver: emit 0x27 0x12 so
                     # the spectrum/waterfall flips to the new band.  In
                     # dual-scope mode this still updates the "selected"

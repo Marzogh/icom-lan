@@ -130,7 +130,7 @@ def find_loopback_device(name: str | None = None) -> dict[str, Any] | None:
         This function is kept for backward compatibility.
     """
     try:
-        import sounddevice as sd  # type: ignore[import-untyped]  # noqa: F401
+        import sounddevice as sd  # noqa: F401
     except ImportError:
         raise ImportError(
             "sounddevice is required for audio bridge. "
@@ -399,7 +399,7 @@ class AudioBridge:
 
         if self._is_opus:
             try:
-                import opuslib  # type: ignore[import-untyped]
+                import opuslib
             except ImportError:
                 raise ImportError(
                     "opuslib is required for audio bridge with Opus codec. "

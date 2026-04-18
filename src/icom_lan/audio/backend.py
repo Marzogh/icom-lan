@@ -147,7 +147,7 @@ _DEPENDENCY_HINT = (
 def _ensure_portaudio_deps() -> tuple[Any, Any]:
     """Return ``(sounddevice, numpy)`` or raise :class:`ImportError`."""
     try:
-        import sounddevice as sd  # type: ignore[import-untyped]
+        import sounddevice as sd
     except ImportError as exc:
         raise ImportError(_DEPENDENCY_HINT) from exc
     try:
