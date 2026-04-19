@@ -307,7 +307,7 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="settings-backdrop" onclick={() => (settingsOpen = false)} onkeydown={(e) => { if (e.key === 'Escape') settingsOpen = false; }}>
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="settings-modal" role="dialog" aria-modal="true" aria-label="Settings" onclick={(e) => e.stopPropagation()} onkeydown={(e) => { if (e.key === 'Escape') settingsOpen = false; }}>
+    <div class="settings-modal" role="dialog" aria-modal="true" aria-label="Settings" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => { if (e.key === 'Escape') settingsOpen = false; }}>
       <div class="settings-header">
         <span class="settings-title">SETTINGS</span>
         <button class="settings-close" onclick={() => (settingsOpen = false)}>✕</button>
@@ -459,10 +459,6 @@
     border-color: var(--v2-border-panel);
   }
 
-  .receiver-deck.hidden-vfo {
-    display: none;
-  }
-
   .receiver-deck :global(.vfo-header) {
     height: 100%;
   }
@@ -560,133 +556,6 @@
   }
 
   /* Mobile layout is now in MobileRadioLayout.svelte */
-
-  /* Mobile landscape fullscreen spectrum */
-  .spectrum-landscape {
-    position: fixed;
-    inset: 0;
-    z-index: 10000;
-    background:
-      linear-gradient(180deg, var(--v2-bg-gradient-start) 0%, var(--v2-bg-darkest) 100%),
-      var(--v2-bg-app, var(--v2-bg-darker));
-    padding:
-      env(safe-area-inset-top, 0px)
-      env(safe-area-inset-right, 0px)
-      env(safe-area-inset-bottom, 0px)
-      env(safe-area-inset-left, 0px);
-    box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .spectrum-hud {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 6px 8px;
-    border: 1px solid var(--v2-border-panel);
-    border-radius: 4px;
-    background: linear-gradient(180deg, var(--v2-panel-bg-gradient-top) 0%, var(--v2-panel-bg-gradient-bottom) 100%);
-    box-shadow: var(--v2-shadow-sm);
-    min-height: 36px;
-    box-sizing: border-box;
-  }
-
-  .hud-btn {
-    height: 28px;
-    padding: 0 10px;
-    border-radius: 4px;
-    border: 1px solid var(--v2-border-darker);
-    background: var(--v2-bg-card);
-    color: var(--v2-text-secondary);
-    font-family: 'Roboto Mono', monospace;
-    font-weight: 700;
-    font-size: 11px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    cursor: pointer;
-  }
-
-  .hud-btn:active {
-    transform: translateY(1px);
-  }
-
-  .hud-center {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-  }
-
-  .hud-freq {
-    line-height: 1;
-  }
-
-  .hud-meta {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-family: 'Roboto Mono', monospace;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--v2-text-muted);
-    min-width: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .hud-rx {
-    color: var(--v2-text-secondary);
-  }
-
-  .hud-sep {
-    opacity: 0.6;
-  }
-
-  .hud-spacer {
-    flex: 1;
-  }
-
-  .hud-status {
-    display: flex;
-    align-items: center;
-  }
-
-  .hud-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    display: block;
-  }
-
-  .hud-btn--active {
-    background: var(--v2-bg-input);
-    border-color: var(--v2-accent-cyan);
-    color: var(--v2-accent-cyan);
-  }
-
-  .spectrum-landscape-frame {
-    flex: 1;
-    min-width: 0;
-    min-height: 0;
-    border: 1px solid var(--v2-border-panel);
-    border-radius: 4px;
-    overflow: hidden;
-    background: var(--v2-bg-card);
-    box-shadow: var(--v2-shadow-sm);
-  }
-
-  .spectrum-landscape-frame :global(.spectrum-panel) {
-    height: 100%;
-    border: none;
-    border-radius: 0;
-    box-shadow: none;
-  }
 
   /* Power-off overlay */
   .power-off-overlay {
@@ -810,9 +679,5 @@
     display: flex;
     gap: 8px;
     padding: 8px 0;
-  }
-
-  .settings-vfo-ops-row button {
-    flex: 1;
   }
 </style>

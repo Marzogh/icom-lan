@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
 
   interface Props {
     /** FFT pixel data from AudioFftScope (0-160 range) */
@@ -87,8 +87,8 @@
   // Trapezoid animation — adaptive lerp toward target filterWidth
   // Big jumps (fast knob turning) → fast animation to keep up
   // Small jumps (fine tuning) → smooth slow animation for polish
-  let animatedFilterWidth = $state(filterWidth);
-  let prevTargetFilter = filterWidth;
+  let animatedFilterWidth = $state(untrack(() => filterWidth));
+  let prevTargetFilter = untrack(() => filterWidth);
   let adaptiveLerp = 0.12;
 
   function draw(): void {

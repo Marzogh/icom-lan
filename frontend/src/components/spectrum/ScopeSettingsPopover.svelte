@@ -10,8 +10,14 @@
   const RBW_LABELS: [number, string][] = [[0, 'Wide'], [1, 'Mid'], [2, 'Narrow']];
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="popover-backdrop" onclick={onClose}></div>
+<div
+  class="popover-backdrop"
+  onclick={onClose}
+  onkeydown={(e) => { if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') onClose(); }}
+  role="button"
+  tabindex="0"
+  aria-label="Close scope settings"
+></div>
 <div class="scope-settings-popover">
   <div class="popover-header">
     <span>Scope Settings</span>

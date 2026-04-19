@@ -241,10 +241,4 @@
     color: rgba(26, 16, 0, 0.45);
     line-height: 1.3;
   }
-
-  .readout-unit {
-    margin-left: 2px;
-    font-size: 9px;
-    color: rgba(26, 16, 0, 0.35);
-  }
 </style>

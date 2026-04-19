@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import './value-control.css';
   import {
     clamp,
@@ -58,8 +59,8 @@
   let isDragging = $state(false);
   let wheelLocked = $state(false);
   let wheelUnlockTimer: ReturnType<typeof setTimeout> | null = null;
-  let localRf = $state(rfValue);
-  let localSql = $state(sqlValue);
+  let localRf = $state(untrack(() => rfValue));
+  let localSql = $state(untrack(() => sqlValue));
 
   function markWheelActive() {
     wheelLocked = true;
@@ -70,8 +71,8 @@
     }, 300);
   }
 
-  let prevRf = rfValue;
-  let prevSql = sqlValue;
+  let prevRf = untrack(() => rfValue);
+  let prevSql = untrack(() => sqlValue);
   $effect(() => {
     const r = rfValue;
     const s = sqlValue;

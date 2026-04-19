@@ -253,8 +253,7 @@
         aria-label="Display settings"
       >&#9881;</button>
       {#if showDisplayGear}
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <div class="popover-backdrop" onclick={() => (showDisplayGear = false)}></div>
+        <button type="button" class="popover-backdrop" onclick={() => (showDisplayGear = false)} aria-label="Close display settings"></button>
         <div class="display-gear-popover">
           <div class="gear-header">
             <span>Display</span>
@@ -300,8 +299,7 @@
         title="Select visible layers"
       >▾</button>
       {#if layerDropdownOpen}
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <div class="layer-dropdown-backdrop" onclick={() => (layerDropdownOpen = false)}></div>
+        <button type="button" class="layer-dropdown-backdrop" onclick={() => (layerDropdownOpen = false)} aria-label="Close layer menu"></button>
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div class="layer-dropdown" style={dropdownStyle}>
           {#if availableRegions.length > 1}
@@ -547,6 +545,10 @@
     position: fixed;
     inset: 0;
     z-index: 999;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: default;
   }
 
   .layer-dropdown {
@@ -673,6 +675,10 @@
     position: fixed;
     inset: 0;
     z-index: 999;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: default;
   }
 
   .display-gear-popover {

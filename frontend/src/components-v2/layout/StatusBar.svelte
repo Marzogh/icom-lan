@@ -148,27 +148,27 @@
 {/if}
 <div class="status-bar">
   <div class="status-indicators">
-    <span class="indicator" tabindex="0" role="status" title="Radio ↔ Server: {radioState}{!rigConnected && radioState === 'connected' ? ' (rig offline)' : ''}" style="--indicator-color: {stateColor(radioIndicatorState)}">
+    <span class="indicator" role="status" title="Radio ↔ Server: {radioState}{!rigConnected && radioState === 'connected' ? ' (rig offline)' : ''}" style="--indicator-color: {stateColor(radioIndicatorState)}">
       <span class="indicator-dot"></span>
       <Radio size={12} color="currentColor" strokeWidth={2.5} />
     </span>
-    <span class="indicator" tabindex="0" role="status" title="Control WebSocket: {controlState}" style="--indicator-color: {stateColor(controlState)}">
+    <span class="indicator" role="status" title="Control WebSocket: {controlState}" style="--indicator-color: {stateColor(controlState)}">
       <span class="indicator-dot"></span>
       <Cable size={12} color="currentColor" strokeWidth={2.5} />
     </span>
     {#if hasAnyScope()}
-      <span class="indicator" tabindex="0" role="status" title="Scope WebSocket: {scopeState}" style="--indicator-color: {stateColor(scopeState)}">
+      <span class="indicator" role="status" title="Scope WebSocket: {scopeState}" style="--indicator-color: {stateColor(scopeState)}">
         <span class="indicator-dot"></span>
         <Activity size={12} color="currentColor" strokeWidth={2.5} />
       </span>
     {/if}
     {#if hasAudio()}
-      <span class="indicator" tabindex="0" role="status" title="Audio WebSocket: {audioState}" style="--indicator-color: {stateColor(audioState)}">
+      <span class="indicator" role="status" title="Audio WebSocket: {audioState}" style="--indicator-color: {stateColor(audioState)}">
         <span class="indicator-dot"></span>
         <Volume2 size={12} color="currentColor" strokeWidth={2.5} />
       </span>
     {/if}
-    <span class="indicator" tabindex="0" role="status" title="State HTTP: {httpState}" style="--indicator-color: {stateColor(httpState)}">
+    <span class="indicator" role="status" title="State HTTP: {httpState}" style="--indicator-color: {stateColor(httpState)}">
       <span class="indicator-dot"></span>
       <ArrowDownUp size={12} color="currentColor" strokeWidth={2.5} />
       {#if httpState === 'disconnected'}
@@ -189,7 +189,7 @@
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div class="np-backdrop" onclick={() => (nowPlayingExpanded = false)} onkeydown={(e) => { if (e.key === 'Escape') nowPlayingExpanded = false; }}>
           <!-- svelte-ignore a11y_no_static_element_interactions -->
-          <div class="np-detail" role="dialog" aria-modal="true" aria-label="Station details" onclick={(e) => e.stopPropagation()} onkeydown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); nowPlayingExpanded = false; } }}>
+          <div class="np-detail" role="dialog" tabindex="-1" aria-modal="true" aria-label="Station details" onclick={(e) => e.stopPropagation()} onkeydown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); nowPlayingExpanded = false; } }}>
             <div class="np-detail-header">
               <span>📻 {nowPlaying.station}</span>
               <button class="np-close" onclick={() => (nowPlayingExpanded = false)}>✕</button>

@@ -157,7 +157,6 @@
     aria-label={title}
     tabindex="-1"
   >
-    <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
     <div
       bind:this={sheetEl}
       class="m-sheet"
@@ -165,6 +164,7 @@
       class:dragging={isDragging}
       class:animating={isAnimatingOut || (!isDragging && dragOffsetY === 0)}
       style:transform="translateY({dragOffsetY}px)"
+      role="presentation"
       onclick={onSheetClick}
       onpointerdown={onPointerDown}
       onpointermove={onPointerMove}

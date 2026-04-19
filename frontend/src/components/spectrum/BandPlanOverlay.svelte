@@ -214,11 +214,12 @@
 {#if visible && segments().length > 0}
 <div class="bandplan-overlay" aria-hidden="true" bind:clientWidth={containerWidth}>
   {#each segments() as seg, idx (seg.start + ':' + seg.layer + ':' + idx)}
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div
+    <button
+      type="button"
       class="band-segment"
       style="left:{seg.leftPct}%;width:{seg.widthPct}%;background:{seg.color};border-left:1px solid {seg.borderColor}"
       title={seg.license ? `${seg.label} (${seg.license}+)` : (seg.notes ?? seg.label)}
+      aria-label={seg.label}
       onclick={(e) => handleSegmentClick(seg, e)}
     >
       {#if seg.widthPx > 40}
@@ -226,7 +227,7 @@
           {seg.label}{#if seg.license && seg.widthPx > 80}<span class="license-tag"> {seg.license[0]}</span>{/if}
         </span>
       {/if}
-    </div>
+    </button>
   {/each}
   {#each licenseBoundaries() as boundary (boundary.freq)}
     <div
@@ -239,13 +240,13 @@
 {/if}
 
 {#if popupSegment}
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="popup-backdrop" onclick={() => (popupSegment = null)}>
-    <div
-      class="segment-popup"
-      style="left:{Math.min(popupSegment.x, window.innerWidth - 260)}px;top:{popupSegment.y + 8}px"
-      onclick={(e) => e.stopPropagation()}
-    >
+  <button type="button" class="popup-backdrop" onclick={() => (popupSegment = null)} aria-label="Close band info"></button>
+  <div
+    class="segment-popup"
+    role="dialog"
+    aria-label="Band segment details"
+    style="left:{Math.min(popupSegment.x, window.innerWidth - 260)}px;top:{popupSegment.y + 8}px"
+  >
       <div class="popup-header">
         <span class="popup-label">{popupSegment.label}</span>
         {#if popupSegment.band}
@@ -297,7 +298,6 @@
           <a class="popup-link" href={popupSegment.url} target="_blank" rel="noopener">{popupSegment.url}</a>
         {/if}
       </div>
-    </div>
   </div>
 {/if}
 
@@ -320,6 +320,11 @@
     pointer-events: auto;
     cursor: pointer;
     transition: opacity 0.15s;
+    border: none;
+    border-left: 1px solid transparent;
+    padding: 0;
+    font: inherit;
+    color: inherit;
   }
 
   .band-segment:hover {
@@ -364,6 +369,10 @@
     position: fixed;
     inset: 0;
     z-index: 200;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: default;
   }
 
   .segment-popup {

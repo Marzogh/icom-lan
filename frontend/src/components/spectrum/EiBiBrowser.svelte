@@ -211,8 +211,14 @@
 </script>
 
 {#if visible}
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="eibi-backdrop" onclick={handleBackdropClick}>
+  <div
+    class="eibi-backdrop"
+    onclick={handleBackdropClick}
+    onkeydown={(e) => { if (e.key === 'Escape') visible = false; }}
+    role="button"
+    tabindex="0"
+    aria-label="Close EiBi browser"
+  >
     <div class="eibi-modal">
       <div class="eibi-header">
         <div class="eibi-title">

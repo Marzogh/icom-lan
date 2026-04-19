@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import type { IndicatorColor, IndicatorStyle, GlowVariant, ButtonSurface } from './types';
 
   interface Props {
@@ -29,7 +30,7 @@
     children
   }: Props = $props();
 
-  let localActive = $state(active);
+  let localActive = $state(untrack(() => active));
 
   // Sync prop changes to local state
   $effect(() => {

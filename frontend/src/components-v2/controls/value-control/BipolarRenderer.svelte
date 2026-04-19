@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import './value-control.css';
   import {
     getCenterPercent,
@@ -67,7 +68,7 @@
   let isDragging = $state(false);
   let wheelLocked = $state(false);
   let wheelUnlockTimer: ReturnType<typeof setTimeout> | null = null;
-  let localValue = $state(value);
+  let localValue = $state(untrack(() => value));
 
   function markWheelActive() {
     wheelLocked = true;
@@ -79,7 +80,7 @@
   }
 
   // Sync from parent value ONLY when idle (no drag, no wheel)
-  let prevValue = value;
+  let prevValue = untrack(() => value);
   $effect(() => {
     const v = value;
     if (v !== prevValue) {

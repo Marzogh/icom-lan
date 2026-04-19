@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import './value-control.css';
   import {
     getFillPercent,
@@ -73,7 +74,7 @@
   let isDragging = $state(false);
   let wheelLocked = $state(false);
   let wheelUnlockTimer: ReturnType<typeof setTimeout> | null = null;
-  let localValue = $state(value);
+  let localValue = $state(untrack(() => value));
 
   function markWheelActive() {
     wheelLocked = true;

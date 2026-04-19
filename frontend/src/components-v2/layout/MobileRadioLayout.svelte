@@ -547,8 +547,14 @@
     </div>
   </div>
   {#if stepPickerOpen}
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="m-step-picker-backdrop" onclick={() => (stepPickerOpen = false)}></div>
+    <div
+      class="m-step-picker-backdrop"
+      role="button"
+      tabindex="0"
+      aria-label="Close step picker"
+      onclick={() => (stepPickerOpen = false)}
+      onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); stepPickerOpen = false; } }}
+    ></div>
     <div class="m-ls-step-picker">
       {#each availableSteps as step}
         <button
@@ -752,13 +758,12 @@
         <CollapsiblePanel title="TX" panelId="m-tx" collapsible={false}>
           <div class="m-tx-compact">
             <!-- Power readout (tap → power modal) -->
-            <!-- svelte-ignore a11y_no_static_element_interactions -->
-            <div class="m-tx-info" onclick={() => (powerModalOpen = true)}>
+            <button type="button" class="m-tx-info" onclick={() => (powerModalOpen = true)}>
               <span class="m-tx-power-value">{formatPower(tx.rfPower)}</span>
               {#if tx.txActive || pttActive}
                 <span class="m-tx-swr-value">SWR {meter.swr > 0 ? (meter.swr / 10).toFixed(1) : '—'}</span>
               {/if}
-            </div>
+            </button>
 
             <!-- ATU -->
             <button
@@ -816,8 +821,14 @@
         {formatStep(tuningStep)}
       </button>
       {#if stepPickerOpen}
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <div class="m-step-picker-backdrop" onclick={() => (stepPickerOpen = false)}></div>
+        <div
+          class="m-step-picker-backdrop"
+          role="button"
+          tabindex="0"
+          aria-label="Close step picker"
+          onclick={() => (stepPickerOpen = false)}
+          onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); stepPickerOpen = false; } }}
+        ></div>
         <div class="m-step-picker">
           {#each availableSteps as s}
             <button
@@ -1395,18 +1406,6 @@
   }
 
   /* ── S-meter bar (full width, below VFO) ── */
-  .m-vfo-ops-row {
-    display: flex;
-    gap: 4px;
-    margin-bottom: 8px;
-  }
-
-  .m-vfo-ops-row > :global(button) {
-    flex: 1 1 0;
-    min-width: 0;
-    min-height: 36px;
-  }
-
   .m-tx-meter {
     padding: 4px 8px 0;
     border-top: 1px solid var(--v2-border-darker, #1a1a2e);
@@ -1468,30 +1467,6 @@
   }
 
   
-
-  .m-ptt-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    flex: 1.5;
-    min-height: 44px;
-    padding: 4px 16px;
-    border-radius: 4px;
-    border: 2px solid var(--v2-accent-red, #ef4444);
-    background: rgba(239, 68, 68, 0.15);
-    color: var(--v2-accent-red, #ef4444);
-    font-family: 'Roboto Mono', monospace;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
-    user-select: none;
-    -webkit-user-select: none;
-    flex-shrink: 0;
-  }
 
   .m-ptt-held {
     background: var(--v2-accent-red, #ef4444);
