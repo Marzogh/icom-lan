@@ -21,6 +21,7 @@
   import LeftSidebar from './LeftSidebar.svelte';
   import RightSidebar from './RightSidebar.svelte';
   import VfoHeader from './VfoHeader.svelte';
+  import SdrVfoScreen from '../../skins/sdr-test/SdrVfoScreen.svelte';
   import KeyboardHandler from './KeyboardHandler.svelte';
   import StatusBar from './StatusBar.svelte';
   import MetersDockPanel from '../panels/MetersDockPanel.svelte';
@@ -216,35 +217,62 @@
 {:else if skinId === 'lcd-scope'}
   <LcdLayout variant="scope" />
 {:else}
-<div class="radio-layout">
+<div class="radio-layout" class:sdr-test={skinId === 'sdr-test'}>
   <StatusBar onSettings={() => (settingsOpen = true)} />
   <KeyboardHandler config={keyboardConfig} onAction={keyboardHandlers.dispatch} />
 
   <section class="receiver-deck" bind:this={receiverDeckElement} style={receiverDeckStyle}>
-    <VfoHeader
-      {mainVfo}
-      {subVfo}
-      layoutProfile={vfoLayoutProfile}
-      splitActive={vfoOps.splitActive}
-      dualWatchActive={vfoOps.dualWatch}
-      txVfo={vfoOps.txVfo}
-      onSwap={vfoHandlers.onSwap}
-      onEqual={vfoHandlers.onEqual}
-      onSplitToggle={vfoHandlers.onSplitToggle}
-      onQuickSplit={vfoHandlers.onQuickSplit}
-      onDualWatchToggle={vfoHandlers.onDualWatchToggle}
-      onQuickDw={vfoHandlers.onQuickDw}
-      onMainVfoClick={vfoHandlers.onMainVfoClick}
-      onSubVfoClick={vfoHandlers.onSubVfoClick}
-      onMainModeClick={vfoHandlers.onMainModeClick}
-      onMainFreqChange={vfoHandlers.onMainFreqChange}
-      onSubFreqChange={vfoHandlers.onSubFreqChange}
-      onSubModeClick={vfoHandlers.onSubModeClick}
-      onSpeak={systemHandlers.onSpeak}
-      {scopeStatus}
-      onScopeDualToggle={handleScopeDualToggle}
-      onScopeReceiverChange={handleScopeReceiverChange}
-    />
+    {#if skinId === 'sdr-test'}
+      <SdrVfoScreen
+        {mainVfo}
+        {subVfo}
+        splitActive={vfoOps.splitActive}
+        dualWatchActive={vfoOps.dualWatch}
+        txVfo={vfoOps.txVfo}
+        extras={{
+          tunerStatus: (radioState as { tunerStatus?: number } | null)?.tunerStatus,
+          xitActive: (radioState as { ritTx?: boolean } | null)?.ritTx,
+          xitOffset: (radioState as { ritFreq?: number } | null)?.ritFreq,
+          txAntenna: (radioState as { txAntenna?: number } | null)?.txAntenna,
+          main: (radioState as { main?: Record<string, unknown> } | null)?.main ?? null,
+          sub: (radioState as { sub?: Record<string, unknown> } | null)?.sub ?? null,
+        }}
+        onSwap={vfoHandlers.onSwap}
+        onEqual={vfoHandlers.onEqual}
+        onSplitToggle={vfoHandlers.onSplitToggle}
+        onDualWatchToggle={vfoHandlers.onDualWatchToggle}
+        onMainVfoClick={vfoHandlers.onMainVfoClick}
+        onSubVfoClick={vfoHandlers.onSubVfoClick}
+        onMainModeClick={vfoHandlers.onMainModeClick}
+        onSubModeClick={vfoHandlers.onSubModeClick}
+        onSpeak={systemHandlers.onSpeak}
+      />
+    {:else}
+      <VfoHeader
+        {mainVfo}
+        {subVfo}
+        layoutProfile={vfoLayoutProfile}
+        splitActive={vfoOps.splitActive}
+        dualWatchActive={vfoOps.dualWatch}
+        txVfo={vfoOps.txVfo}
+        onSwap={vfoHandlers.onSwap}
+        onEqual={vfoHandlers.onEqual}
+        onSplitToggle={vfoHandlers.onSplitToggle}
+        onQuickSplit={vfoHandlers.onQuickSplit}
+        onDualWatchToggle={vfoHandlers.onDualWatchToggle}
+        onQuickDw={vfoHandlers.onQuickDw}
+        onMainVfoClick={vfoHandlers.onMainVfoClick}
+        onSubVfoClick={vfoHandlers.onSubVfoClick}
+        onMainModeClick={vfoHandlers.onMainModeClick}
+        onMainFreqChange={vfoHandlers.onMainFreqChange}
+        onSubFreqChange={vfoHandlers.onSubFreqChange}
+        onSubModeClick={vfoHandlers.onSubModeClick}
+        onSpeak={systemHandlers.onSpeak}
+        {scopeStatus}
+        onScopeDualToggle={handleScopeDualToggle}
+        onScopeReceiverChange={handleScopeReceiverChange}
+      />
+    {/if}
   </section>
 
   <section class="content-row">
@@ -431,6 +459,34 @@
     position: relative;
     display: grid;
     grid-template-rows: 28px 200px minmax(0, 1fr) auto;
+  }
+  .radio-layout.sdr-test {
+    grid-template-rows: 28px 280px minmax(0, 1fr) auto;
+  }
+  /* Wide-viewport promotion: sidebars move up to flank the VFO row.
+     Below 1680px we keep the stacked layout (VFO full-width, sidebars below). */
+  @media (min-width: 1680px) {
+    .radio-layout.sdr-test {
+      grid-template-columns: 228px minmax(0, 1fr) 228px;
+      grid-template-rows: 28px 280px minmax(0, 1fr) auto;
+      grid-template-areas:
+        "status status status"
+        "left   deck   right"
+        "left   center right"
+        "dock   dock   dock";
+    }
+    .radio-layout.sdr-test > :global(.status-bar) { grid-area: status; }
+    .radio-layout.sdr-test > .receiver-deck { grid-area: deck; }
+    .radio-layout.sdr-test > .bottom-dock { grid-area: dock; }
+    /* Flatten content-row so its children become direct grid items. */
+    .radio-layout.sdr-test > .content-row {
+      display: contents;
+    }
+    .radio-layout.sdr-test > .content-row > .content-left { grid-area: left; }
+    .radio-layout.sdr-test > .content-row > .content-right { grid-area: right; }
+    .radio-layout.sdr-test > .content-row > .content-center { grid-area: center; }
+  }
+  .radio-layout, .radio-layout.sdr-test {
     height: 100vh;
     background:
       linear-gradient(180deg, var(--v2-bg-gradient-start) 0%, var(--v2-bg-darkest) 100%),

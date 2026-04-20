@@ -11,14 +11,14 @@
 
 const STORAGE_KEY = 'icom-lan-layout';
 
-export type LayoutMode = 'auto' | 'lcd' | 'lcd-cockpit' | 'lcd-scope' | 'standard';
+export type LayoutMode = 'auto' | 'lcd' | 'lcd-cockpit' | 'lcd-scope' | 'standard' | 'sdr-test';
 
 let mode = $state<LayoutMode>(loadMode());
 
 function loadMode(): LayoutMode {
   if (typeof window === 'undefined') return 'auto';
   const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved === 'lcd' || saved === 'lcd-cockpit' || saved === 'lcd-scope' || saved === 'standard') {
+  if (saved === 'lcd' || saved === 'lcd-cockpit' || saved === 'lcd-scope' || saved === 'standard' || saved === 'sdr-test') {
     return saved;
   }
   // Migrate old 'spectrum' value to 'standard'

@@ -11,7 +11,7 @@ import type { Component } from 'svelte';
 import type { Capabilities } from '$lib/types/capabilities';
 import type { LayoutMode } from '$lib/stores/layout.svelte';
 
-export type SkinId = 'desktop-v2' | 'lcd-cockpit' | 'lcd-scope' | 'mobile';
+export type SkinId = 'desktop-v2' | 'lcd-cockpit' | 'lcd-scope' | 'mobile' | 'sdr-test';
 
 /**
  * Persisted skin IDs include the legacy `amber-lcd` alias, which routes to
@@ -39,6 +39,7 @@ export interface SkinResolutionContext {
  */
 export function resolveSkinId(ctx: SkinResolutionContext): SkinId {
   if (ctx.isMobile) return 'mobile';
+  if (ctx.layoutPreference === 'sdr-test') return 'sdr-test';
   if (ctx.layoutPreference === 'lcd' || ctx.layoutPreference === 'lcd-cockpit') return 'lcd-cockpit';
   if (ctx.layoutPreference === 'lcd-scope') return 'lcd-scope';
   if (ctx.layoutPreference === 'standard') return 'desktop-v2';
@@ -62,6 +63,7 @@ const SKIN_LOADERS: Record<SkinId, () => Promise<{ default: Component }>> = {
   'lcd-cockpit': () => import('./lcd-cockpit/LcdCockpitSkin.svelte'),
   'lcd-scope': () => import('./lcd-scope/LcdScopeSkin.svelte'),
   'mobile': () => import('./mobile/MobileSkin.svelte'),
+  'sdr-test': () => import('./sdr-test/SdrTestSkin.svelte'),
 };
 
 /**

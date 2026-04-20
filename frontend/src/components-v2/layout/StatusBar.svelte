@@ -36,6 +36,7 @@
     { value: 'standard', label: 'Standard' },
     { value: 'lcd-cockpit', label: 'LCD Cockpit' },
     { value: 'lcd-scope', label: 'LCD Scope' },
+    { value: 'sdr-test', label: 'SDR Screen (test)' },
   ];
 
   function handleSkinChange(ev: Event) {
