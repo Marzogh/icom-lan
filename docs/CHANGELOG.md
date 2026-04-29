@@ -7,29 +7,160 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Deprecated
+## [0.19.0] — 2026-04-29
 
-- **`icom_lan.commands.levels` backward-compat aliases (#1167).** The four
-  CI-V frame-builder aliases `get_power`, `set_power`, `get_sql`, and
-  `set_sql` are deprecated and will be removed in v0.20. Accessing them via
-  `icom_lan.commands.<name>` or `icom_lan.commands.levels.<name>` now emits
-  `DeprecationWarning`. Use the canonical builders directly: `get_rf_power` /
-  `set_rf_power` and `get_squelch` / `set_squelch`.
-
-### Changed
+### Tier-1 API stability commitment
 
 - **API: tier-1 stability commitment from v0.19 (#1195).** The public API
   surface is now organised into three explicit tiers (stable / best-effort /
   internal) with a documented migration policy. See
   `docs/api/public-api-surface.md` for the tier policy, full symbol lists,
   and import examples.
-- **Audio-bridge dependencies folded into core install (#1090).** `opuslib`,
-  `sounddevice`, and `numpy` moved from the `[bridge]` extra into the main
-  `dependencies` list — `pip install icom-lan` now ships the audio bridge,
-  Opus codec, and USB audio device listing out of the box. The legacy
-  `[audio]` and `[bridge]` extras remain as no-op aliases so existing
-  install commands keep working. The `[dsp]` extra now installs only
-  `scipy>=1.11` (numpy is core). Documentation updated accordingly.
+- **Lazy `__init__.py` via PEP 562 (#1194).** Trimmed eager imports from 203
+  to 71 lines; tier-2 symbols now lazy-load on first access. `from icom_lan
+  import Radio` no longer transitively pulls in `web/`, `cli`, `rigctld/`,
+  or `audio.backend` — measured ~13 % fewer submodules in `sys.modules`.
+- **Layering enforcement via ruff TID251 (#1196).** Tier-3 internals
+  (`icom_lan.web.*`, `icom_lan.rigctld.*`, `icom_lan.cli`) now banned from
+  cross-tree imports. Pre-existing `icom_lan.radio.IcomRadio` ban preserved
+  in web modules (#1201).
+
+### Added
+
+- **Receiver-tier protocols on backends.** `ReceiverBankCapable` and
+  `VfoSlotCapable` (declared since #711, never implemented) now have
+  concrete impls on both Icom (#1170) and Yaesu CAT (#1171) backends.
+  Profile-driven dispatch covers IC-7610 / IC-9700 / IC-7300 / IC-705 and
+  FTX-1 / Lab599 / X6100 single-RX rigs.
+- **`SplitCapable` protocol (#1108)** — universal split control across all
+  supported HF/VHF rigs. `set_split_mode` deprecated, alias retained until
+  v0.20.
+- **`RitXitCapable` protocol (#1099)** — extracted from
+  `TransceiverStatusCapable`. Six canonical `*_rit_*` methods on
+  YaesuCatRadio plus read-modify-write fix preserving the unaffected RX/TX
+  bit on CF000.
+- **17 protocol declarations** added across existing capability protocols:
+  `DspControlCapable` (filter family, notch, agc), `LevelsCapable`
+  (af_level/rf_gain getters, squelch), `MetersCapable` (power_meter,
+  alc_meter, swr_meter), `AudioCapable` (codec/sample_rate properties),
+  `ScopeCapable` (getters, scope_stream), `VoiceControlCapable`
+  (get_compressor), `CwControlCapable` (break_in), `AntennaControlCapable`
+  (get_attenuator), `PowerControlCapable` (get_rf_power lift).
+- **Default web UX (#1087):** `icom-lan web` now auto-detects loopback and
+  enables the audio bridge by default; rigctld serves on 4532 by default
+  with `--no-rigctld` opt-out (#1088, #1089).
+- **`[bridge]` extras folded into core (#1090).** `pip install icom-lan`
+  ships `opuslib`, `sounddevice`, and `numpy` out of the box. Legacy
+  `[audio]` and `[bridge]` extras retained as no-op aliases.
+- **Calibrated SWR float on Icom rigs (#1173).** `IcomRadio.get_swr` now
+  returns calibrated SWR (1.0–6.0+) via TOML calibration tables (5 anchor
+  points per rig, sourced from official Icom CI-V references). New
+  `get_swr_meter()` on async + sync API for raw 0-255 access.
+- **`SetPower` poller dataclass unit-tagged (#1168)** — explicit
+  `unit="raw_255"` (Icom default) vs `"watts"` (Yaesu) ends silent
+  Icom/Yaesu unit mismatch.
+- **State-contract sweep (#1169):** `RadioState.cw_spot` is now tri-state
+  (`bool | None`); Yaesu-specific `rx_func_mode`/`tx_func_mode` moved into
+  `YaesuStateExtension`.
+- **Frontend runtime architecture (epic #708 follow-up).** `FrontendRuntime`
+  singleton with `ScopeController`, lib/runtime/ pattern, panel-props /
+  panel-commands separation enforced via ESLint.
+
+### Changed
+
+- **`__init__.py` is now ~80 lines** (was 203). Tier-1 symbols eager;
+  everything else lazy via PEP 562 `__getattr__`.
+- **Audio extras simplified.** `opuslib`, `sounddevice`, `numpy` moved from
+  `[bridge]` extra into the main `dependencies` list. `[dsp]` extra now
+  installs only `scipy>=1.11`. Documentation updated accordingly (#1090).
+- **`set_vfo("A"/"B"/"MAIN"/"SUB")` overload deprecated** (#1187, #1172).
+  Web and rigctld migrated to `select_receiver` / `set_vfo_slot`. Legacy
+  overload emits `DeprecationWarning`; removal scheduled for v0.20.
+- **Filter-width unified on segmented BCD index (#1157)** per wfview
+  reference. Removed `direct_bcd_hz` profile encoding (was incorrect for
+  IC-705 / IC-9700). Added per-mode segment tables to all four Icom rigs.
+- **Scope poller uses public ScopeCapable getters (#1166)** with bounded
+  per-call timeout (#1186). Eliminates raw `_civ(0x27, …)` layering
+  violation while preserving fire-and-forget semantics (#1188).
+
+### Fixed
+
+- **6 rigctld consistency fixes (consolidating P0-classified findings now
+  reclassified P3 — only Yaesu-routing path was active):**
+  dial-lock (#1092), tuner-status (#1094), squelch dispatch (#1093),
+  notch-filter (#1102), powerstat stub (#1095), set_level SQL set-side
+  (#1163).
+- **Yaesu compressor-level alias delegation (#1098)** — was returning
+  hardcoded 0; now correctly forwards to `*_processor_level`.
+- **Yaesu APF mode reachable from web (#1110)** — poller no longer drops
+  `SetApf` actions; mode-1 toggle preserves user-tuned freq (#1141).
+- **`set_vfo` legacy fallback for backends without `ReceiverBankCapable`
+  (#1189)** — `SerialMockRadio` and similar legacy backends no longer
+  silently no-op `V VFOA` / `V VFOB`.
+- **`get_split` cache fallback honors `TimeoutError` (#1158)**, not just
+  `CommandError` — completes the documented fallback contract.
+- **CW pitch idx ↔ Hz conversion on Yaesu (#1162)** — `get_cw_pitch` /
+  `set_cw_pitch` now correctly translate Yaesu's 0-75 idx to/from 300-1050
+  Hz, fixing silent state corruption in `state.cw_pitch`.
+- **CI-V worker cancel propagation (#1188)** — caller-side `wait_for`
+  cancel now cancels the in-flight CI-V command at worker level, preventing
+  cascade-skipping of subsequent queued commands.
+- **Layering violation in scope poller (#1166)** and **filter-width
+  encoding** (#1101) — moved from raw `_civ` in web/ into backend
+  protocol methods.
+- **IC-7300 GET decode bug** — silently read 2 BCD bytes when radio sent 1;
+  fixed during filter-width unification.
+- **VfoSlotCapable RTW bug on Yaesu (#1099)** — `set_rit_status` /
+  `set_rit_tx_status` now read CF000 first to preserve the unaffected
+  RX/TX bit (P1-02 from audit catalog).
+- **Numerous Codex post-merge review fixes** — covering dispatch table
+  gaps, capability fallbacks, type-signature drift, and exception-narrowing
+  across `web/` and `rigctld/`.
+
+### Removed
+
+- **`vfo_exchange` / `vfo_equalize` aliases (#1114)** — deprecated since
+  v0.17, removed per accelerated Q4 deprecation policy.
+- **Seven LAN audio aliases overdue from v0.15 (#1111)** —
+  `start_audio_rx`, `stop_audio_rx`, `start_audio_tx`, `push_audio_tx`,
+  `start_audio`, `stop_audio`, `stop_audio_tx`. Use the canonical
+  `*_opus`-suffixed names.
+- **Internal facade helpers privatised (#1112):** `_push_pcm_tx`,
+  `_push_tx_pcm`, `_has_command`, `_has_write_command`. Public
+  `supports_command` is the canonical introspection API.
+- **`audio_capabilities()` instance method** — use module-level
+  `types.get_audio_capabilities()`.
+- **`direct_bcd_hz` filter-width encoding** — no Icom rig actually used it;
+  unified on segmented BCD index per wfview.
+
+### Deprecated
+
+- **`icom_lan.commands.levels` backward-compat aliases (#1167):**
+  `get_power`, `set_power`, `get_sql`, `set_sql`. Removal v0.20. Use
+  canonical `get_rf_power` / `set_rf_power` / `get_squelch` / `set_squelch`.
+- **`set_split_mode` (Icom)** — replaced by `set_split` (`SplitCapable`).
+  Removal v0.20.
+- **`set_vfo("A"/"B"/"MAIN"/"SUB")` overload** — replaced by
+  `select_receiver` + `set_vfo_slot`. Removal v0.20.
+- **`get_alc` (Icom)** — replaced by `get_alc_meter` (`MetersCapable`).
+
+### Docs
+
+- New "Stability tiers" section in `docs/api/public-api-surface.md`
+  documents tier-1 / 2 / 3 policy with full symbol lists and migration
+  rules.
+- Per-rig SWR calibration anchor tables documented in `rigs/*.toml` per R1
+  research (sourced from official Icom CI-V References + wfview).
+
+### Internal
+
+- 47 PRs landed across this release cycle including audit work, Tier-1
+  stabilization, Form H UX defaults, Form F sealing, and Codex automated
+  review follow-ups.
+- 7 architectural epics closed: API audit (#1071), v0.18.1 hotfix bundle
+  (#1091), Tier-1 stabilization (#1096), Form H UX defaults (#1087),
+  Codex post-merge sweep (#1140), audit closure (#1165), Form F sealing
+  (#1193).
 
 ## [0.18.0] — 2026-04-19
 
@@ -714,7 +845,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Transport layer, authentication, CI-V commands, meters, PTT, keep-alive.
 - Clean-room Icom LAN UDP protocol implementation.
 
-[Unreleased]: https://github.com/morozsm/icom-lan/compare/v0.18.0...HEAD
+[Unreleased]: https://github.com/morozsm/icom-lan/compare/v0.19.0...HEAD
+[0.19.0]: https://github.com/morozsm/icom-lan/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/morozsm/icom-lan/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/morozsm/icom-lan/compare/v0.16.4...v0.17.0
 [0.16.4]: https://github.com/morozsm/icom-lan/compare/v0.16.3...v0.16.4
